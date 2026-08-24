@@ -1,0 +1,81 @@
+name: X Auto Post
+
+on:
+  schedule:
+    # 日本時間 毎朝7:00（UTC 前日22:00）
+    - cron: '0 22 * * *'
+
+  # 手動テスト用
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  post-to-x:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Tweepy
+        run: pip install tweepy
+
+      - name: Post next message to X
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: |
+          python <<'PY'
+          import os
+          from pathlib import Path
+          import tweepy
+
+          posts = [
+              line.strip()
+              for line in Path("posts.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+
+          if not posts:
+              raise RuntimeError("posts.txt に投稿文がありません")
+
+          index_file = Path("post_index.txt")
+
+          if index_file.exists():
+              index = int(index_file.read_text().strip() or "0")
+          else:
+              index = 0
+
+          index = index % len(posts)
+          text = posts[index]
+
+          client = tweepy.Client(
+              consumer_key=os.environ["X_API_KEY"],
+              consumer_secret=os.environ["X_API_SECRET"],
+              access_token=os.environ["X_ACCESS_TOKEN"],
+              access_token_secret=os.environ["X_ACCESS_TOKEN_SECRET"],
+          )
+
+          response = client.create_tweet(text=text)
+          print("投稿成功:", response.data["id"])
+
+          next_index = (index + 1) % len(posts)
+          index_file.write_text(str(next_index), encoding="utf-8")
+          PY
+
+      - name: Save next post number
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add post_index.txt
+          git diff --cached --quiet || git commit -m "Update X post index"
+          git push
