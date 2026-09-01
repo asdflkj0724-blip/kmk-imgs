@@ -1,0 +1,80 @@
+name: MAMC X Auto Post
+
+on:
+  schedule:
+    # 日本時間 毎日20:00（UTC 11:00）
+    # ※GitHubの都合で数分〜数十分ずれることがあります
+    - cron: '0 11 * * *'
+
+  # 手動テスト用（Actionsタブから実行できます）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '投稿せずに文章だけ確認する'
+        type: boolean
+        default: true
+      product_id:
+        description: '投稿したい商品のid（空欄なら自動で選びます）'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mamc-x-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: 必要なライブラリをインストール
+        run: pip install -r requirements.txt
+
+      - name: X へ投稿
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          # 任意：登録されていれば、Claude が毎回文章を書き分けます。
+          # 未登録でも、テンプレートで文章が作られるので動きます。
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PRODUCT_ID: ${{ inputs.product_id }}
+        run: |
+          ARGS=()
+          if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          if [ -n "$PRODUCT_ID" ]; then ARGS+=(--product-id "$PRODUCT_ID"); fi
+          python scripts/post_to_x.py "${ARGS[@]}"
+
+      - name: 投稿履歴を保存
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/history.json
+          if git diff --cached --quiet; then
+            echo "履歴に変更はありません"
+            exit 0
+          fi
+          git commit -m "Update MAMC post history"
+          for i in 1 2 3 4; do
+            if git push; then exit 0; fi
+            echo "push に失敗しました。少し待って再試行します..."
+            sleep $((2 ** i))
+            git pull --rebase --autostash || true
+          done
+          git push
