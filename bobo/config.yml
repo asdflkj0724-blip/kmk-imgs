@@ -1,0 +1,45 @@
+# BOBO BIRD X自動投稿の設定ファイル
+# ショップを移転した場合は shop: の URL を書き換えるだけで動きます
+# （MakeShop / BASE / その他、公開ページから自動取得します）
+
+shop:
+  # ショップのトップページ（実績・正規代理店の投稿でリンクする先）
+  home_url: "https://www.fmc-bobobird.jp/"
+  # 商品一覧ページ（複数指定可。ここから商品ページを自動で見つけます）
+  start_urls:
+    - "https://www.fmc-bobobird.jp/view/category/all_items"
+  # 取得の上限（サーバーに負荷をかけないための安全弁）
+  max_list_pages: 30
+  max_products: 250
+  request_interval_seconds: 0.8
+
+# 商品の自動分類キーワード（商品名・説明文に含まれていたら該当カテゴリ）
+classify:
+  original_keywords:
+    - "写真"
+    - "オリジナル"
+    - "オーダーメイド"
+    - "オーダー"
+    - "名入れ"
+    - "刻印"
+    - "カスタム"
+    - "世界に一つ"
+    - "世界にひとつ"
+  giftbox_keywords:
+    - "木箱"
+    - "メッセージボックス"
+    - "ギフトボックス"
+
+# 投稿バランス（%）
+weights:
+  original: 60   # オリジナル腕時計・オーダーメイドギフト
+  regular: 25    # 通常のBOBO BIRD商品紹介
+  trust: 15      # ブランド実績・正規代理店・保証・アフターフォロー
+
+# 繰り返し防止
+history:
+  no_repeat_product: 8   # 直近N回は同じ商品を投稿しない
+  no_repeat_angle: 8     # 直近N回は同じ切り口を使わない
+  no_repeat_event: 2     # 同じイベントネタを連続させない間隔
+  no_repeat_text: 90     # 直近N回と同じ本文は使わない
+  keep_entries: 400      # 履歴の保持件数

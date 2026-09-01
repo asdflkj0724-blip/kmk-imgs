@@ -1,0 +1,64 @@
+name: BOBO BIRD X Auto Post
+
+on:
+  schedule:
+    # 日本時間 毎日12:15（UTC 3:15）
+    - cron: '15 3 * * *'
+
+  # 手動テスト用（dry_run にチェックを入れると投稿せず内容確認だけできます）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'テスト実行（実際には投稿しない）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bobo-x-post
+  cancel-in-progress: false
+
+jobs:
+  post-to-x:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r bobo/requirements.txt
+
+      - name: Fetch products and post to X
+        env:
+          BOBO_X_API_KEY: ${{ secrets.BOBO_X_API_KEY }}
+          BOBO_X_API_SECRET: ${{ secrets.BOBO_X_API_SECRET }}
+          BOBO_X_ACCESS_TOKEN: ${{ secrets.BOBO_X_ACCESS_TOKEN }}
+          BOBO_X_ACCESS_TOKEN_SECRET: ${{ secrets.BOBO_X_ACCESS_TOKEN_SECRET }}
+        run: |
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}" = "true" ]; then
+            python -m bobo.run --dry-run
+          else
+            python -m bobo.run
+          fi
+
+      - name: Save history and product data
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bobo/data
+          git diff --cached --quiet && exit 0
+          git commit -m "Update BOBO BIRD post history"
+          for i in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          git push
