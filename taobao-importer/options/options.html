@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MAMC 商品取り込み - 設定</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>MAMC 商品取り込み - 設定</h1>
+
+  <div id="status" class="status" hidden></div>
+
+  <section>
+    <h2>💴 日本円販売価格の計算</h2>
+    <p class="note">
+      販売価格 =(人民元価格 × 為替レート)+ 送料 + 利益 を、指定単位で切り上げた金額です。<br>
+      計算式そのものを変えたい場合は <code>lib/price.js</code> の
+      <code>calculateSellingPrice()</code> を書き換えてください。
+    </p>
+    <label>為替レート(1元 = 何円)
+      <input id="s-exchange-rate" type="number" step="0.01" min="0">
+    </label>
+    <label>送料(円)
+      <input id="s-shipping" type="number" step="1" min="0">
+    </label>
+    <label>利益(円)
+      <input id="s-profit" type="number" step="1" min="0">
+    </label>
+    <label>端数の切り上げ単位(円)※1なら端数処理なし
+      <input id="s-round-unit" type="number" step="1" min="1">
+    </label>
+  </section>
+
+  <section>
+    <h2>🔢 管理番号</h2>
+    <label>管理番号の先頭文字(例: MAMC → MAMC-000001)
+      <input id="s-number-prefix" type="text">
+    </label>
+  </section>
+
+  <section>
+    <h2>📝 SNS投稿文テンプレート</h2>
+    <p class="note">
+      使える置き換えワード:
+      <code>{商品番号}</code> <code>{販売価格}</code>
+      <code>{カラー}</code> <code>{サイズ}</code> <code>{商品名}</code>
+    </p>
+    <textarea id="s-sns-template" rows="14"></textarea>
+  </section>
+
+  <div class="actions">
+    <button id="btn-save" class="primary">設定を保存</button>
+    <button id="btn-reset">初期設定に戻す</button>
+  </div>
+
+  <script src="../lib/price.js"></script>
+  <script src="../lib/sns.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
