@@ -49,6 +49,7 @@ function loadBrandForm(i) {
   $('b-t-remove').value = (b.titleRule.removeWords || []).join(', ');
   $('b-t-replace').value = replaceListToText(b.titleRule.replaceList);
   $('b-t-format').value = b.titleRule.format || '{{brand}} {{title}}';
+  $('b-sns').value = b.snsTemplate || '';
   updatePreviews();
 }
 
@@ -70,7 +71,16 @@ function readBrandForm() {
     removeWords: parseWordList($('b-t-remove').value),
     replaceList: parseReplaceList($('b-t-replace').value)
   };
+  // 空欄なら null（= 共通のSNSテンプレートを使う）
+  b.snsTemplate = $('b-sns').value.trim() || null;
 }
+
+// products.csv で使える列名の一覧（打ち間違いチェック用）
+const CSV_KEYS = [
+  'id', 'brand', 'product_name', 'original_title', 'price', 'original_price',
+  'list_price', 'currency', 'product_url', 'product_id', 'image', 'images',
+  'color', 'size', 'post_text', 'supplier', 'created_at'
+];
 
 // ---------- 計算ステップの表 ----------
 
@@ -201,6 +211,16 @@ async function saveAll() {
 
     state.settings.codeDigits = parseInt($('s-digits').value, 10) || 6;
 
+    // CSVの列構成（1行1列名）。打ち間違いがあれば保存せず知らせる
+    const columns = $('s-csv-columns').value
+      .split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+    const badKey = columns.find((c) => !CSV_KEYS.includes(c));
+    if (badKey) {
+      showMessage('CSVの列名「' + badKey + '」は使えません。上の一覧の名前を使ってください。', true);
+      return;
+    }
+    state.settings.csvColumns = columns.length > 0 ? columns : DEFAULT_CSV_COLUMNS.slice();
+
     await saveBrands(state.brands);
     await saveSuppliers(state.suppliers);
     await saveSettings(state.settings);
@@ -235,6 +255,7 @@ function fillFormsFromState() {
   loadBrandForm(currentIndex);
   $('s-suppliers').value = state.suppliers.join('\n');
   $('s-digits').value = state.settings.codeDigits;
+  $('s-csv-columns').value = (state.settings.csvColumns || DEFAULT_CSV_COLUMNS).join('\n');
   $('s-template').value = state.snsTemplate;
 }
 

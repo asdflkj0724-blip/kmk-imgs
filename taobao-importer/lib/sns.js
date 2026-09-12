@@ -8,6 +8,19 @@
  */
 
 /**
+ * この商品に使うテンプレートを選ぶ。
+ * ブランドに専用テンプレートがあればそれを、無ければ共通テンプレートを使う。
+ * @param {object} db - dbLoad() の結果（brands, snsTemplate を使う）
+ * @param {object} product - 商品（brandPrefix / brand でブランドを探す）
+ */
+function snsTemplateFor(db, product) {
+  const brand = (db.brands || []).find(
+    (b) => b.prefix === product.brandPrefix || b.name === product.brand
+  );
+  return (brand && brand.snsTemplate) || db.snsTemplate || DEFAULT_SNS_TEMPLATE;
+}
+
+/**
  * 商品データとテンプレートから SNS 投稿文を作る
  * @param {object} product - 保存済みの商品（code, brand, title, priceJpy など）
  * @param {string} template - テンプレート文字列（{{code}} などを含む）

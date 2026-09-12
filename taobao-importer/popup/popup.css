@@ -48,6 +48,7 @@ button.big {
 }
 
 button.small { padding: 3px 8px; font-size: 12px; }
+button.small.strong { border-color: #e64a19; color: #e64a19; font-weight: bold; }
 
 .link-btn {
   border: none;

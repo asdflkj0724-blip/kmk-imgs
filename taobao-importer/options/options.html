@@ -88,6 +88,15 @@
       </label>
       <div id="title-preview"></div>
     </div>
+
+    <h3>このブランド専用のSNS投稿テンプレート（空欄 = 下の共通テンプレートを使う）</h3>
+    <p class="note">
+      共通テンプレートでも {{brand}} にブランド名が自動で入るので、
+      文面そのものを変えたいブランドだけここに書けばOKです。
+    </p>
+    <div class="field">
+      <textarea id="b-sns" rows="8" placeholder="空欄の場合は共通テンプレートを使います"></textarea>
+    </div>
   </div>
 
   <!-- ================= 仕入れ先 ================= -->
@@ -102,6 +111,23 @@
   <div class="field">
     <label for="s-digits">管理番号の連番の桁数（例: 6 → MAMC-000001）</label>
     <input type="number" id="s-digits" step="1" min="1" max="10">
+  </div>
+
+  <!-- ================= X連携用CSV ================= -->
+  <h2>X自動投稿システム用CSV（products.csv）の列構成</h2>
+  <p class="note">
+    「📤 X連携用に出力」で作られる products.csv の列を、上から順に1行1列で書きます。<br>
+    既存の products.csv の列に合わせて、並び替え・削除・追加してください。<br>
+    使える列名：
+    <code>id</code>（管理番号） <code>brand</code> <code>product_name</code>（販売タイトル）
+    <code>original_title</code> <code>price</code>（販売価格円） <code>original_price</code>（元価格）
+    <code>list_price</code>（元の定価） <code>currency</code> <code>product_url</code>
+    <code>product_id</code> <code>image</code>（1枚目の画像ファイル名）
+    <code>images</code>（全画像 |区切り） <code>color</code> <code>size</code>
+    <code>post_text</code>（SNS投稿文） <code>supplier</code> <code>created_at</code>
+  </p>
+  <div class="field">
+    <textarea id="s-csv-columns" rows="10"></textarea>
   </div>
 
   <!-- ================= SNSテンプレート ================= -->

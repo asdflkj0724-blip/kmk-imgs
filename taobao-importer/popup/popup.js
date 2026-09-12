@@ -23,6 +23,8 @@ function $(id) {
 
 // いま確認画面に表示しているデータ（スクレイプ結果）
 let currentDraft = null;
+// いま完了画面に表示している保存済み商品（画像ダウンロード用）
+let currentSaved = null;
 // 読み込んだ保存データ（ブランド・仕入れ先・設定・テンプレート）
 let currentDb = null;
 
@@ -95,12 +97,28 @@ async function renderHome() {
       btnSns.className = 'small';
       btnSns.textContent = 'SNS文コピー';
       btnSns.addEventListener('click', async () => {
-        const text = buildSnsText(p, currentDb.snsTemplate);
+        // ブランド専用テンプレートがあればそれを使う
+        const text = buildSnsText(p, snsTemplateFor(currentDb, p));
         await copyToClipboard(text);
         btnSns.textContent = 'コピーしました✓';
         setTimeout(() => (btnSns.textContent = 'SNS文コピー'), 1500);
       });
       li.appendChild(btnSns);
+
+      const btnImg = document.createElement('button');
+      btnImg.className = 'small';
+      btnImg.textContent = '画像DL';
+      btnImg.title = 'この商品の画像を x-post-export/images/ に保存';
+      btnImg.addEventListener('click', async () => {
+        btnImg.disabled = true;
+        const n = await downloadProductImages(p);
+        btnImg.textContent = n + '枚保存✓';
+        setTimeout(() => {
+          btnImg.textContent = '画像DL';
+          btnImg.disabled = false;
+        }, 2000);
+      });
+      li.appendChild(btnImg);
 
       const btnDel = document.createElement('button');
       btnDel.className = 'small';
@@ -371,10 +389,11 @@ async function saveFromConfirm() {
     };
 
     const saved = await saveProduct(product); // 管理番号が付いて返ってくる
+    currentSaved = saved;
 
-    // 完了画面へ
+    // 完了画面へ（ブランド専用テンプレートがあればそれでSNS文を作る）
     $('done-code').textContent = saved.code;
-    $('done-sns-text').value = buildSnsText(saved, currentDb.snsTemplate);
+    $('done-sns-text').value = buildSnsText(saved, snsTemplateFor(currentDb, saved));
     showMessage('done-message', '', '');
     showView('done');
     await renderHome();
@@ -418,6 +437,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       exportCsv(products);
     });
 
+    // 既存X自動投稿システム用：products.csv ＋ 全商品の画像を出力
+    $('btn-export-xpack').addEventListener('click', async () => {
+      try {
+        const products = (await getProducts()).slice().reverse(); // 登録順
+        if (products.length === 0) {
+          showMessage('home-message', '商品がまだありません。', 'error');
+          return;
+        }
+        showMessage('home-message', 'X連携用ファイルを出力中です…', '');
+        await exportXPostCsv(
+          products,
+          currentDb.settings.csvColumns,
+          (p) => buildSnsText(p, snsTemplateFor(currentDb, p))
+        );
+        let imgCount = 0;
+        for (const p of products) {
+          imgCount += await downloadProductImages(p);
+        }
+        showMessage('home-message',
+          'ダウンロードフォルダの x-post-export/ に products.csv と画像' +
+          imgCount + '枚を保存しました。', 'success');
+      } catch (e) {
+        console.error(LOG, 'X連携用出力に失敗:', e);
+        showMessage('home-message', 'X連携用出力に失敗しました: ' + e.message, 'error');
+      }
+    });
+
     // --- 確認画面のボタン ---
     $('btn-select-all').addEventListener('click', () => setAllImages(true));
     $('btn-select-none').addEventListener('click', () => setAllImages(false));
@@ -438,6 +484,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('btn-copy-sns').addEventListener('click', async () => {
       await copyToClipboard($('done-sns-text').value);
       showMessage('done-message', '投稿文をコピーしました。', 'success');
+    });
+    $('btn-download-images').addEventListener('click', async () => {
+      if (!currentSaved) return;
+      const n = await downloadProductImages(currentSaved);
+      showMessage('done-message',
+        '画像' + n + '枚を x-post-export/images/ に保存しました。', 'success');
     });
     $('btn-back-home').addEventListener('click', () => showView('home'));
 

@@ -22,8 +22,12 @@
       <span>
         <button id="btn-export-json" class="small">JSON出力</button>
         <button id="btn-export-csv" class="small">CSV出力</button>
+        <button id="btn-export-xpack" class="small strong">📤 X連携用に出力</button>
       </span>
     </div>
+    <p class="note">「X連携用に出力」→ ダウンロードフォルダの <b>x-post-export/</b> に
+      products.csv と images/（MAMC-000001-01.jpg 形式）が作られます。
+      各商品の「画像DL」でその商品の画像だけ保存もできます。</p>
     <ul id="product-list" class="product-list"></ul>
   </section>
 
@@ -125,6 +129,7 @@
 
     <div class="actions">
       <button id="btn-copy-sns" class="primary">📋 投稿文をコピー</button>
+      <button id="btn-download-images">🖼 画像をダウンロード</button>
       <button id="btn-back-home">ホームに戻る</button>
     </div>
     <p id="done-message" class="message" hidden></p>

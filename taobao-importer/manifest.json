@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "ワンクリック商品取り込み",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "いま自分で開いている商品ページ1件だけを、ボタンを押したときに取り込む汎用ツールです。自動巡回は行いません。",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "downloads"
   ],
   "action": {
     "default_popup": "popup/popup.html",
