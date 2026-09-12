@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MAMC 商品取り込み</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <header class="header">
+    <span class="header-title">MAMC 商品取り込み</span>
+    <button id="btn-open-options" class="link-btn" title="設定を開く">⚙ 設定</button>
+  </header>
+
+  <!-- 状態メッセージ(成功・エラーなど) -->
+  <div id="status" class="status" hidden></div>
+
+  <!-- ============ ホーム画面 ============ -->
+  <section id="view-home">
+    <p id="page-info" class="page-info">ページを確認しています…</p>
+    <button id="btn-capture" class="primary big">この商品を取り込む</button>
+    <button id="btn-show-list" class="big">保存済み商品一覧</button>
+    <p class="note">
+      ※ いま開いているTaobaoの商品ページ1件だけを取り込みます。<br>
+      自動巡回・大量取得は行いません。
+    </p>
+  </section>
+
+  <!-- ============ 確認画面 ============ -->
+  <section id="view-confirm" hidden>
+    <h2>取り込み内容の確認</h2>
+    <p class="note">取得できなかった項目は、ここで手入力・修正できます。</p>
+    <div id="confirm-warnings" class="warnings" hidden></div>
+
+    <label>商品名
+      <textarea id="f-title" rows="2"></textarea>
+    </label>
+    <div class="row2">
+      <label>現在価格(人民元)
+        <input id="f-price" type="number" step="0.01" min="0">
+      </label>
+      <label>通常価格(元・任意)
+        <input id="f-original-price" type="number" step="0.01" min="0">
+      </label>
+    </div>
+    <label>商品URL
+      <input id="f-url" type="text">
+    </label>
+    <label>Taobao商品ID
+      <input id="f-item-id" type="text">
+    </label>
+    <label>カラー展開(「、」区切り)
+      <input id="f-colors" type="text" placeholder="例: 黒、白、ベージュ">
+    </label>
+    <label>サイズ展開(「、」区切り)
+      <input id="f-sizes" type="text" placeholder="例: S、M、L">
+    </label>
+    <label>その他のSKU情報(メモ)
+      <textarea id="f-sku" rows="2"></textarea>
+    </label>
+
+    <div class="price-box">
+      <div class="price-main">日本円販売価格(自動計算):<span id="jpy-price">-</span></div>
+      <div id="jpy-detail" class="price-detail"></div>
+    </div>
+
+    <div class="img-toolbar">
+      <span>画像 <strong id="img-count">0</strong> 枚選択中</span>
+      <span>
+        <button id="btn-img-all" class="small-btn">すべて選択</button>
+        <button id="btn-img-none" class="small-btn">すべて解除</button>
+      </span>
+    </div>
+    <div id="image-grid" class="image-grid"></div>
+
+    <div class="actions">
+      <button id="btn-save" class="primary big">この内容で保存する</button>
+      <button id="btn-cancel" class="big">キャンセル</button>
+    </div>
+  </section>
+
+  <!-- ============ 保存完了画面 ============ -->
+  <section id="view-done" hidden>
+    <h2>保存しました 🎉</h2>
+    <p class="done-number">管理番号:<strong id="done-number"></strong></p>
+    <label>SNS投稿文(自動生成・編集可)
+      <textarea id="done-sns" rows="12"></textarea>
+    </label>
+    <div class="actions">
+      <button id="btn-copy-sns" class="primary big">SNS投稿文をコピー</button>
+      <button id="btn-done-home" class="big">ホームに戻る</button>
+    </div>
+  </section>
+
+  <!-- ============ 保存済み一覧画面 ============ -->
+  <section id="view-list" hidden>
+    <h2>保存済み商品(<span id="list-count">0</span>件)</h2>
+    <div class="actions">
+      <button id="btn-export-json" class="small-btn">JSON出力</button>
+      <button id="btn-export-csv" class="small-btn">CSV出力</button>
+      <button id="btn-back-home" class="small-btn">← 戻る</button>
+    </div>
+    <div id="product-list" class="product-list"></div>
+  </section>
+
+  <!-- 役割ごとに分けたスクリプトを読み込む -->
+  <script src="../lib/price.js"></script>
+  <script src="../lib/sns.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/exporter.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+/* popup.css — ポップアップ画面の見た目 */
+
+* { box-sizing: border-box; }
+
+body {
+  width: 420px;
+  max-height: 580px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 12px 12px;
+  font-family: "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  font-size: 13px;
+  color: #333;
+  background: #fafafa;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 2px solid #ff5000; /* Taobaoオレンジ */
+  margin-bottom: 10px;
+}
+.header-title { font-weight: bold; font-size: 15px; }
+
+h2 { font-size: 14px; margin: 8px 0; }
+
+button {
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+button:hover { background: #f0f0f0; }
+
+button.primary {
+  background: #ff5000;
+  border-color: #ff5000;
+  color: #fff;
+  font-weight: bold;
+}
+button.primary:hover { background: #e64800; }
+
+button.big {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.small-btn { font-size: 12px; padding: 4px 8px; }
+
+.link-btn {
+  border: none;
+  background: none;
+  color: #666;
+  font-size: 12px;
+}
+.link-btn:hover { color: #ff5000; background: none; }
+
+.page-info { color: #555; margin: 6px 0; }
+.note { color: #888; font-size: 11px; line-height: 1.5; }
+
+/* 状態メッセージ */
+.status {
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 8px 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.status.info { background: #e8f4fd; color: #0b5c9e; }
+.status.success { background: #e9f9e7; color: #1d7a1d; }
+.status.error { background: #fdecec; color: #c0392b; }
+
+/* 取得できなかった項目の警告 */
+.warnings {
+  background: #fff8e1;
+  color: #8a6d00;
+  border: 1px solid #f0e0a0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+
+/* 入力フォーム */
+label {
+  display: block;
+  margin: 8px 0;
+  font-size: 12px;
+  color: #555;
+}
+input[type="text"], input[type="number"], textarea {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+textarea { resize: vertical; }
+
+.row2 { display: flex; gap: 8px; }
+.row2 label { flex: 1; }
+
+/* 日本円価格の表示 */
+.price-box {
+  background: #fff3ec;
+  border: 1px solid #ffc9a8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+.price-main { font-size: 13px; }
+#jpy-price { font-size: 18px; font-weight: bold; color: #ff5000; margin-left: 4px; }
+.price-detail { color: #996; font-size: 11px; margin-top: 4px; }
+
+/* 画像一覧 */
+.img-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 6px;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.image-item {
+  position: relative;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.image-item.selected { border-color: #ff5000; }
+.image-item img {
+  display: block;
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+}
+.image-item input[type="checkbox"] {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+}
+
+.actions { margin-top: 12px; }
+
+.done-number { font-size: 15px; }
+
+/* 保存済み一覧 */
+.product-list { margin-top: 8px; }
+.product-item {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+}
+.product-item img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #eee;
+}
+.product-item .p-info { flex: 1; min-width: 0; }
+.product-item .p-number { font-weight: bold; font-size: 12px; }
+.product-item .p-title {
+  font-size: 11px;
+  color: #555;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.product-item .p-price { font-size: 12px; color: #ff5000; margin-top: 2px; }
+.product-item .p-buttons { display: flex; flex-direction: column; gap: 4px; }
