@@ -1,0 +1,70 @@
+/* options.css — 設定画面の見た目 */
+
+body {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-size: 14px;
+  color: #222;
+  background: #fafafa;
+}
+
+h1 { font-size: 20px; }
+h2 {
+  font-size: 15px;
+  margin-top: 28px;
+  border-bottom: 2px solid #e64a19;
+  padding-bottom: 4px;
+}
+
+.note { color: #777; font-size: 12px; }
+code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+
+.field { margin-bottom: 12px; }
+.field label { display: block; font-weight: bold; margin-bottom: 3px; }
+.field input, .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.preview {
+  background: #fff;
+  border: 1px dashed #bbb;
+  border-radius: 6px;
+  padding: 10px;
+  color: #444;
+}
+
+.actions { display: flex; gap: 10px; margin-top: 20px; }
+
+button {
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+button:hover { background: #f0f0f0; }
+button.primary {
+  background: #e64a19;
+  border-color: #e64a19;
+  color: #fff;
+  font-weight: bold;
+}
+button.primary:hover { background: #d84315; }
+
+.message {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+}
+.message.error { background: #ffebee; border-color: #ef9a9a; }

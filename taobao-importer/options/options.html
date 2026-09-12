@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MAMC 商品取り込み - 設定</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>⚙ 設定</h1>
+
+  <h2>日本円販売価格の計算</h2>
+  <p class="note">
+    計算の流れ：人民元価格 × 為替レート ＋ 送料 → 利益率を上乗せ → 丸め単位で切り上げ<br>
+    ※計算式そのものを変えたい場合は <code>lib/price.js</code> の
+    <code>calculateSellingPrice()</code> を書き換えてください。
+  </p>
+
+  <div class="field">
+    <label for="s-rate">為替レート（1元 = 何円）</label>
+    <input type="number" id="s-rate" step="0.01" min="0">
+  </div>
+  <div class="field">
+    <label for="s-shipping">送料（円 / 1商品）</label>
+    <input type="number" id="s-shipping" step="1" min="0">
+  </div>
+  <div class="field">
+    <label for="s-profit">利益率（%）</label>
+    <input type="number" id="s-profit" step="1" min="0">
+  </div>
+  <div class="field">
+    <label for="s-round">価格の丸め単位（円）例:100 → 100円単位で切り上げ</label>
+    <input type="number" id="s-round" step="1" min="1">
+  </div>
+
+  <div class="preview" id="price-preview"></div>
+
+  <h2>管理番号</h2>
+  <div class="field">
+    <label for="s-prefix">管理番号の頭文字（例: MAMC）</label>
+    <input type="text" id="s-prefix">
+  </div>
+  <div class="field">
+    <label for="s-digits">連番の桁数（例: 6 → MAMC-000001）</label>
+    <input type="number" id="s-digits" step="1" min="1" max="10">
+  </div>
+
+  <h2>SNS投稿文テンプレート</h2>
+  <p class="note">
+    使える置き換えワード：
+    <code>{{code}}</code> 管理番号 /
+    <code>{{title}}</code> 商品名 /
+    <code>{{priceJpy}}</code> 日本円価格 /
+    <code>{{priceCny}}</code> 元価格 /
+    <code>{{colors}}</code> カラー /
+    <code>{{sizes}}</code> サイズ /
+    <code>{{url}}</code> 商品URL
+  </p>
+  <div class="field">
+    <textarea id="s-template" rows="16"></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="btn-save" class="primary">保存する</button>
+    <button id="btn-reset">初期値に戻す</button>
+  </div>
+  <p id="message" class="message" hidden></p>
+
+  <script src="../lib/config.js"></script>
+  <script src="../lib/price.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
