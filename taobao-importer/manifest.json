@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MAMC Taobao 商品取り込み",
-  "version": "1.0.0",
-  "description": "いま自分で開いているTaobaoの商品ページ1件だけを、ボタンを押したときに取り込むツールです。自動巡回は行いません。",
+  "name": "ワンクリック商品取り込み",
+  "version": "2.0.0",
+  "description": "いま自分で開いている商品ページ1件だけを、ボタンを押したときに取り込む汎用ツールです。自動巡回は行いません。",
   "permissions": [
     "activeTab",
     "scripting",
