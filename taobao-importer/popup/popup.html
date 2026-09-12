@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>MAMC Taobao 商品取り込み</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <header>
+    <span class="app-title">MAMC 商品取り込み</span>
+    <button id="btn-open-options" class="link-btn" title="設定">⚙ 設定</button>
+  </header>
+
+  <!-- ========== 画面1：ホーム（取り込みボタン＋保存済み一覧） ========== -->
+  <section id="view-home">
+    <button id="btn-import" class="primary big">📥 この商品を取り込む</button>
+    <p id="home-message" class="message" hidden></p>
+
+    <div class="list-header">
+      <h2>保存済み商品（<span id="product-count">0</span>件）</h2>
+      <span>
+        <button id="btn-export-json" class="small">JSON出力</button>
+        <button id="btn-export-csv" class="small">CSV出力</button>
+      </span>
+    </div>
+    <ul id="product-list" class="product-list"></ul>
+  </section>
+
+  <!-- ========== 画面2：確認・修正 ========== -->
+  <section id="view-confirm" hidden>
+    <h2>取り込み内容の確認・修正</h2>
+    <p class="note">正しく取れていない項目は、ここで直してから保存してください。</p>
+
+    <div class="field">
+      <label for="f-title">商品名</label>
+      <textarea id="f-title" rows="2"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="f-price-cny">現在価格（元）</label>
+        <input type="number" id="f-price-cny" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label for="f-original-cny">通常価格（元）※任意</label>
+        <input type="number" id="f-original-cny" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label for="f-price-jpy">日本円販売価格（自動計算）</label>
+        <input type="number" id="f-price-jpy" step="1" min="0">
+      </div>
+    </div>
+    <p class="note" id="price-formula-note"></p>
+
+    <div class="field">
+      <label for="f-taobao-id">Taobao商品ID</label>
+      <input type="text" id="f-taobao-id">
+    </div>
+
+    <div class="field">
+      <label for="f-url">商品URL</label>
+      <textarea id="f-url" rows="2"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="f-colors">カラー（「,」区切り）</label>
+        <textarea id="f-colors" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="f-sizes">サイズ（「,」区切り）</label>
+        <textarea id="f-sizes" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="list-header">
+      <h2>取得画像（<span id="image-selected-count">0</span> / <span id="image-total-count">0</span> 枚選択中）</h2>
+      <span>
+        <button id="btn-select-all" class="small">すべて選択</button>
+        <button id="btn-select-none" class="small">すべて解除</button>
+      </span>
+    </div>
+    <p class="note">保存したい画像だけチェックを残してください。クリックでも切り替えられます。</p>
+    <div id="image-grid" class="image-grid"></div>
+
+    <div class="actions">
+      <button id="btn-save" class="primary">💾 この内容で保存する</button>
+      <button id="btn-cancel">キャンセル</button>
+    </div>
+    <p id="confirm-message" class="message" hidden></p>
+  </section>
+
+  <!-- ========== 画面3：保存完了（SNS投稿文） ========== -->
+  <section id="view-done" hidden>
+    <h2 id="done-title">保存しました</h2>
+    <p>管理番号：<strong id="done-code"></strong></p>
+
+    <div class="field">
+      <label for="done-sns-text">SNS投稿用テキスト（編集してからコピーもできます）</label>
+      <textarea id="done-sns-text" rows="14"></textarea>
+    </div>
+
+    <div class="actions">
+      <button id="btn-copy-sns" class="primary">📋 投稿文をコピー</button>
+      <button id="btn-back-home">ホームに戻る</button>
+    </div>
+    <p id="done-message" class="message" hidden></p>
+  </section>
+
+  <!-- 読み込み順が大事：config → price → storage → sns → export → popup -->
+  <script src="../lib/config.js"></script>
+  <script src="../lib/price.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/sns.js"></script>
+  <script src="../lib/export.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

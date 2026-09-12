@@ -1,0 +1,165 @@
+/* popup.css — ポップアップ画面の見た目 */
+
+body {
+  width: 720px;
+  max-height: 580px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px 16px 16px;
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-size: 13px;
+  color: #222;
+  background: #fafafa;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.app-title { font-weight: bold; font-size: 15px; }
+
+h2 { font-size: 14px; margin: 14px 0 6px; }
+
+button {
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+button:hover { background: #f0f0f0; }
+
+button.primary {
+  background: #e64a19;
+  border-color: #e64a19;
+  color: #fff;
+  font-weight: bold;
+}
+button.primary:hover { background: #d84315; }
+
+button.big {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}
+
+button.small { padding: 3px 8px; font-size: 12px; }
+
+.link-btn {
+  border: none;
+  background: none;
+  color: #555;
+}
+.link-btn:hover { text-decoration: underline; background: none; }
+
+.message {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  white-space: pre-wrap;
+}
+.message.error { background: #ffebee; border-color: #ef9a9a; }
+.message.success { background: #e8f5e9; border-color: #a5d6a7; }
+
+.note { color: #777; font-size: 12px; margin: 4px 0; }
+
+/* --- 入力フォーム --- */
+.field { margin-bottom: 8px; flex: 1; }
+.field label { display: block; font-weight: bold; margin-bottom: 2px; }
+.field input, .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.field-row { display: flex; gap: 10px; }
+
+/* --- 画像一覧 --- */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.image-item {
+  position: relative;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+.image-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+.image-item.selected { border-color: #e64a19; }
+.image-item.deselected img { opacity: 0.35; }
+
+.image-item input[type="checkbox"] {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+}
+.image-item .kind {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 1px 5px;
+  border-top-left-radius: 6px;
+}
+
+/* --- 保存済み一覧 --- */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.product-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.product-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.product-list img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #eee;
+}
+.product-list .info { flex: 1; min-width: 0; }
+.product-list .info .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-list .info .sub { color: #777; font-size: 12px; }
+
+.actions { display: flex; gap: 10px; margin-top: 12px; }
+.actions .primary { flex: 1; }
+
+.empty { color: #999; text-align: center; padding: 14px; }
