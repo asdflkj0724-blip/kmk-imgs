@@ -9,11 +9,12 @@
  *   view-done    … 保存完了＋SNS投稿文
  *
  * データの保存は lib/storage.js、価格計算は lib/price.js、
- * SNS文は lib/sns.js、ファイル出力は lib/export.js に任せています。
+ * タイトル変換は lib/title.js、SNS文は lib/sns.js、
+ * ファイル出力は lib/export.js に任せています。
  * ============================================================
  */
 
-const LOG = '[MAMC取り込み]';
+const LOG = '[商品取り込み]';
 
 /** document.getElementById の短縮形 */
 function $(id) {
@@ -22,9 +23,8 @@ function $(id) {
 
 // いま確認画面に表示しているデータ（スクレイプ結果）
 let currentDraft = null;
-// 読み込んだ設定
-let currentSettings = null;
-let currentSnsTemplate = null;
+// 読み込んだ保存データ（ブランド・仕入れ先・設定・テンプレート）
+let currentDb = null;
 
 // ---------- 画面の切り替え ----------
 
@@ -42,6 +42,12 @@ function showMessage(elId, text, type) {
   el.hidden = !text;
 }
 
+/** いま確認画面で選ばれているブランドを返す */
+function selectedBrand() {
+  const prefix = $('f-brand').value;
+  return currentDb.brands.find((b) => b.prefix === prefix) || currentDb.brands[0];
+}
+
 // ---------- ホーム画面 ----------
 
 /** 保存済み商品の一覧を描画する */
@@ -56,7 +62,7 @@ async function renderHome() {
     if (products.length === 0) {
       const li = document.createElement('li');
       li.className = 'empty';
-      li.textContent = 'まだ商品がありません。Taobaoの商品ページで取り込んでください。';
+      li.textContent = 'まだ商品がありません。商品ページを開いて取り込んでください。';
       ul.appendChild(li);
       return;
     }
@@ -75,8 +81,11 @@ async function renderHome() {
       name.textContent = p.code + '　' + (p.title || '(名称未設定)');
       const sub = document.createElement('div');
       sub.className = 'sub';
+      const priceOrig = p.priceOriginal ?? p.priceCny;
       sub.textContent =
-        formatJpy(p.priceJpy) + '（' + (p.priceCny ?? '?') + '元）・画像' +
+        (p.brand ? p.brand + '・' : '') +
+        formatJpy(p.priceJpy) +
+        '（元価格 ' + (priceOrig ?? '?') + (p.currency ? ' ' + p.currency : '') + '）・画像' +
         (p.images ? p.images.length : 0) + '枚';
       info.appendChild(name);
       info.appendChild(sub);
@@ -86,7 +95,7 @@ async function renderHome() {
       btnSns.className = 'small';
       btnSns.textContent = 'SNS文コピー';
       btnSns.addEventListener('click', async () => {
-        const text = buildSnsText(p, currentSnsTemplate);
+        const text = buildSnsText(p, currentDb.snsTemplate);
         await copyToClipboard(text);
         btnSns.textContent = 'コピーしました✓';
         setTimeout(() => (btnSns.textContent = 'SNS文コピー'), 1500);
@@ -114,25 +123,15 @@ async function renderHome() {
 
 // ---------- 取り込み処理 ----------
 
-/** いま開いているタブがTaobao/Tmallの商品ページっぽいか */
-function isTaobaoUrl(url) {
-  try {
-    const host = new URL(url).hostname;
-    return host.endsWith('taobao.com') || host.endsWith('tmall.com');
-  } catch (e) {
-    return false;
-  }
-}
-
 /** 「この商品を取り込む」ボタンの処理 */
 async function importCurrentPage() {
   showMessage('home-message', '', '');
   try {
     // ① いま見ているタブを調べる（activeTab権限：ボタンを押したタブだけ）
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.url || !isTaobaoUrl(tab.url)) {
+    if (!tab || !tab.url || !/^https?:/.test(tab.url)) {
       showMessage('home-message',
-        'Taobao（またはTmall）の商品ページを開いた状態で押してください。', 'error');
+        '通常のウェブページ（商品ページ）を開いた状態で押してください。', 'error');
       return;
     }
 
@@ -150,7 +149,7 @@ async function importCurrentPage() {
     console.log(LOG, '取得データ:', data);
 
     // ③ 重複チェック（同じ商品ID or 同じURL）
-    const dup = await findDuplicate(data.taobaoId, data.url);
+    const dup = await findDuplicate(data.productId, data.url);
     if (dup) {
       showMessage('home-message',
         'この商品はすでに登録されています（' + dup.code + '）', 'error');
@@ -170,32 +169,81 @@ async function importCurrentPage() {
 
 // ---------- 確認画面 ----------
 
+/** ブランド・仕入れ先のドロップダウンを作る */
+function fillSelectors(data) {
+  const brandSel = $('f-brand');
+  brandSel.textContent = '';
+  for (const b of currentDb.brands) {
+    const opt = document.createElement('option');
+    opt.value = b.prefix;
+    opt.textContent = b.name;
+    brandSel.appendChild(opt);
+  }
+
+  const supSel = $('f-supplier');
+  supSel.textContent = '';
+  for (const s of currentDb.suppliers) {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    supSel.appendChild(opt);
+  }
+
+  // 仕入れ先の自動推測：サイトのドメインに名前が含まれていたら選んでおく
+  const host = (data.site || '').toLowerCase();
+  for (const s of currentDb.suppliers) {
+    const key = s.toLowerCase().replace(/\s+/g, '');
+    if (key && host.includes(key)) {
+      supSel.value = s;
+      break;
+    }
+  }
+  if (/(taobao|tmall)/.test(host)) {
+    const t = currentDb.suppliers.find((s) => /taobao|淘宝/i.test(s));
+    if (t) supSel.value = t;
+  }
+}
+
 /** スクレイプ結果を確認画面のフォームに流し込む */
 function fillConfirmView(data) {
-  $('f-title').value = data.title || '';
-  $('f-price-cny').value = data.priceCny ?? '';
-  $('f-original-cny').value = data.originalPriceCny ?? '';
-  $('f-taobao-id').value = data.taobaoId || '';
+  fillSelectors(data);
+
+  $('f-original-title').value = data.title || '';
+  $('f-price-original').value = data.priceOriginal ?? '';
+  $('f-currency').value = data.currency || '';
+  $('f-list-price').value = data.listPriceOriginal ?? '';
+  $('f-product-id').value = data.productId || '';
   $('f-url').value = data.url || '';
   $('f-colors').value = (data.colors || []).join(', ');
   $('f-sizes').value = (data.sizes || []).join(', ');
   showMessage('confirm-message', '', '');
 
-  // 日本円価格を自動計算して表示
+  // ブランドのルールで「販売タイトル」と「販売価格」を作る
+  regenTitle();
   recalcJpy();
-  const s = currentSettings;
-  $('price-formula-note').textContent =
-    '計算式：元価格 × ' + s.exchangeRate + '円 ＋ 送料' + s.shippingJpy +
-    '円 → 利益率' + s.profitRate + '% → ' + s.roundUnit + '円単位で切り上げ（⚙設定で変更できます）';
 
   renderImageGrid(data.images || []);
 }
 
-/** 人民元の入力値から日本円販売価格を計算し直す */
+/** 選択中ブランドのタイトルルールで販売タイトルを作り直す */
+function regenTitle() {
+  const brand = selectedBrand();
+  if (!brand) return;
+  $('f-title').value = buildProductTitle(
+    $('f-original-title').value, brand.name, brand.titleRule
+  );
+}
+
+/** 元価格の入力値から販売価格を計算し直す */
 function recalcJpy() {
-  const cny = parseFloat($('f-price-cny').value);
-  const jpy = calculateSellingPrice(cny, currentSettings);
+  const brand = selectedBrand();
+  if (!brand) return;
+  const price = parseFloat($('f-price-original').value);
+  const jpy = calculateSellingPrice(price, brand.priceRule);
   $('f-price-jpy').value = jpy ?? '';
+  $('price-formula-note').textContent =
+    brand.name + ' の計算ルール：' + describePriceRule(brand.priceRule) +
+    '（⚙設定で変更できます）';
 }
 
 /** 画像一覧（チェックボックス付き）を描画する */
@@ -282,7 +330,12 @@ async function saveFromConfirm() {
   try {
     const title = $('f-title').value.trim();
     if (!title) {
-      showMessage('confirm-message', '商品名を入力してください。', 'error');
+      showMessage('confirm-message', '販売タイトルを入力してください。', 'error');
+      return;
+    }
+    const brand = selectedBrand();
+    if (!brand) {
+      showMessage('confirm-message', 'ブランドを選択してください（⚙設定から追加できます）。', 'error');
       return;
     }
 
@@ -294,16 +347,21 @@ async function saveFromConfirm() {
       if (cb && cb.checked && img) selectedImages.push(img.src);
     }
 
-    const priceCny = parseFloat($('f-price-cny').value);
-    const originalCny = parseFloat($('f-original-cny').value);
+    const priceOriginal = parseFloat($('f-price-original').value);
+    const listPrice = parseFloat($('f-list-price').value);
     const priceJpy = parseFloat($('f-price-jpy').value);
 
     const product = {
+      brand: brand.name,
+      brandPrefix: brand.prefix,
+      supplier: $('f-supplier').value,
       title,
+      originalTitle: $('f-original-title').value.trim(),
       url: $('f-url').value.trim(),
-      taobaoId: $('f-taobao-id').value.trim(),
-      priceCny: isNaN(priceCny) ? null : priceCny,
-      originalPriceCny: isNaN(originalCny) ? null : originalCny,
+      productId: $('f-product-id').value.trim(),
+      priceOriginal: isNaN(priceOriginal) ? null : priceOriginal,
+      listPriceOriginal: isNaN(listPrice) ? null : listPrice,
+      currency: $('f-currency').value.trim(),
       priceJpy: isNaN(priceJpy) ? null : priceJpy,
       colors: splitList($('f-colors').value),
       sizes: splitList($('f-sizes').value),
@@ -316,7 +374,7 @@ async function saveFromConfirm() {
 
     // 完了画面へ
     $('done-code').textContent = saved.code;
-    $('done-sns-text').value = buildSnsText(saved, currentSnsTemplate);
+    $('done-sns-text').value = buildSnsText(saved, currentDb.snsTemplate);
     showMessage('done-message', '', '');
     showView('done');
     await renderHome();
@@ -346,9 +404,7 @@ async function copyToClipboard(text) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const data = await dbLoad();
-    currentSettings = data.settings;
-    currentSnsTemplate = data.snsTemplate;
+    currentDb = await dbLoad();
 
     // --- ホーム画面のボタン ---
     $('btn-import').addEventListener('click', importCurrentPage);
@@ -365,7 +421,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 確認画面のボタン ---
     $('btn-select-all').addEventListener('click', () => setAllImages(true));
     $('btn-select-none').addEventListener('click', () => setAllImages(false));
-    $('f-price-cny').addEventListener('input', recalcJpy);
+    $('f-price-original').addEventListener('input', recalcJpy);
+    $('f-brand').addEventListener('change', () => {
+      // ブランドを変えたら、そのブランドのルールで作り直す
+      regenTitle();
+      recalcJpy();
+    });
+    $('btn-regen-title').addEventListener('click', regenTitle);
     $('btn-save').addEventListener('click', saveFromConfirm);
     $('btn-cancel').addEventListener('click', () => {
       currentDraft = null;

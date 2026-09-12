@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>MAMC Taobao 商品取り込み</title>
+  <title>商品取り込み</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
 
   <header>
-    <span class="app-title">MAMC 商品取り込み</span>
+    <span class="app-title">ワンクリック商品取り込み</span>
     <button id="btn-open-options" class="link-btn" title="設定">⚙ 設定</button>
   </header>
 
@@ -32,30 +32,52 @@
     <h2>取り込み内容の確認・修正</h2>
     <p class="note">正しく取れていない項目は、ここで直してから保存してください。</p>
 
+    <div class="field-row">
+      <div class="field">
+        <label for="f-brand">ブランド</label>
+        <select id="f-brand"></select>
+      </div>
+      <div class="field">
+        <label for="f-supplier">仕入れ先サイト</label>
+        <select id="f-supplier"></select>
+      </div>
+    </div>
+    <p class="note">※ブランド・仕入れ先の追加は「⚙ 設定」からできます。ブランドを変えると価格とタイトルが計算し直されます。</p>
+
     <div class="field">
-      <label for="f-title">商品名</label>
+      <label for="f-title">販売タイトル（お店で使う商品名）</label>
       <textarea id="f-title" rows="2"></textarea>
+      <button id="btn-regen-title" class="small">↻ ルールでタイトルを作り直す</button>
+    </div>
+
+    <div class="field">
+      <label for="f-original-title">元の商品タイトル（参考）</label>
+      <textarea id="f-original-title" rows="2"></textarea>
     </div>
 
     <div class="field-row">
       <div class="field">
-        <label for="f-price-cny">現在価格（元）</label>
-        <input type="number" id="f-price-cny" step="0.01" min="0">
+        <label for="f-price-original">元の価格</label>
+        <input type="number" id="f-price-original" step="0.01" min="0">
       </div>
       <div class="field">
-        <label for="f-original-cny">通常価格（元）※任意</label>
-        <input type="number" id="f-original-cny" step="0.01" min="0">
+        <label for="f-currency">通貨</label>
+        <input type="text" id="f-currency" placeholder="JPY / CNY など">
       </div>
       <div class="field">
-        <label for="f-price-jpy">日本円販売価格（自動計算）</label>
+        <label for="f-list-price">元の定価 ※任意</label>
+        <input type="number" id="f-list-price" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label for="f-price-jpy">販売価格（円・自動計算）</label>
         <input type="number" id="f-price-jpy" step="1" min="0">
       </div>
     </div>
     <p class="note" id="price-formula-note"></p>
 
     <div class="field">
-      <label for="f-taobao-id">Taobao商品ID</label>
-      <input type="text" id="f-taobao-id">
+      <label for="f-product-id">商品ID</label>
+      <input type="text" id="f-product-id">
     </div>
 
     <div class="field">
@@ -108,9 +130,10 @@
     <p id="done-message" class="message" hidden></p>
   </section>
 
-  <!-- 読み込み順が大事：config → price → storage → sns → export → popup -->
+  <!-- 読み込み順が大事：config → price → title → storage → sns → export → popup -->
   <script src="../lib/config.js"></script>
   <script src="../lib/price.js"></script>
+  <script src="../lib/title.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/sns.js"></script>
   <script src="../lib/export.js"></script>
