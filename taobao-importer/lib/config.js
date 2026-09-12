@@ -1,31 +1,103 @@
 /**
  * config.js
  * ============================================================
- * 設定の「初期値」をまとめたファイル。
- * 実際の設定値は「設定画面（歯車マーク）」から変更でき、
+ * 「初期値」をまとめたファイル。
+ * 実際の値は設定画面（歯車マーク）から自由に変更でき、
  * chrome.storage に保存されます。ここは最初の1回だけ使われます。
+ *
+ * この拡張は特定サイト専用ではなく、どの通販サイトでも
+ * 「いま自分で開いている商品ページ1件」を取り込む汎用ツールです。
  * ============================================================
  */
 
-const DEFAULT_SETTINGS = {
-  // --- 価格計算まわり（設定画面から変更できます） ---
-  exchangeRate: 22,   // 為替レート：1元 = 何円か
-  shippingJpy: 2000,  // 1商品あたりの送料（円）
-  profitRate: 30,     // 利益率（%）
-  roundUnit: 100,     // 販売価格の丸め単位（100 → 100円単位で切り上げ）
-
-  // --- 管理番号まわり ---
-  codePrefix: 'MAMC', // 管理番号の頭の文字
-  codeDigits: 6       // 連番の桁数（6 → MAMC-000001）
+// 全体共通の設定
+const DEFAULT_GLOBAL_SETTINGS = {
+  codeDigits: 6 // 管理番号の連番の桁数（6 → MAMC-000001）
 };
 
+// ------------------------------------------------------------
+// 価格ルール（ブランドごとに持てます）
+//   exchangeRate … 外貨サイト用の換算レート（日本円のサイトなら 1）
+//   steps        … 上から順に適用される計算ステップ
+//                    op: 'add'      → ＋value 円
+//                    op: 'subtract' → −value 円
+//                    op: 'multiply' → ×value 倍
+//                    op: 'percent'  → ＋value ％
+//   roundUnit    … 最後にこの単位で切り上げ（100 → 100円単位）
+// ------------------------------------------------------------
+const DEFAULT_PRICE_RULE = {
+  exchangeRate: 1,
+  steps: [{ op: 'percent', value: 30 }],
+  roundUnit: 100
+};
+
+// 設定画面で使う、計算ステップの表示名
+const PRICE_STEP_LABELS = {
+  add: '＋ 円を足す',
+  subtract: '− 円を引く',
+  multiply: '× 倍にする',
+  percent: '＋ ％上乗せ'
+};
+
+// ------------------------------------------------------------
+// タイトルルール（ブランドごとに持てます）
+//   format      … 最終的な並び。{{brand}} と {{title}} が置き換わる
+//   removeWords … タイトルから削除したい文字のリスト
+//   replaceList … 置き換えリスト [{ from: '古い文字', to: '新しい文字' }]
+// ------------------------------------------------------------
+const DEFAULT_TITLE_RULE = {
+  format: '{{brand}} {{title}}',
+  removeWords: [],
+  replaceList: []
+};
+
+/** 新しいブランドの入れ物を作る（設定画面の「ブランドを追加」で使用） */
+function createBrand(name, prefix) {
+  return {
+    name: name,                                   // 表示名（例: Old Order）
+    prefix: prefix,                               // 管理番号の頭（例: OLDORDER）
+    priceRule: JSON.parse(JSON.stringify(DEFAULT_PRICE_RULE)),
+    titleRule: JSON.parse(JSON.stringify(DEFAULT_TITLE_RULE))
+  };
+}
+
+// 最初から入っているブランド（設定画面で追加・削除・変更できます）
+const DEFAULT_BRANDS = [
+  {
+    name: 'MAMC',
+    prefix: 'MAMC',
+    // 例：元価格(元) × 22円 → +送料2000円 → +利益30% → 100円単位切り上げ
+    priceRule: {
+      exchangeRate: 22,
+      steps: [
+        { op: 'add', value: 2000 },
+        { op: 'percent', value: 30 }
+      ],
+      roundUnit: 100
+    },
+    titleRule: { format: '{{brand}} {{title}}', removeWords: [], replaceList: [] }
+  },
+  {
+    name: 'Old Order',
+    prefix: 'OLDORDER',
+    priceRule: {
+      exchangeRate: 1,
+      steps: [{ op: 'percent', value: 30 }],
+      roundUnit: 100
+    },
+    titleRule: { format: '{{brand}} {{title}}', removeWords: [], replaceList: [] }
+  }
+];
+
+// 仕入れ先サイトの初期リスト（設定画面で自由に増減できます）
+const DEFAULT_SUPPLIERS = ['Taobao', '公式サイト', 'その他'];
+
 // SNS投稿文のテンプレート。設定画面から自由に変更できます。
-// {{ }} の部分が商品ごとのデータに置き換わります。
-//   {{code}}     管理番号        {{title}}   商品名
-//   {{priceJpy}} 日本円販売価格   {{priceCny}} 人民元価格
-//   {{colors}}   カラー          {{sizes}}    サイズ
-//   {{url}}      商品URL
-const DEFAULT_SNS_TEMPLATE = `MAMC 新着商品✨
+// 使える置き換えワード：
+//   {{code}} 管理番号 / {{brand}} ブランド名 / {{title}} 販売タイトル
+//   {{priceJpy}} 販売価格 / {{priceOriginal}} 元価格
+//   {{colors}} カラー / {{sizes}} サイズ / {{url}} 商品URL
+const DEFAULT_SNS_TEMPLATE = `{{brand}} 新着商品✨
 
 商品番号：{{code}}
 価格：{{priceJpy}}

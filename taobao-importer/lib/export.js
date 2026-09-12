@@ -22,18 +22,18 @@ function downloadTextFile(filename, text, mimeType) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch (e) {
-    console.error('[MAMC取り込み] ダウンロードに失敗:', e);
+    console.error('[商品取り込み] ダウンロードに失敗:', e);
     alert('ファイルのダウンロードに失敗しました: ' + e.message);
   }
 }
 
-/** 今日の日付入りのファイル名を作る（例: mamc-products-2026-09-12） */
+/** 今日の日付入りのファイル名を作る（例: products-2026-09-12） */
 function exportFileName(ext) {
   const d = new Date();
   const ymd = d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
-  return 'mamc-products-' + ymd + '.' + ext;
+  return 'products-' + ymd + '.' + ext;
 }
 
 /** JSON出力：全商品をそのままJSONファイルにする */
@@ -51,8 +51,8 @@ function csvCell(value) {
 /** CSV出力：Excelでそのまま開ける形式（BOM付きUTF-8） */
 function exportCsv(products) {
   const header = [
-    '管理番号', '商品名', 'Taobao商品ID', '商品URL',
-    '人民元価格', '通常価格(元)', '日本円販売価格',
+    '管理番号', 'ブランド', '仕入れ先', '販売タイトル', '元タイトル',
+    '商品ID', '商品URL', '元価格', '通貨', '元の定価', '販売価格(円)',
     'カラー', 'サイズ', '画像枚数', '画像URL', '登録日時'
   ];
   const rows = [header.map(csvCell).join(',')];
@@ -60,11 +60,15 @@ function exportCsv(products) {
   for (const p of products) {
     rows.push([
       csvCell(p.code),
+      csvCell(p.brand),
+      csvCell(p.supplier),
       csvCell(p.title),
-      csvCell(p.taobaoId),
+      csvCell(p.originalTitle),
+      csvCell(p.productId || p.taobaoId),
       csvCell(p.url),
-      csvCell(p.priceCny),
-      csvCell(p.originalPriceCny),
+      csvCell(p.priceOriginal ?? p.priceCny),
+      csvCell(p.currency),
+      csvCell(p.listPriceOriginal ?? p.originalPriceCny),
       csvCell(p.priceJpy),
       csvCell((p.colors || []).join(' / ')),
       csvCell((p.sizes || []).join(' / ')),
