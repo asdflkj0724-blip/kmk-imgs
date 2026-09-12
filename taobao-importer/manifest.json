@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "MAMC Taobao 商品取り込み",
+  "version": "1.0.0",
+  "description": "いま自分で開いているTaobaoの商品ページ1件だけを、ボタンを押したときに取り込むツールです。自動巡回は行いません。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "この商品を取り込む"
+  },
+  "options_page": "options/options.html"
+}
