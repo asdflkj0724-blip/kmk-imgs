@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """輝く未来教育 X自動投稿スクリプト
 
-毎朝、AI(Claude)が投稿文を考え、画像付きでXに投稿する。
+毎朝、AI(Claude)が「①受験に役立つミニヒント + ②お母さまへの短い励まし」の本文を生成し、
+末尾に「学校別対策ガイドはこちら → URL」の一行を付けて、画像付きでXに投稿する。
 - prompt.txt      : 投稿文のルール
-- products.csv    : 商品リスト(商品紹介の投稿に使う)
+- products.csv    : 商品リスト(「学校別対策ガイド」行のURLを締めの一行に使う)
 - sale.txt        : セール情報(手動で追加)
-- history.json    : 投稿履歴(同じ内容の連続を防ぐ)
+- history.json    : 投稿履歴(テーマと内容の重複を防ぐ)
 - posts.txt       : AIが使えないときの予備の投稿文
 環境変数 DRY_RUN=1 で、実際には投稿せず内容の確認だけ行う。
 """
@@ -22,11 +23,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 JST = timezone(timedelta(hours=9))
 
-USEFUL_TYPES = ["共感ネタ", "ワンポイントアドバイス", "前向きメッセージ", "季節・行事情報"]
-PRODUCT_TYPE = "商品紹介"
+THEMES = [
+    "お話の記憶", "季節問題", "面接", "行動観察", "数", "言語・語彙",
+    "巧緻性(手先の器用さ)", "聞く力", "願書・出願準備", "生活習慣・自立",
+    "制作・表現", "運動・リズム", "常識・マナー", "図形・空間認識",
+    "親の心の持ち方",
+]
+GUIDE_CATEGORY = "学校別対策ガイド"
+IMAGE_FOLDERS = ["ブランド", "学校別対策ガイド"]
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Xの上限は280(全角=2、URL=23換算)。安全のため少し余裕を持たせる
-MAX_WEIGHTED_LEN = 270
+MAX_WEIGHTED_LEN = 276
 URL_RE = re.compile(r"https?://\S+")
 
 
@@ -61,20 +68,24 @@ def save_history(history: dict) -> None:
     )
 
 
-def load_products() -> list:
+def load_guide_product() -> dict:
+    """products.csv から「学校別対策ガイド」の行を読む(締めの一行のURLに使う)"""
     path = ROOT / "products.csv"
     if not path.exists():
-        return []
-    products = []
+        return {}
     with path.open(encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             row = {(k or "").strip(): (v or "").strip() for k, v in row.items()}
             url = row.get("URL", "")
-            # URLが未設定(空 or example.com)の商品は紹介しない
-            if not row.get("商品名") or not url or "example.com" in url:
-                continue
-            products.append(row)
-    return products
+            if row.get("カテゴリー") == GUIDE_CATEGORY and url and "example.com" not in url:
+                return row
+    return {}
+
+
+def guide_footer(guide: dict) -> str:
+    if not guide:
+        return ""
+    return f"学校別対策ガイドはこちら → {guide['URL']}"
 
 
 def load_sale_info() -> str:
@@ -98,48 +109,20 @@ def season_label(now: datetime) -> str:
     }[now.month]
 
 
-def decide_post_type(history: dict, products: list) -> str:
-    """役立つ投稿を2〜3回続けた後に商品紹介を1回入れる"""
-    posts = history["posts"]
-    streak = 0
-    for post in reversed(posts):
-        if post.get("type") == PRODUCT_TYPE:
-            break
-        streak += 1
-    if products:
-        if streak >= 3:
-            return PRODUCT_TYPE
-        if streak == 2 and random.random() < 0.5:
-            return PRODUCT_TYPE
-    recent_types = [p.get("type") for p in posts[-2:]]
-    candidates = [t for t in USEFUL_TYPES if t not in recent_types] or USEFUL_TYPES
+def choose_theme(history: dict) -> str:
+    """直近で使っていないテーマを選ぶ(毎日テーマが変わるように)"""
+    recent = {p.get("theme") for p in history["posts"][-6:]}
+    candidates = [t for t in THEMES if t not in recent] or THEMES
     return random.choice(candidates)
 
 
-def choose_product(history: dict, products: list) -> dict:
-    """最近紹介していない商品を優先して選ぶ"""
-    last_used = {}
-    for i, post in enumerate(history["posts"]):
-        if post.get("product"):
-            last_used[post["product"]] = i
-    products = sorted(products, key=lambda p: last_used.get(p["商品名"], -1))
-    return products[0]
-
-
-def choose_image(post_type: str, product: dict, history: dict):
-    """投稿に付ける画像を選ぶ。商品紹介はそのカテゴリーの画像、それ以外はブランド画像"""
-    if post_type == PRODUCT_TYPE and product:
-        folder = ROOT / "images" / product.get("カテゴリー", "")
-        named = product.get("画像ファイル名", "")
-        if named:
-            path = folder / named
-            if path.exists():
-                return path
-    else:
-        folder = ROOT / "images" / "ブランド"
-    if not folder.is_dir():
-        return None
-    candidates = [p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS]
+def choose_image(history: dict):
+    """ブランド画像と学校別ガイド画像から、最近使っていないものを選ぶ"""
+    candidates = []
+    for name in IMAGE_FOLDERS:
+        folder = ROOT / "images" / name
+        if folder.is_dir():
+            candidates += [p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS]
     if not candidates:
         return None
     recent_images = {p.get("image") for p in history["posts"][-14:]}
@@ -147,35 +130,31 @@ def choose_image(post_type: str, product: dict, history: dict):
     return random.choice(fresh or candidates)
 
 
-def build_user_prompt(now, post_type, product, sale_info, history) -> str:
+def build_user_prompt(now, theme, sale_info, history) -> str:
     lines = [
         f"今日は {now.strftime('%Y年%m月%d日')}(季節: {season_label(now)})の朝7時の投稿です。",
-        f"今回の投稿の種類: {post_type}",
+        f"今回のテーマ: {theme}",
     ]
-    if post_type == PRODUCT_TYPE and product:
-        lines.append("紹介する商品:")
-        lines.append(f"- 商品名: {product['商品名']}")
-        lines.append(f"- URL: {product['URL']}")
-        lines.append(f"- 特徴: {product.get('特徴', '')}")
-        if sale_info:
-            lines.append(f"現在のセール情報(自然に触れてください): {sale_info}")
+    if sale_info:
+        lines.append(f"現在のセール情報(ひと言だけ自然に触れてよい): {sale_info}")
     recent = [p["text"] for p in history["posts"][-10:] if p.get("text")]
     if recent:
-        lines.append("最近の投稿(内容や表現が重複しないようにしてください):")
+        lines.append("最近の投稿(内容・表現・見出しが重複しないようにしてください):")
         for text in recent:
             lines.append(f"--- {text}")
-    lines.append("投稿文のみを出力してください。")
+    lines.append("投稿の本文のみを出力してください(URLは入れない)。")
     return "\n".join(lines)
 
 
-def generate_with_ai(now, post_type, product, sale_info, history) -> str:
+def generate_with_ai(now, theme, sale_info, history, footer: str) -> str:
     import anthropic
 
     client = anthropic.Anthropic()
     system = (ROOT / "prompt.txt").read_text(encoding="utf-8")
     messages = [
-        {"role": "user", "content": build_user_prompt(now, post_type, product, sale_info, history)}
+        {"role": "user", "content": build_user_prompt(now, theme, sale_info, history)}
     ]
+    footer_len = x_weighted_len("\n" + footer) if footer else 0
     for attempt in range(3):
         response = client.messages.create(
             model="claude-opus-5",
@@ -187,11 +166,11 @@ def generate_with_ai(now, post_type, product, sale_info, history) -> str:
             raise RuntimeError("AIが投稿文の生成を拒否しました")
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         text = text.strip('"「」\'')
-        if text and x_weighted_len(text) <= MAX_WEIGHTED_LEN:
+        if text and x_weighted_len(text) + footer_len <= MAX_WEIGHTED_LEN:
             return text
         messages.append({"role": "assistant", "content": text})
         messages.append(
-            {"role": "user", "content": "長すぎます。同じ内容をもっと短く、全角100文字以内(URL・ハッシュタグ除く)で書き直してください。投稿文のみを出力してください。"}
+            {"role": "user", "content": "長すぎます。同じ内容をもっと短く、全角100文字以内(ハッシュタグ含む)で書き直してください。投稿の本文のみを出力してください。"}
         )
     raise RuntimeError("文字数内の投稿文を生成できませんでした")
 
@@ -236,24 +215,29 @@ def main() -> None:
     random.seed()
 
     history = load_history()
-    products = load_products()
+    guide = load_guide_product()
+    footer = guide_footer(guide)
+    if not footer:
+        print("警告: products.csv に学校別対策ガイドの有効なURLがありません(締めの一行なしで投稿します)", file=sys.stderr)
     sale_info = load_sale_info()
 
-    post_type = decide_post_type(history, products)
-    product = choose_product(history, products) if post_type == PRODUCT_TYPE else None
-    print(f"投稿の種類: {post_type}" + (f" / 商品: {product['商品名']}" if product else ""))
+    theme = choose_theme(history)
+    print(f"今日のテーマ: {theme}")
 
     source = "ai"
     try:
-        text = generate_with_ai(now, post_type, product, sale_info, history)
+        body = generate_with_ai(now, theme, sale_info, history, footer)
     except Exception as e:
         print(f"AI生成に失敗したため posts.txt から投稿します: {e}", file=sys.stderr)
         source = "fallback"
-        post_type = "予備投稿"
-        product = None
-        text = fallback_from_posts_txt(history)
+        theme = "予備投稿"
+        body = fallback_from_posts_txt(history)
 
-    image_path = choose_image(post_type, product, history)
+    text = body
+    if footer and x_weighted_len(body + "\n" + footer) <= MAX_WEIGHTED_LEN:
+        text = body + "\n" + footer
+
+    image_path = choose_image(history)
     print("---- 投稿文 ----")
     print(text)
     print("---- 画像 ----")
@@ -268,8 +252,7 @@ def main() -> None:
     history["posts"].append(
         {
             "date": now.strftime("%Y-%m-%d"),
-            "type": post_type,
-            "product": product["商品名"] if product else None,
+            "theme": theme,
             "image": str(image_path.relative_to(ROOT)) if image_path else None,
             "text": text,
             "source": source,
