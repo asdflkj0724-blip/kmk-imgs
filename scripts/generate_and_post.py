@@ -30,6 +30,7 @@ THEMES = [
     "親の心の持ち方",
 ]
 GUIDE_CATEGORY = "学校別対策ガイド"
+BRAND_TAG = "#輝く未来教育"  # 全投稿に必須のハッシュタグ
 IMAGE_FOLDERS = ["ブランド", "学校別対策ガイド"]
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Xの上限は280(全角=2、URL=23換算)。安全のため少し余裕を持たせる
@@ -166,6 +167,8 @@ def generate_with_ai(now, theme, sale_info, history, footer: str) -> str:
             raise RuntimeError("AIが投稿文の生成を拒否しました")
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         text = text.strip('"「」\'')
+        if text and BRAND_TAG not in text:
+            text += f" {BRAND_TAG}"
         if text and x_weighted_len(text) + footer_len <= MAX_WEIGHTED_LEN:
             return text
         messages.append({"role": "assistant", "content": text})
@@ -232,6 +235,9 @@ def main() -> None:
         source = "fallback"
         theme = "予備投稿"
         body = fallback_from_posts_txt(history)
+
+    if BRAND_TAG not in body and x_weighted_len(f"{body} {BRAND_TAG}") <= MAX_WEIGHTED_LEN:
+        body += f" {BRAND_TAG}"
 
     text = body
     if footer and x_weighted_len(body + "\n" + footer) <= MAX_WEIGHTED_LEN:
