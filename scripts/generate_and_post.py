@@ -135,7 +135,10 @@ def choose_theme(history: dict) -> str:
 
 
 def choose_image(history: dict):
-    """ブランド画像と学校別ガイド画像から、最近使っていないものを選ぶ"""
+    """ブランド画像と学校別ガイド画像から選ぶ。
+    直近10回で使った画像は候補から除外し、それ以外からランダムに選ぶ。
+    候補が尽きた場合でも、直前の投稿と同じ画像だけは絶対に使わない。
+    """
     candidates = []
     for name in IMAGE_FOLDERS:
         folder = ROOT / "images" / name
@@ -143,9 +146,14 @@ def choose_image(history: dict):
             candidates += [p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS]
     if not candidates:
         return None
-    recent_images = {p.get("image") for p in history["posts"][-14:]}
+    recent_images = {p.get("image") for p in history["posts"][-10:]}
     fresh = [p for p in candidates if str(p.relative_to(ROOT)) not in recent_images]
-    return random.choice(fresh or candidates)
+    if not fresh:
+        last_image = next(
+            (p.get("image") for p in reversed(history["posts"]) if p.get("image")), None
+        )
+        fresh = [p for p in candidates if str(p.relative_to(ROOT)) != last_image] or candidates
+    return random.choice(fresh)
 
 
 def build_user_prompt(now, theme, sale_info, history) -> str:
