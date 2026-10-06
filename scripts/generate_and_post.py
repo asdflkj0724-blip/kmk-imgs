@@ -30,6 +30,8 @@ THEMES = [
     "親の心の持ち方",
 ]
 GUIDE_CATEGORY = "学校別対策ガイド"
+BRAND_TAG = "#輝く未来教育"  # 全投稿に必須のハッシュタグ
+KOTOBA_THEME = "心に響く言葉"  # 3日に1回程度の特別投稿
 IMAGE_FOLDERS = ["ブランド", "学校別対策ガイド"]
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Xの上限は280(全角=2、URL=23換算)。安全のため少し余裕を持たせる
@@ -85,7 +87,7 @@ def load_guide_product() -> dict:
 def guide_footer(guide: dict) -> str:
     if not guide:
         return ""
-    return f"学校別対策ガイドはこちら → {guide['URL']}"
+    return f"学校別の出題傾向・対策はこちら → {guide['URL']}"
 
 
 def load_sale_info() -> str:
@@ -109,15 +111,34 @@ def season_label(now: datetime) -> str:
     }[now.month]
 
 
+def is_kotoba_day(history: dict) -> bool:
+    """「心に響く言葉」を3日に1回程度はさむ(2日空いたら50%、3日空いたら必ず)"""
+    streak = 0
+    for post in reversed(history["posts"]):
+        if post.get("theme") == KOTOBA_THEME:
+            break
+        streak += 1
+    if streak >= 3:
+        return True
+    if streak == 2:
+        return random.random() < 0.5
+    return False
+
+
 def choose_theme(history: dict) -> str:
     """直近で使っていないテーマを選ぶ(毎日テーマが変わるように)"""
+    if is_kotoba_day(history):
+        return KOTOBA_THEME
     recent = {p.get("theme") for p in history["posts"][-6:]}
     candidates = [t for t in THEMES if t not in recent] or THEMES
     return random.choice(candidates)
 
 
 def choose_image(history: dict):
-    """ブランド画像と学校別ガイド画像から、最近使っていないものを選ぶ"""
+    """ブランド画像と学校別ガイド画像から選ぶ。
+    直近10回で使った画像は候補から除外し、それ以外からランダムに選ぶ。
+    候補が尽きた場合でも、直前の投稿と同じ画像だけは絶対に使わない。
+    """
     candidates = []
     for name in IMAGE_FOLDERS:
         folder = ROOT / "images" / name
@@ -125,16 +146,24 @@ def choose_image(history: dict):
             candidates += [p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS]
     if not candidates:
         return None
-    recent_images = {p.get("image") for p in history["posts"][-14:]}
+    recent_images = {p.get("image") for p in history["posts"][-10:]}
     fresh = [p for p in candidates if str(p.relative_to(ROOT)) not in recent_images]
-    return random.choice(fresh or candidates)
+    if not fresh:
+        last_image = next(
+            (p.get("image") for p in reversed(history["posts"]) if p.get("image")), None
+        )
+        fresh = [p for p in candidates if str(p.relative_to(ROOT)) != last_image] or candidates
+    return random.choice(fresh)
 
 
 def build_user_prompt(now, theme, sale_info, history) -> str:
     lines = [
         f"今日は {now.strftime('%Y年%m月%d日')}(季節: {season_label(now)})の朝7時の投稿です。",
-        f"今回のテーマ: {theme}",
     ]
+    if theme == KOTOBA_THEME:
+        lines.append("今日は「心に響く言葉」の日です。ルールに従い、①②の代わりにオリジナルの短い言葉を書いてください。")
+    else:
+        lines.append(f"今回のテーマ: {theme}")
     if sale_info:
         lines.append(f"現在のセール情報(ひと言だけ自然に触れてよい): {sale_info}")
     recent = [p["text"] for p in history["posts"][-10:] if p.get("text")]
@@ -166,6 +195,8 @@ def generate_with_ai(now, theme, sale_info, history, footer: str) -> str:
             raise RuntimeError("AIが投稿文の生成を拒否しました")
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         text = text.strip('"「」\'')
+        if text and BRAND_TAG not in text:
+            text += f" {BRAND_TAG}"
         if text and x_weighted_len(text) + footer_len <= MAX_WEIGHTED_LEN:
             return text
         messages.append({"role": "assistant", "content": text})
@@ -232,6 +263,9 @@ def main() -> None:
         source = "fallback"
         theme = "予備投稿"
         body = fallback_from_posts_txt(history)
+
+    if BRAND_TAG not in body and x_weighted_len(f"{body} {BRAND_TAG}") <= MAX_WEIGHTED_LEN:
+        body += f" {BRAND_TAG}"
 
     text = body
     if footer and x_weighted_len(body + "\n" + footer) <= MAX_WEIGHTED_LEN:
