@@ -1,6 +1,6 @@
 # MAMC ブランド専用の自動投稿ワークフロー。
 # 既存の「輝く未来教育」用ワークフロー（x-post.yml）とは完全に別物で、
-# 使う Secrets・商品リスト・画像フォルダ・投稿履歴もすべて分けてあります。
+# 使う Secrets・変数・商品リスト・画像フォルダ・投稿履歴もすべて分けてあります。
 name: MAMC X Auto Post
 
 on:
@@ -17,8 +17,12 @@ on:
         description: 'テスト実行（実際には投稿しない）'
         type: boolean
         default: true
-      product_id:
-        description: '投稿したい商品ID（空欄なら自動で選びます）'
+      brand_post:
+        description: '商品が登録されていてもブランド紹介として投稿する'
+        type: boolean
+        default: false
+      product_name:
+        description: '投稿したい商品名（空欄なら自動で選びます）'
         type: string
         default: ''
 
@@ -36,7 +40,7 @@ jobs:
     timeout-minutes: 15
 
     # ★自動投稿の安全スイッチ★
-    # Xの認証情報の準備ができるまで、毎日の自動実行は動きません。
+    # 準備ができるまで、毎日の自動実行は動きません。
     # 開始するときは Settings > Secrets and variables > Actions > Variables で
     # MAMC_POSTING_ENABLED = true を追加してください。
     # 手動実行（workflow_dispatch）は、この設定がなくてもテストできます。
@@ -54,11 +58,19 @@ jobs:
       - name: 必要なライブラリをインストール
         run: pip install tweepy anthropic requests requests-oauthlib Pillow
 
-      - name: 設定と画像を点検
+      - name: 設定を点検
+        env:
+          MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
+          MAMC_X_API_KEY: ${{ secrets.MAMC_X_API_KEY }}
+          MAMC_X_API_SECRET: ${{ secrets.MAMC_X_API_SECRET }}
+          MAMC_X_ACCESS_TOKEN: ${{ secrets.MAMC_X_ACCESS_TOKEN }}
+          MAMC_X_ACCESS_TOKEN_SECRET: ${{ secrets.MAMC_X_ACCESS_TOKEN_SECRET }}
         run: python scripts/mamc_post_to_x.py --check || true
 
       - name: X（@MAMC_JP）へ投稿
         env:
+          # BUYMAショップURL（リポジトリ変数）。未設定なら投稿せず停止します。
+          MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
           # MAMC専用の認証情報。既存システムの X_API_KEY などとは別の名前です。
           MAMC_X_API_KEY: ${{ secrets.MAMC_X_API_KEY }}
           MAMC_X_API_SECRET: ${{ secrets.MAMC_X_API_SECRET }}
@@ -70,11 +82,13 @@ jobs:
           # 未登録でも、テンプレートで文章が作られるので動きます。
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
-          PRODUCT_ID: ${{ inputs.product_id }}
+          BRAND_POST: ${{ inputs.brand_post }}
+          PRODUCT_NAME: ${{ inputs.product_name }}
         run: |
           ARGS=()
           if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
-          if [ -n "$PRODUCT_ID" ]; then ARGS+=(--product-id "$PRODUCT_ID"); fi
+          if [ "$BRAND_POST" = "true" ]; then ARGS+=(--brand-post); fi
+          if [ -n "$PRODUCT_NAME" ]; then ARGS+=(--product-name "$PRODUCT_NAME"); fi
           python scripts/mamc_post_to_x.py "${ARGS[@]}"
 
       - name: 投稿履歴を保存
