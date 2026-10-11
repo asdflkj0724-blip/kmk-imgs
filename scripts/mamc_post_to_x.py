@@ -66,7 +66,33 @@ CREDENTIAL_ENV = {
 BANNED_WORDS = [
     "最安", "業界No.1", "業界NO.1", "完全", "必ず", "絶対",
     "保証", "激安", "今だけ", "急げ", "買わなきゃ損", "完売間近",
+    # MAMCは韓国ファッション専門店ではないため、これらの表現は使わない
+    "韓国ファッション", "韓国風", "韓国系", "韓国っぽ", "オルチャン", "韓国コーデ",
 ]
+
+# 本文の長さ（URL・ハッシュタグを除いた日本語の文字数。改行は数えない）
+BODY_MIN_CHARS = 40
+BODY_MAX_CHARS = 80
+# 絵文字・記号の個数
+DECO_MIN = 1
+DECO_MAX = 2
+# ハッシュタグは #MAMC + 2〜4個
+EXTRA_TAG_MIN = 2
+EXTRA_TAG_MAX = 4
+# 直近で使った画像を避ける回数
+IMAGE_AVOID_WINDOW = 20
+
+# 日本語以外の文字の検出用（ハングル・キリル・タイ・デーヴァナーガリー）
+FOREIGN_RANGES = [
+    (0x1100, 0x11FF), (0x3130, 0x318F), (0xAC00, 0xD7AF),  # ハングル
+    (0x0400, 0x04FF),                                      # キリル文字
+    (0x0E00, 0x0E7F),                                      # タイ文字
+    (0x0900, 0x097F),                                      # デーヴァナーガリー
+]
+# 日本語では使われない簡体字（中国語混入の目印）
+CHINESE_ONLY_CHARS = "们这么吗哪很没儿吧呢啊谢请爱说对给还会个"
+# 本文に出てよい英字（これ以外の英単語は翻訳調・外国語混入として扱う）
+ALLOWED_LATIN_WORDS = {"MAMC", "BUYMA", "Y2K", "X", "SNS", "OK", "ON", "OFF"}
 
 # 「創作してはいけない情報」の検出用。
 # mamc_products.csv に書かれていないのに文章へ現れたら、その文章は採用しない。
@@ -274,6 +300,8 @@ def pick_image(product: dict, history: dict, rng: random.Random) -> Path | None:
 
     1. mamc_products.csv の「画像ファイル名」に書かれたファイル
     2. mamc_images から、最近使っていない画像を自動で選ぶ
+       （直近 IMAGE_AVOID_WINDOW 回で使った画像を避け、
+         候補が尽きても直前と同じ画像は使わない）
     """
     pool = image_pool()
     if not pool:
@@ -289,7 +317,7 @@ def pick_image(product: dict, history: dict, rng: random.Random) -> Path | None:
 
     used = [e.get("image") for e in history.get("posts", []) if e.get("image")]
     recent = used[::-1]  # 新しい順
-    window = max(0, min(len(pool) - 1, 30))
+    window = max(0, min(len(pool) - 1, IMAGE_AVOID_WINDOW))
     avoid = set(recent[:window])
     candidates = [p for p in pool if p.name not in avoid]
     if not candidates:
@@ -391,93 +419,232 @@ def find_unverifiable_claims(text: str, product: dict) -> list[str]:
 # --------------------------------------------------------------------------
 # 投稿文の生成（1）テンプレート方式：APIキー不要
 # --------------------------------------------------------------------------
-OPENINGS = [
-    "着たい服が決まると、その日の気分も少し変わります。",
-    "手持ちの服と合わせやすいかどうか、つい最初に考えてしまいます。",
-    "ワードローブに一枚足すだけで、いつもの服が新鮮に見えることがあります。",
-    "季節の変わり目は、手持ちの服を見直したくなります。",
-    "甘すぎず、かっこよすぎず。ちょうどいいバランスを探しています。",
-    "気負わず着られる服が、結局いちばん出番が多い気がします。",
-    "鏡の前で迷う時間も、服選びの楽しいところだと思います。",
-    "休日の予定が決まると、着るものから考えたくなります。",
-    "シンプルな服こそ、シルエットや小物で印象が変わります。",
-    "なんとなく気になって、何度も見返してしまう服があります。",
-    "明日のコーディネートを考える時間が、わりと好きです。",
-    "新しい一枚を迎えると、クローゼットの組み合わせが広がります。",
+# 1行目：かわいさ・個性のフック（記号は1つだけ）
+HOOKS = [
+    "かわいいだけじゃ物足りない♡",
+    "人と被らないかわいさって、特別♡",
+    "甘さも個性も、どっちも欲しい♡",
+    "今日の気分は、ちょっと個性的に♡",
+    "いつものコーデに、遊び心をひとさじ♡",
+    "自分らしいかわいさって、つくれるもの♡",
+    "まわりと違う一枚が、気分を上げてくれる♡",
+    "かわいいに、ちょっとクセを足したい日♡",
+    "好きな服を着る日は、それだけで特別♡",
+    "ガーリーも個性も、あきらめたくない♡",
+    "ひとさじの個性で、見違えるかわいさ♡",
+    "「私っぽい」が見つかると、毎日が楽しい♡",
+    "かわいいは、自分で選びたい♡",
+    "ちょっと冒険したい気分の日に♡",
+    "甘めも、クセ強めも、どっちも正解♡",
+    "着た瞬間に気分が上がる服、探してる？♡",
+    "ときめきは、細かいところに宿るもの♡",
+    "みんなと同じは、ちょっと物足りない♡",
 ]
 
-# 商品名があるとき（特徴は mamc_products.csv に書かれたものだけを使う）
-PRODUCT_BRIDGES = [
-    "今日ご紹介するのは、MAMCの「{name}」です。",
-    "MAMCの「{name}」をピックアップしました。",
-    "こちらはMAMCの「{name}」。",
-    "MAMCのラインナップから、「{name}」をご紹介します。",
-    "最近よく見返しているのが、MAMCの「{name}」です。",
+# 最後の行：BUYMAショップへの誘導（記号は1つだけ・♡は1行目で使うので入れない）
+INVITES = [
+    "そんな気分に応えるアイテムを、MAMCで見つけてね✨",
+    "MAMCのショップで、お気に入りを探してみて🛍",
+    "人と被らないかわいさを、MAMCで楽しんで💕",
+    "遊び心のあるアイテムをそろえて待ってます🎀",
+    "自分らしいおしゃれを、MAMCで見つけてね✨",
+    "気になる一枚があるか、ショップをのぞいてみて🛍",
+    "MAMCのラインナップをチェックしてみてね💫",
+    "お気に入りが見つかったら、うれしいです🎀",
+    "今日のおしゃれのヒントを、MAMCで探してみて✨",
+    "ショップにいろいろ並べているので、見てみてね🛍",
+    "「これ好き」に出会えるかも。MAMCをのぞいてみて💕",
+    "そんな一枚を、MAMCでそろえています🎀",
+    "気分が上がるアイテムを、MAMCで探してみて💫",
+    "お気に入りを見つけてね。ショップはこちら🛍",
+    "今日の「好き」を、MAMCで更新してみて✨",
+    "まだ知られていないかわいさ、MAMCで探してみて💕",
+]
+
+# 商品名を入れる行（記号は入れない。特徴はCSVに書かれたものだけ使う）
+PRODUCT_LINES = [
+    "今日のおすすめは「{name}」",
+    "「{name}」、気になってる人いるかな？",
+    "こんな気分の日に「{name}」",
+    "今日のピックアップは「{name}」",
 ]
 PRODUCT_FEATURE_LINES = [
-    "{f1}、というところが気に入っています。",
-    "{f1}。そんなところが好きです。",
-    "ポイントは、{f1}。",
-    "{f1}。それだけでも選ぶ理由になりそうです。",
-    "{f1}。そして、{f2}。",
+    "「{name}」は、{f1}",
+    "「{name}」のいいところは、{f1}",
+    "今日のおすすめは「{name}」。{f1}",
+    "気になる一枚は「{name}」。{f1}",
 ]
 
-# 商品名が無いとき（ブランド紹介。事実は一切創作しない）
-BRAND_BRIDGES = [
-    "写真はMAMCのアイテムです。",
-    "こちらはMAMCのラインナップから1点。",
-    "MAMCのアイテムを1点ご紹介します。",
-    "今日の一枚は、MAMCから。",
-    "MAMCのコレクションから選びました。",
+# --------------------------------------------------------------------------
+# ハッシュタグ
+# --------------------------------------------------------------------------
+# どの商品・画像にも使えるタグ（自動で選ぶのはここだけ）
+BRAND_TAGS = [
+    "#個性派ファッション",
+    "#ガーリーファッション",
+    "#大人ガーリー",
+    "#レディースファッション",
+    "#トレンドコーデ",
+    "#おしゃれ好き",
+    "#自分らしいファッション",
+    "#ファッション好き",
+    "#海外ガール",
 ]
-# 締めの一文でショップに触れるため、ここではショップの話を繰り返さない
-BRAND_FOLLOWUPS = [
-    "こういう雰囲気が好きな方に届いたらうれしいです。",
-    "コーディネートを想像しながら見てみてください。",
-    "どんな服と合わせようか、考えるのも楽しいです。",
-    "気になる雰囲気があればうれしいです。",
+# 商品・画像に合うときだけ使うタグ。
+# プログラムは画像の中身を判断できないため、自動では付けません。
+# 使いたいときは mamc_products.csv の「ハッシュタグ」欄に書いてください。
+ITEM_TAGS = [
+    "#Y2K", "#Y2Kファッション", "#甘めコーデ", "#ストリートガーリー", "#カジュアルコーデ",
 ]
-
-CLOSINGS = [
-    "気になる方は、ショップをのぞいてみてください。",
-    "詳しくはショップページからご覧ください。",
-    "よかったら、ショップもチェックしてみてください。",
-    "サイズや詳細はショップでご確認いただけます。",
-    "お気に入りが見つかればうれしいです。",
-    "よければ、ゆっくり見ていってください。",
-    "気が向いたときにのぞいてみてください。",
-]
+# 季節のタグ（投稿する月で決まる）
+SEASON_TAGS = {
+    3: "#春コーデ", 4: "#春コーデ", 5: "#春コーデ",
+    6: "#夏コーデ", 7: "#夏コーデ", 8: "#夏コーデ",
+    9: "#秋コーデ", 10: "#秋コーデ", 11: "#秋コーデ",
+    12: "#冬コーデ", 1: "#冬コーデ", 2: "#冬コーデ",
+}
 
 
+def build_hashtags(product: dict, history: dict, rng: random.Random,
+                   month: int) -> list[str]:
+    """#MAMC + 2〜4個のハッシュタグを選ぶ。毎回同じ組み合わせにならないようにする。"""
+    posts = history.get("posts", [])
+    last_set = set(posts[-1].get("tags", [])) if posts else set()
+
+    # CSVで指定されたタグは尊重する（ここ経由で #Y2K などの商品依存タグも使える）
+    specified = [t for t in product.get("hashtags", []) if t != "#MAMC"]
+
+    # 使用回数の少ないブランドタグを優先する
+    used: dict[str, int] = {}
+    for entry in posts:
+        for tag in entry.get("tags", []):
+            used[tag] = used.get(tag, 0) + 1
+
+    tags = ["#MAMC"]
+    for _ in range(20):
+        target = rng.randint(EXTRA_TAG_MIN, EXTRA_TAG_MAX)
+        chosen = list(specified[:target])
+
+        season = SEASON_TAGS.get(month)
+        if season and season not in chosen and len(chosen) < target and rng.random() < 0.5:
+            chosen.append(season)
+
+        pool = [t for t in BRAND_TAGS if t not in chosen]
+        rng.shuffle(pool)
+        pool.sort(key=lambda t: used.get(t, 0))
+        for tag in pool:
+            if len(chosen) >= target:
+                break
+            chosen.append(tag)
+
+        tags = ["#MAMC"] + chosen[:EXTRA_TAG_MAX]
+        if set(tags) != last_set:
+            break
+    return tags
+
+
+# --------------------------------------------------------------------------
+# 本文の検査（外国語の混入・長さ・絵文字の数・事実の創作）
+# --------------------------------------------------------------------------
+DECO_RE = re.compile(
+    "[\u2600-\u27bf\u2b00-\u2bff\u2764\u2661\u2665\u203c\u2049"
+    "\U0001f000-\U0001faff]"
+)
+LATIN_WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9'&.\-]*")
+
+
+def count_decorations(text: str) -> int:
+    """絵文字・装飾記号の個数。"""
+    return len(DECO_RE.findall(text))
+
+
+def body_char_len(text: str) -> int:
+    """本文の文字数（改行・空白は数えない）。"""
+    return len(re.sub(r"\s", "", text))
+
+
+def find_foreign_text(text: str, product: dict) -> list[str]:
+    """日本語以外の文字・外国語の混入を探す（商品名に含まれるものは許可）。"""
+    source = allowed_source_text(product)
+    hits: list[str] = []
+
+    for ch in text:
+        if ch in source:
+            continue
+        cp = ord(ch)
+        if any(lo <= cp <= hi for lo, hi in FOREIGN_RANGES):
+            hits.append(ch)
+        elif ch in CHINESE_ONLY_CHARS:
+            hits.append(ch)
+
+    for word in LATIN_WORD_RE.findall(text):
+        if word.upper() in ALLOWED_LATIN_WORDS:
+            continue
+        if word.lower() in source:
+            continue
+        hits.append(word)
+
+    return sorted(set(hits))
+
+
+def check_body(text: str, product: dict) -> list[str]:
+    """本文が投稿してよい形かを調べ、問題の一覧を返す（空なら問題なし）。"""
+    problems: list[str] = []
+    source = allowed_source_text(product)
+
+    foreign = find_foreign_text(text, product)
+    if foreign:
+        problems.append(f"日本語以外の文字・外国語が混ざっています: {foreign}")
+
+    invented = find_unverifiable_claims(text, product)
+    if invented:
+        problems.append(f"登録されていない情報が含まれています: {invented}")
+
+    banned = [w for w in BANNED_WORDS if w in text and w.lower() not in source]
+    if banned:
+        problems.append(f"使ってはいけない表現が含まれています: {banned}")
+
+    length = body_char_len(text)
+    if not BODY_MIN_CHARS <= length <= BODY_MAX_CHARS:
+        problems.append(f"本文の長さが範囲外です（{length}文字 / "
+                        f"{BODY_MIN_CHARS}〜{BODY_MAX_CHARS}文字）")
+
+    deco = count_decorations(text)
+    if not DECO_MIN <= deco <= DECO_MAX:
+        problems.append(f"絵文字の数が範囲外です（{deco}個 / {DECO_MIN}〜{DECO_MAX}個）")
+
+    if text.count("\n") > 2:
+        problems.append("改行が多すぎます（2回まで）")
+
+    return problems
+
+
+# --------------------------------------------------------------------------
+# 投稿文の生成（1）テンプレート方式：APIキー不要
+# --------------------------------------------------------------------------
 def generate_text_template(product: dict, rng: random.Random) -> tuple[str, str]:
-    """テンプレートを組み合わせて投稿文の本文をつくる。事実の創作はしない。"""
-    opening = rng.choice(OPENINGS)
-    closing = rng.choice(CLOSINGS)
+    """ブランドの雰囲気に合わせた本文を組み立てる。事実の創作はしない。"""
+    hook = rng.choice(HOOKS)
+    invite = rng.choice(INVITES)
 
-    if product.get("name"):
-        bridge_tpl = rng.choice(PRODUCT_BRIDGES)
-        middle = bridge_tpl.format(name=product["name"])
-        features = list(product["features"])
-        rng.shuffle(features)
-        if features:
-            usable = [t for t in PRODUCT_FEATURE_LINES
-                      if "{f2}" not in t or len(features) >= 2]
-            feature_tpl = rng.choice(usable)
-            middle += "\n" + feature_tpl.format(
-                f1=features[0],
-                f2=features[1] if len(features) > 1 else features[0],
-            )
-        else:
-            feature_tpl = "-"
+    if not product.get("name"):
+        return f"{hook}\n{invite}", f"b{HOOKS.index(hook)}|{INVITES.index(invite)}"
+
+    features = [f.rstrip("。、.,") for f in product.get("features", [])]
+    rng.shuffle(features)
+    if features:
+        tpl = rng.choice(PRODUCT_FEATURE_LINES)
+        middle = tpl.format(name=product["name"], f1=features[0])
     else:
-        bridge_tpl = rng.choice(BRAND_BRIDGES)
-        feature_tpl = rng.choice(BRAND_FOLLOWUPS)
-        middle = bridge_tpl + "\n" + feature_tpl
+        tpl = rng.choice(PRODUCT_LINES)
+        middle = tpl.format(name=product["name"])
 
-    body = f"{opening}\n{middle}\n{closing}"
-    combo = (f"{OPENINGS.index(opening)}|{bridge_tpl[:10]}|{feature_tpl[:10]}|"
-             f"{CLOSINGS.index(closing)}")
-    return body, combo
+    # 記号が3つにならないよう、商品行を入れるときは1行目の記号を外す
+    plain_hook = DECO_RE.sub("", hook).rstrip("、。 ")
+    if not plain_hook.endswith(("？", "！", "。", "…")):
+        plain_hook += "。"
+    body = f"{plain_hook}\n{middle}\n{invite}"
+    return body, f"p{HOOKS.index(hook)}|{tpl[:10]}|{INVITES.index(invite)}"
 
 
 # --------------------------------------------------------------------------
@@ -496,12 +663,12 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random,
         return None
 
     angles = [
-        "着ていく場面を思い浮かべながら",
-        "手持ちの服との合わせ方にふれる形で",
-        "今の季節の気分にふれる形で",
-        "服を選ぶときの気持ちの話から入る形で",
-        "クローゼットを見直す話から入る形で",
-        "休日の予定を思い浮かべる形で",
+        "「人と被らないかわいさ」を切り口に",
+        "「甘さと個性の両立」を切り口に",
+        "コーデに遊び心を足す楽しさを切り口に",
+        "自分らしさを選ぶ楽しさを切り口に",
+        "気分が上がる一枚に出会う感覚を切り口に",
+        "いつものコーデをちょっと変える楽しさを切り口に",
     ]
     angle = rng.choice(angles)
 
@@ -512,23 +679,32 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random,
         info += "\n"
     else:
         info = ("商品情報: （登録されていません）\n"
-                "→ 個別の商品にふれず、MAMCというブランドの紹介と"
-                "BUYMAショップへの案内だけを書いてください。\n")
+                "→ 個別の商品にふれず、MAMCというブランドの雰囲気と"
+                "ショップへの誘導だけを書いてください。\n")
 
-    recent = [e.get("text", "") for e in history.get("posts", [])][-3:]
+    recent = [e.get("text", "") for e in history.get("posts", [])][-5:]
     avoid = ""
     if recent:
-        avoid = "\n=== 直近の投稿（書き出し・言い回しを必ず変えてください） ===\n" + \
-                "\n---\n".join(recent) + "\n"
+        avoid = ("\n=== 直近の投稿（書き出し・言い回しを必ず変えてください） ===\n"
+                 + "\n---\n".join(recent) + "\n")
 
     user_prompt = (
         f"以下のルールに従って、X（旧Twitter）に投稿する日本語の本文だけを1つ書いてください。\n\n"
         f"=== ルール ===\n{rules}\n\n"
         f"=== 今回の情報 ===\n{info}{avoid}\n"
-        f"=== 今回の書き方の指定 ===\n{angle}書いてください。\n\n"
-        f"【厳守】上の『今回の情報』に書かれていないことは一切書かないでください。"
-        f"素材・価格・サイズ・色・原産国・在庫・送料・割引・機能などを推測で書くのは禁止です。\n"
-        f"本文だけを出力してください。URL・ハッシュタグ・前置き・説明・かぎかっこで囲むのは不要です。"
+        f"=== 今回の切り口 ===\n{angle}書いてください。\n\n"
+        f"【厳守】\n"
+        f"- 必ず自然な日本語だけで書いてください。"
+        f"韓国語・中国語・英単語・翻訳調の言い回しを混ぜないでください。\n"
+        f"- 「韓国ファッション」「韓国風」などの表現は使わないでください"
+        f"（MAMCは韓国ファッション専門店ではありません）。\n"
+        f"- Y2Kは全商品の特徴ではないので、本文では触れないでください。\n"
+        f"- 本文は{BODY_MIN_CHARS}〜{BODY_MAX_CHARS}文字。改行は2回まで。\n"
+        f"- 絵文字は{DECO_MIN}〜{DECO_MAX}個。\n"
+        f"- 最後の行は、BUYMAのショップを見てもらえるような一言にしてください。\n"
+        f"- 『今回の情報』に書かれていないことは書かないでください。"
+        f"素材・価格・サイズ・色・原産国・在庫・送料・割引・機能は推測で書くの禁止です。\n\n"
+        f"本文だけを出力してください。URL・ハッシュタグ・前置き・説明は付けないでください。"
     )
 
     try:
@@ -537,8 +713,11 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random,
             model="claude-opus-5",
             max_tokens=2000,
             output_config={"effort": "low"},
-            system="あなたはレディースファッションブランド MAMC のSNS運用担当です。"
-                   "20〜30代の女性に向けて、おしゃれで押し売りにならない投稿文を書きます。"
+            system="あなたはレディースファッションのBUYMAショップ MAMC のSNS運用担当です。"
+                   "MAMCは、かわいい・女の子らしい・個性的で人と被らないファッションを"
+                   "楽しみたい女性向けのショップです。"
+                   "20〜30代の女性が思わず見たくなる、かわいくておしゃれな日本語の投稿文を書きます。"
+                   "必ず自然な日本語だけで書き、韓国語・中国語・翻訳調の表現は使いません。"
                    "与えられていない事実（素材・価格・サイズなど）は絶対に書きません。",
             messages=[{"role": "user", "content": user_prompt}],
         )
@@ -555,19 +734,16 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random,
     text = text.strip().strip("「」\"'")
     text = URL_RE.sub("", text)
     text = re.sub(r"#\S+", "", text).strip()
+    text = re.sub(r"\n{2,}", "\n", text)
     if not text:
         return None
 
-    banned = [w for w in BANNED_WORDS if w in text]
-    if banned:
-        print(f"[注意] 使用禁止ワード {banned} が含まれたため、テンプレートに切り替えます。",
+    problems = check_body(text, product)
+    if problems:
+        print("[注意] Claude の文章を採用しませんでした（テンプレートに切り替えます）:",
               file=sys.stderr)
-        return None
-
-    invented = find_unverifiable_claims(text, product)
-    if invented:
-        print(f"[注意] 登録されていない情報 {invented} が含まれたため、"
-              f"テンプレートに切り替えます。", file=sys.stderr)
+        for item in problems:
+            print("  - " + item, file=sys.stderr)
         return None
 
     fingerprints = {body_fingerprint(e.get("text", "")) for e in history.get("posts", [])}
@@ -579,29 +755,53 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random,
 
 def build_body(product: dict, rules: str, rng: random.Random,
                history: dict) -> tuple[str, str]:
-    """本文を作る。Claude が使えればそれを、だめならテンプレートを使う。"""
+    """本文を作る。Claude が使えればそれを、だめならテンプレートを使う。
+
+    どちらの場合も check_body() を通し、外国語の混入・長さ・絵文字の数・
+    事実の創作がないことを確認してから返す。
+    """
     text = generate_text_claude(product, rules, rng, history)
     if text is not None:
         return text, "claude"
 
     posts = history.get("posts", [])
-    last_combo = posts[-1].get("combo") if posts else None
     fingerprints = {body_fingerprint(e.get("text", "")) for e in posts}
-    body, combo = "", ""
-    for _ in range(12):
+    # 直近3回に使った「書き出し」と「締めの一言」は避ける
+    recent_parts: set[str] = set()
+    for entry in posts[-3:]:
+        for part in str(entry.get("combo", "")).split("|"):
+            if part:
+                recent_parts.add(part)
+
+    fallback: tuple[str, str] | None = None
+    for _ in range(60):
         body, combo = generate_text_template(product, rng)
-        if combo != last_combo and body_fingerprint(body) not in fingerprints:
-            break
-    return body, combo
+        if check_body(body, product):
+            continue
+        if fallback is None:
+            fallback = (body, combo)
+        if body_fingerprint(body) in fingerprints:
+            continue
+        if any(part in recent_parts for part in combo.split("|") if part):
+            continue
+        return body, combo
+
+    if fallback is not None:
+        return fallback
+    raise SystemExit(
+        "投稿できる本文を作れませんでした。\n"
+        "mamc_products.csv の商品名や特徴が長すぎる可能性があります。\n"
+        f"（本文は{BODY_MIN_CHARS}〜{BODY_MAX_CHARS}文字に収まる必要があります）"
+    )
 
 
 # --------------------------------------------------------------------------
 # 投稿文の組み立て（BUYMAショップURL + ハッシュタグを必ず付ける）
 # --------------------------------------------------------------------------
-def build_tweet(body: str, product: dict, shop_url: str) -> str:
-    tags = product.get("hashtags") or list(DEFAULT_HASHTAGS)
+def build_tweet(body: str, tags: list[str], shop_url: str) -> str:
+    """本文 + BUYMAショップURL + ハッシュタグ を組み立てる。"""
     if "#MAMC" not in tags:
-        tags = ["#MAMC"] + tags
+        tags = ["#MAMC"] + list(tags)
     tail = f"\n\n{shop_url}\n{' '.join(tags)}"
     body = trim_to_weight(body.strip(), max(TWEET_LIMIT - weighted_len(tail), 0))
     return (body + tail).strip()
@@ -739,6 +939,66 @@ def post_to_x(text: str, image_path: Path | None) -> str:
 
 
 # --------------------------------------------------------------------------
+# 1件分の投稿内容を組み立てる／表示する
+# --------------------------------------------------------------------------
+def compose_post(product: dict, history: dict, rng: random.Random,
+                 shop_url: str, month: int, with_image: bool) -> dict:
+    """本文・ハッシュタグ・画像を決めて、投稿内容を組み立てる。"""
+    body, combo = build_body(product, load_rules(), rng, history)
+
+    problems = check_body(body, product)
+    if problems:
+        raise SystemExit("投稿を中止しました。本文に問題があります:\n  - "
+                         + "\n  - ".join(problems))
+
+    tags = build_hashtags(product, history, rng, month)
+    text = build_tweet(body, tags, shop_url)
+
+    image_path = None
+    if with_image:
+        found = pick_image(product, history, rng)
+        if found:
+            image_path = prepare_image(found)
+        else:
+            print(f"[注意] {IMAGES_DIR.name} に使える画像がありません。文章だけ投稿します。",
+                  file=sys.stderr)
+
+    return {"product": product, "body": body, "combo": combo, "tags": tags,
+            "text": text, "image": image_path, "shop_url": shop_url}
+
+
+def show_post(post: dict, label: str = "") -> None:
+    """投稿内容を項目ごとに表示する（dry-run の確認用）。"""
+    product = post["product"]
+    body = post["body"]
+    print("=" * 68)
+    print(f" 投稿内容{label}")
+    print("=" * 68)
+    print("【本文】")
+    for line in body.splitlines():
+        print("  " + line)
+    print(f"\n【BUYMA URL】\n  {post['shop_url']}")
+    print(f"\n【ハッシュタグ】\n  {' '.join(post['tags'])}（{len(post['tags'])}個）")
+    print(f"\n【画像ファイル名】\n  {post['image'].name if post['image'] else 'なし'}")
+    print(f"\n【文字数】")
+    print(f"  本文        : {body_char_len(body)}文字"
+          f"（目安 {BODY_MIN_CHARS}〜{BODY_MAX_CHARS}文字）")
+    print(f"  X換算(全体) : {weighted_len(post['text'])}/{TWEET_LIMIT}")
+    print(f"  絵文字      : {count_decorations(body)}個"
+          f"（{DECO_MIN}〜{DECO_MAX}個）")
+    print(f"\n【その他】")
+    print(f"  投稿先   : @{EXPECTED_USERNAME}")
+    print(f"  種類     : "
+          f"{'ブランド紹介' if not product.get('name') else '商品: ' + product['name']}")
+    print(f"  生成方法 : {'Claude' if post['combo'] == 'claude' else 'テンプレート'}")
+    checks = check_body(body, product)
+    print(f"  本文の検査 : {'問題なし' if not checks else chr(10).join(checks)}")
+    print("\n--- 実際の投稿テキスト（そのままの形）---")
+    print(post["text"])
+    print("=" * 68)
+
+
+# --------------------------------------------------------------------------
 # メイン
 # --------------------------------------------------------------------------
 def main() -> int:
@@ -752,6 +1012,8 @@ def main() -> int:
     parser.add_argument("--brand-post", action="store_true",
                         help="商品が登録されていてもブランド紹介として投稿する")
     parser.add_argument("--no-image", action="store_true", help="画像なしで投稿する")
+    parser.add_argument("--samples", type=int, metavar="N",
+                        help="投稿せずに N パターンの投稿内容を表示する（確認用）")
     args = parser.parse_args()
 
     if args.verify_auth:
@@ -790,7 +1052,8 @@ def main() -> int:
                 print("  - " + p)
         return 0 if not problems else 1
 
-    shop_url = get_shop_url(allow_placeholder=args.dry_run)
+    shop_url = get_shop_url(
+        allow_placeholder=args.dry_run or args.samples is not None)
 
     if args.brand_post or not products:
         if not products:
@@ -805,54 +1068,54 @@ def main() -> int:
         rng_seed = f"{now.strftime('%Y-%m-%d')}-{len(history['posts'])}-{os.environ.get('GITHUB_RUN_ID', '')}"
         product = pick_product(products, history, random.Random(rng_seed))
 
-    rng = random.Random(
-        f"{now.strftime('%Y-%m-%d')}-{product['id']}-{len(history['posts'])}"
-        f"-{os.environ.get('GITHUB_RUN_ID', '')}"
-    )
-
-    body, combo = build_body(product, load_rules(), rng, history)
-
-    invented = find_unverifiable_claims(body, product)
-    if invented:
-        raise SystemExit(
-            f"投稿を中止しました。登録されていない情報が本文に含まれています: {invented}\n"
-            f"（{PRODUCTS_CSV.name} の『特徴』に書かれていない素材・価格・サイズなどは投稿できません）"
+    def make_rng(salt: str = "") -> random.Random:
+        return random.Random(
+            f"{now.strftime('%Y-%m-%d')}-{product['id']}-{len(history['posts'])}"
+            f"-{os.environ.get('GITHUB_RUN_ID', '')}-{salt}"
         )
 
-    text = build_tweet(body, product, shop_url)
+    # ---- 確認モード：N パターンを表示して終了（投稿しない）----
+    if args.samples is not None:
+        if args.samples < 1:
+            raise SystemExit("--samples は1以上の数を指定してください。")
+        preview_history = {"posts": list(history["posts"])}
+        for i in range(1, args.samples + 1):
+            post = compose_post(product, preview_history, make_rng(f"sample{i}"),
+                                shop_url, now.month, not args.no_image)
+            show_post(post, f"（{i}/{args.samples}）")
+            print()
+            # 次のパターンが重複しないよう、履歴に積んでいく
+            preview_history["posts"].append({
+                "id": product["id"], "name": product.get("name", ""),
+                "combo": post["combo"], "text": post["body"],
+                "image": post["image"].name if post["image"] else None,
+                "tags": post["tags"],
+            })
+            if not args.product_name and not args.brand_post and products:
+                product = pick_product(products, preview_history, make_rng(f"pick{i}"))
+        print(f"[確認モード] {args.samples}パターンを表示しました。"
+              f"実際には投稿していません。")
+        return 0
 
-    image_path = None
-    if not args.no_image:
-        found = pick_image(product, history, rng)
-        if found:
-            image_path = prepare_image(found)
-        else:
-            print(f"[注意] {IMAGES_DIR.name} に使える画像がありません。文章だけ投稿します。",
-                  file=sys.stderr)
-
-    print("--- 投稿する内容 ---")
-    print(text)
-    print("--------------------")
-    print(f"投稿先  : @{EXPECTED_USERNAME}")
-    print(f"種類    : {'ブランド紹介' if not product.get('name') else '商品: ' + product['name']}")
-    print(f"画像    : {image_path.name if image_path else 'なし'}")
-    print(f"文字数  : {weighted_len(text)}/{TWEET_LIMIT}")
-    print(f"生成方法: {'Claude' if combo == 'claude' else 'テンプレート'}")
+    post = compose_post(product, history, make_rng(), shop_url, now.month,
+                        not args.no_image)
+    show_post(post)
 
     if args.dry_run:
         print("[dry-run] 実際には投稿していません。")
         return 0
 
-    tweet_id = post_to_x(text, image_path)
+    tweet_id = post_to_x(post["text"], post["image"])
     print(f"投稿しました: https://x.com/{EXPECTED_USERNAME}/status/{tweet_id}")
 
     history["posts"].append({
         "date": now.isoformat(timespec="seconds"),
         "id": product["id"],
         "name": product.get("name", ""),
-        "combo": combo,
-        "text": body,
-        "image": image_path.name if image_path else None,
+        "combo": post["combo"],
+        "text": post["body"],
+        "image": post["image"].name if post["image"] else None,
+        "tags": post["tags"],
         "tweet_id": tweet_id,
     })
     save_history(history)

@@ -21,6 +21,10 @@ on:
         description: 'X認証情報の確認だけを行う（投稿しない）'
         type: boolean
         default: false
+      samples:
+        description: '投稿せずに投稿内容を何パターン表示するか（確認用。空欄なら通常動作）'
+        type: string
+        default: ''
       brand_post:
         description: '商品が登録されていてもブランド紹介として投稿する'
         type: boolean
@@ -100,15 +104,18 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           BRAND_POST: ${{ inputs.brand_post }}
           PRODUCT_NAME: ${{ inputs.product_name }}
+          SAMPLES: ${{ inputs.samples }}
         run: |
           ARGS=()
+          if [ -n "$SAMPLES" ]; then ARGS+=(--samples "$SAMPLES"); fi
           if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           if [ "$BRAND_POST" = "true" ]; then ARGS+=(--brand-post); fi
           if [ -n "$PRODUCT_NAME" ]; then ARGS+=(--product-name "$PRODUCT_NAME"); fi
           python scripts/mamc_post_to_x.py "${ARGS[@]}"
 
       - name: 投稿履歴を保存
-        if: ${{ inputs.dry_run != true && inputs.verify_auth != true }}
+        # 定期実行（schedule）では inputs が無いため、必ず履歴を保存する
+        if: ${{ github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true && inputs.samples == '') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
