@@ -17,6 +17,10 @@ on:
         description: 'テスト実行（実際には投稿しない）'
         type: boolean
         default: true
+      verify_auth:
+        description: 'X認証情報の確認だけを行う（投稿しない）'
+        type: boolean
+        default: false
       brand_post:
         description: '商品が登録されていてもブランド紹介として投稿する'
         type: boolean
@@ -67,7 +71,19 @@ jobs:
           MAMC_X_ACCESS_TOKEN_SECRET: ${{ secrets.MAMC_X_ACCESS_TOKEN_SECRET }}
         run: python scripts/mamc_post_to_x.py --check || true
 
+      # 認証情報だけを確認するモード。投稿は行いません。
+      - name: X認証情報を確認（投稿しません）
+        if: ${{ inputs.verify_auth == true }}
+        env:
+          MAMC_X_API_KEY: ${{ secrets.MAMC_X_API_KEY }}
+          MAMC_X_API_SECRET: ${{ secrets.MAMC_X_API_SECRET }}
+          MAMC_X_ACCESS_TOKEN: ${{ secrets.MAMC_X_ACCESS_TOKEN }}
+          MAMC_X_ACCESS_TOKEN_SECRET: ${{ secrets.MAMC_X_ACCESS_TOKEN_SECRET }}
+          MAMC_X_USERNAME: MAMC_JP
+        run: python scripts/mamc_post_to_x.py --verify-auth
+
       - name: X（@MAMC_JP）へ投稿
+        if: ${{ inputs.verify_auth != true }}
         env:
           # BUYMAショップURL（リポジトリ変数）。未設定なら投稿せず停止します。
           MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
@@ -92,7 +108,7 @@ jobs:
           python scripts/mamc_post_to_x.py "${ARGS[@]}"
 
       - name: 投稿履歴を保存
-        if: ${{ inputs.dry_run != true }}
+        if: ${{ inputs.dry_run != true && inputs.verify_auth != true }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

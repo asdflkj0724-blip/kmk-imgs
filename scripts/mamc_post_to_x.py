@@ -646,6 +646,38 @@ def verify_account(client) -> None:
     print(f"[情報] 投稿先アカウントを確認しました: @{username}")
 
 
+def verify_auth_only() -> int:
+    """X の認証情報が @MAMC_JP のものか確認するだけ（投稿はしない）。"""
+    creds = get_credentials()
+
+    import tweepy
+
+    client = tweepy.Client(
+        consumer_key=creds["consumer_key"],
+        consumer_secret=creds["consumer_secret"],
+        access_token=creds["access_token"],
+        access_token_secret=creds["access_token_secret"],
+    )
+    try:
+        me = client.get_me(user_auth=True)
+        username = me.data.username
+    except Exception as exc:
+        raise SystemExit(
+            f"X の認証に失敗しました（{exc}）。\n"
+            "MAMC_X_API_KEY / MAMC_X_API_SECRET / MAMC_X_ACCESS_TOKEN /\n"
+            "MAMC_X_ACCESS_TOKEN_SECRET の値を確認してください。"
+        )
+    print(f"認証できました: @{username}")
+    if username.lower() != EXPECTED_USERNAME.lower():
+        raise SystemExit(
+            f"このキーは @{username} のものです。MAMCの投稿先は @{EXPECTED_USERNAME} です。\n"
+            f"@{EXPECTED_USERNAME} の Access Token を登録してください。"
+        )
+    print(f"@{EXPECTED_USERNAME} の認証情報として正しく設定されています。")
+    print("※このコマンドは投稿を行いません。")
+    return 0
+
+
 def upload_media(creds: dict, image_path: Path) -> str:
     import tweepy
 
@@ -714,11 +746,16 @@ def main() -> int:
         description=f"MAMC を X（@{EXPECTED_USERNAME}）へ画像付きで投稿します。")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずに内容だけ表示する")
     parser.add_argument("--check", action="store_true", help="設定の点検だけ行う")
+    parser.add_argument("--verify-auth", action="store_true",
+                        help="X認証情報が @MAMC_JP のものか確認するだけ（投稿しない）")
     parser.add_argument("--product-name", help="投稿する商品名を指定する")
     parser.add_argument("--brand-post", action="store_true",
                         help="商品が登録されていてもブランド紹介として投稿する")
     parser.add_argument("--no-image", action="store_true", help="画像なしで投稿する")
     args = parser.parse_args()
+
+    if args.verify_auth:
+        return verify_auth_only()
 
     now = datetime.now(JST)
     products = load_products()

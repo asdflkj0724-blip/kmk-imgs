@@ -40,6 +40,8 @@ GitHub Actions で動くので、パソコンを開いていなくても投稿�
 | `mamc_products.csv` | 商品リスト。**空のままでもOK**（その場合はブランド紹介投稿になります） |
 | `mamc_prompt.txt` | 投稿文のルール（トーンや長さ）。書き換えると文章が変わります |
 | `scripts/mamc_post_to_x.py` | 文章をつくって投稿するプログラム |
+| `scripts/mamc_get_access_token.py` | @MAMC_JP の Access Token を取得する一時ツール（手元のPCで実行） |
+| `MAMC_AUTH_SETUP.md` | X認証の設定手順（1回だけの作業） |
 | `.github/workflows/mamc-x-post.yml` | 毎日20:00に自動実行する設定 |
 | `mamc_history.json` | 投稿履歴（自動で作られます。触らなくてOK） |
 
@@ -77,11 +79,17 @@ https://www.buyma.com/r/_MAMC-%E3%82%A8%E3%83%A0%E3%82%A8%E3%83%BC%E3%82%A8%E3%8
 |---|---|
 | `MAMC_X_API_KEY` | API Key（Consumer Key） |
 | `MAMC_X_API_SECRET` | API Key Secret（Consumer Secret） |
-| `MAMC_X_ACCESS_TOKEN` | Access Token |
-| `MAMC_X_ACCESS_TOKEN_SECRET` | Access Token Secret |
+| `MAMC_X_ACCESS_TOKEN` | **@MAMC_JP の** Access Token |
+| `MAMC_X_ACCESS_TOKEN_SECRET` | **@MAMC_JP の** Access Token Secret |
 
 > 既存の教育アカウント用の `X_API_KEY` などとは**別の名前**です。上書きしないでください。
-> アプリの権限は **Read and write** にし、権限を変えたあとは Access Token を**作り直して**ください。
+
+**@MAMC_JP の Access Token の取り方は [MAMC_AUTH_SETUP.md](MAMC_AUTH_SETUP.md) に手順をまとめています。**
+Developer Portal の「Generate」ボタンではアプリの持ち主（@kagayakumir）のトークンしか出ないため、
+`scripts/mamc_get_access_token.py` を手元のPCで1回だけ実行して取得します。
+
+> **注意**：Developer Portal で API Key / Access Token の **Regenerate（再生成）は押さないでください**。
+> 既存の「輝く未来教育」の自動投稿が止まります。
 
 **誤投稿防止の仕組み**：投稿の直前に、キーの持ち主が `@MAMC_JP` かどうかを確認します。
 違うアカウント（たとえば教育アカウント）のキーが入っていた場合は、**投稿せずに中止**します。
@@ -147,6 +155,7 @@ GitHubの **Actions** タブ → **MAMC X Auto Post** → **Run workflow**。
 
 - `テスト実行（実際には投稿しない）` は**初期値がオン**です。そのまま実行すると、
   投稿されず、**生成された文章と使われる画像ファイル名**がログに出ます。
+- `X認証情報の確認だけを行う（投稿しない）` … Secrets が @MAMC_JP のものか確認できます
 - `商品が登録されていてもブランド紹介として投稿する` … ブランド紹介文を試したいとき
 - `投稿したい商品名` … 特定の商品で試したいとき
 - テスト実行をオフにすると実際に投稿されます（設定が未完了ならエラーで止まります）。
