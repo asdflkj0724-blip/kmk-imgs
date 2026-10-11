@@ -87,6 +87,8 @@ https://www.buyma.com/r/_MAMC-%E3%82%A8%E3%83%A0%E3%82%A8%E3%83%BC%E3%82%A8%E3%8
 **@MAMC_JP の Access Token の取り方は [MAMC_AUTH_SETUP.md](MAMC_AUTH_SETUP.md) に手順をまとめています。**
 Developer Portal の「Generate」ボタンではアプリの持ち主（@kagayakumir）のトークンしか出ないため、
 `scripts/mamc_get_access_token.py` を手元のPCで1回だけ実行して取得します。
+認可後に表示される `ERR_CONNECTION_REFUSED` の画面のURLを、そのままターミナルに貼り付ける方式です
+（Xアプリの設定変更は不要、ローカルサーバーも起動しません）。
 
 > **注意**：Developer Portal で API Key / Access Token の **Regenerate（再生成）は押さないでください**。
 > 既存の「輝く未来教育」の自動投稿が止まります。
