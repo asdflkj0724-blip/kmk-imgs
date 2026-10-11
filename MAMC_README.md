@@ -1,6 +1,6 @@
 # MAMC X 自動投稿システム
 
-MAMC ブランドの商品を、**毎日20時台（日本時間）に画像付きで X（@MAMC_JP）へ自動投稿**します。
+MAMC ブランドの商品を、**毎日20:00（日本時間）に画像付きで X（@MAMC_JP）へ自動投稿**します。
 GitHub Actions で動くので、パソコンを開いていなくても投稿されます。
 
 > **現在の状態：自動投稿は停止中です。**
@@ -17,7 +17,7 @@ GitHub Actions で動くので、パソコンを開いていなくても投稿�
 | | 輝く未来教育（既存） | MAMC（こちら） |
 |---|---|---|
 | 投稿先 | 既存の教育アカウント | **@MAMC_JP** |
-| 投稿時間 | 毎朝7:17（JST） | **毎日20:13（JST）** |
+| 投稿時間 | 毎朝7:17（JST） | **毎日20:00（JST）** |
 | ワークフロー | `.github/workflows/x-post.yml` | `.github/workflows/mamc-x-post.yml` |
 | スクリプト | `scripts/generate_and_post.py` | `scripts/mamc_post_to_x.py` |
 | 商品リスト | `products.csv` | `mamc_products.csv` |
@@ -38,7 +38,7 @@ GitHub Actions で動くので、パソコンを開いていなくても投稿�
 | `mamc_products.csv` | 商品名・URL・特徴・画像ファイル名の一覧 |
 | `mamc_prompt.txt` | 投稿文のルール（トーンや長さ）。書き換えると文章が変わります |
 | `scripts/mamc_post_to_x.py` | 文章をつくって投稿するプログラム |
-| `.github/workflows/mamc-x-post.yml` | 毎日20時台に自動実行する設定 |
+| `.github/workflows/mamc-x-post.yml` | 毎日20:00に自動実行する設定 |
 | `mamc_history.json` | 投稿履歴（自動で作られます。触らなくてOK） |
 
 ---
@@ -103,7 +103,7 @@ Claude が `mamc_prompt.txt` のルールに沿って毎回文章を書き分け
 |---|---|
 | `MAMC_POSTING_ENABLED` | `true` |
 
-これを追加した翌日から、毎日20時台の自動投稿が始まります。
+これを追加した翌日から、毎日20:00の自動投稿が始まります。
 止めたいときは、この値を `false` にするか変数を削除してください。
 
 ---
@@ -129,7 +129,7 @@ python scripts/mamc_post_to_x.py --dry-run --sample  # サンプル行で試す
 
 ## 6. 動きのしくみ
 
-1. 毎日20時台（日本時間）にGitHub Actionsが起動します
+1. 毎日20:00（日本時間）にGitHub Actionsが起動します
 2. `mamc_products.csv` から、**直近に投稿した商品を避けて**1つ選びます（同じ商品が連続しません）
 3. `mamc_prompt.txt` のルールに沿って、20代向けの自然な文章を毎回少し変えて作ります
 4. `mamc_images/` の画像（最近使ったものは避ける）を付けて投稿し、
@@ -150,4 +150,4 @@ python scripts/mamc_post_to_x.py --dry-run --sample  # サンプル行で試す
 | 「投稿を中止しました。…アカウントは @◯◯ ですが」 | `MAMC_X_...` に @MAMC_JP 以外のキーが入っています |
 | 403 エラーで投稿できない | アプリの権限を Read and write にして Access Token を作り直す |
 | 毎日の自動実行が走らない | `MAMC_POSTING_ENABLED` 変数が `true` になっているか確認 |
-| 20時ちょうどに投稿されない | GitHubの混雑を避けて20:13に設定しています（さらに数分ずれることがあります） |
+| 20時ちょうどに投稿されない | 20:00に設定していますが、GitHub Actionsの仕様で数分〜数十分遅れることがあります（指定より早くは実行されません） |
