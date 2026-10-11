@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""MAMC 商品を毎日 X（旧Twitter）へ画像付きで自動投稿するスクリプト。
+"""MAMC ブランドの商品を、毎日20時（日本時間）に X（@MAMC_JP）へ画像付きで自動投稿する。
+
+既存の「輝く未来教育」システム（scripts/generate_and_post.py / products.csv /
+prompt.txt / history.json / images/ / x-post.yml）には一切触らない。
+MAMC 側は以下のファイルだけを使う:
+
+    mamc_products.csv   商品リスト
+    mamc_prompt.txt     投稿文のルール
+    mamc_images/        商品画像
+    mamc_history.json   投稿履歴
 
 使い方:
-    python scripts/post_to_x.py              # 実際に投稿する
-    python scripts/post_to_x.py --dry-run    # 投稿せず、文章だけ確認する
-    python scripts/post_to_x.py --dry-run --sample   # products.csv のサンプル行で動作確認
-    python scripts/post_to_x.py --check      # 設定ファイルと画像の点検だけ行う
+    python scripts/mamc_post_to_x.py              # 実際に投稿する
+    python scripts/mamc_post_to_x.py --dry-run    # 投稿せず、文章だけ確認する
+    python scripts/mamc_post_to_x.py --dry-run --sample  # サンプル行で動作確認
+    python scripts/mamc_post_to_x.py --check      # 設定ファイルと画像の点検だけ
 
-秘密情報（Xのキーなど）はコードに書かず、すべて環境変数から読み込みます。
+秘密情報（Xのキーなど）はコードに書かず、すべて環境変数から読み込む。
 """
 
 from __future__ import annotations
@@ -25,25 +34,47 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRODUCTS_CSV = ROOT / "products.csv"
-PROMPT_TXT = ROOT / "prompt.txt"
-IMAGES_DIR = ROOT / "images"
-HISTORY_JSON = ROOT / "state" / "history.json"
+PRODUCTS_CSV = ROOT / "mamc_products.csv"
+PROMPT_TXT = ROOT / "mamc_prompt.txt"
+IMAGES_DIR = ROOT / "mamc_images"
+HISTORY_JSON = ROOT / "mamc_history.json"
 
 JST = timezone(timedelta(hours=9))
-TWEET_LIMIT = 280           # X の文字数上限（全角は2文字ぶんとして数えられます）
-URL_WEIGHT = 23             # URL は長さに関係なく 23 文字ぶんで数えられます
+TWEET_LIMIT = 280            # X の文字数上限（全角は2文字ぶんとして数えられる）
+URL_WEIGHT = 23              # URL は長さに関係なく 23 文字ぶん
 MAX_IMAGE_BYTES = 4_500_000  # X の画像上限（5MB）より少し小さめ
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".gif", ".webp")
+
+# 投稿先アカウント。ここと違うアカウントのキーが設定されていたら投稿しない。
+# （「輝く未来教育」のアカウントへ誤投稿するのを防ぐための安全装置）
+EXPECTED_USERNAME = os.environ.get("MAMC_X_USERNAME", "MAMC_JP").lstrip("@")
+
+# X の認証情報は MAMC 専用の名前で読む（既存システムの Secrets とは別にする）
+CREDENTIAL_ENV = {
+    "consumer_key": "MAMC_X_API_KEY",
+    "consumer_secret": "MAMC_X_API_SECRET",
+    "access_token": "MAMC_X_ACCESS_TOKEN",
+    "access_token_secret": "MAMC_X_ACCESS_TOKEN_SECRET",
+}
 
 BANNED_WORDS = [
     "最安", "業界No.1", "業界NO.1", "完全", "必ず", "絶対",
     "保証", "激安", "今だけ", "急げ", "買わなきゃ損",
 ]
 
+# CSV の列名は日本語でも英語でも書けるようにする
+HEADER_ALIASES = {
+    "id": "id", "商品id": "id", "商品コード": "id",
+    "name": "name", "商品名": "name",
+    "url": "url", "商品url": "url", "リンク": "url",
+    "image": "image", "画像ファイル名": "image", "画像": "image",
+    "features": "features", "特徴": "features", "特長": "features",
+    "hashtags": "hashtags", "ハッシュタグ": "hashtags", "タグ": "hashtags",
+}
+
 
 # --------------------------------------------------------------------------
-# 文字数の計算（Xのルールに合わせる）
+# 文字数の計算（X のルールに合わせる）
 # --------------------------------------------------------------------------
 URL_RE = re.compile(r"https?://\S+")
 
@@ -66,7 +97,6 @@ def trim_to_weight(text: str, limit: int) -> str:
     """指定した文字数に収まるように、なるべく文の区切りで切り詰める。"""
     if weighted_len(text) <= limit:
         return text
-    # 文単位で削っていく
     parts = re.split(r"(?<=[。！？\n])", text)
     out = ""
     for part in parts:
@@ -75,7 +105,6 @@ def trim_to_weight(text: str, limit: int) -> str:
         out += part
     if out.strip():
         return out.strip()
-    # それでも入らない場合は1文字ずつ
     out = ""
     for ch in text:
         if weighted_len(out + ch + "…") > limit:
@@ -99,7 +128,7 @@ def _split_features(raw: str) -> list[str]:
 
 
 def _split_hashtags(raw: str) -> list[str]:
-    tags = []
+    tags: list[str] = []
     for tag in re.split(r"[\s,、]+", raw or ""):
         tag = tag.strip()
         if not tag:
@@ -111,23 +140,35 @@ def _split_hashtags(raw: str) -> list[str]:
     return tags
 
 
+def _normalize_row(row: dict) -> dict:
+    out: dict[str, str] = {}
+    for key, value in row.items():
+        if not key:
+            continue
+        canonical = HEADER_ALIASES.get(key.strip().lower())
+        if canonical:
+            out[canonical] = (value or "").strip()
+    return out
+
+
 def load_products(include_samples: bool = False) -> list[dict]:
-    """products.csv を読み込む。「#」で始まる行はコメントとして無視する。"""
+    """mamc_products.csv を読み込む。「#」で始まる行はコメントとして無視する。"""
     if not PRODUCTS_CSV.exists():
-        raise SystemExit("products.csv が見つかりません。")
+        raise SystemExit(f"{PRODUCTS_CSV.name} が見つかりません。")
 
     raw_lines = PRODUCTS_CSV.read_text(encoding="utf-8-sig").splitlines()
     if not raw_lines:
-        raise SystemExit("products.csv が空です。")
+        raise SystemExit(f"{PRODUCTS_CSV.name} が空です。")
 
     header = raw_lines[0]
-    body_lines = []
+    body_lines: list[str] = []
     for line in raw_lines[1:]:
         stripped = line.strip()
         if not stripped:
             continue
         if stripped.startswith("#"):
-            if include_samples and re.match(r"^#\s*[A-Za-z0-9_.-]+\s*,", stripped):
+            # サンプル行（"#商品id,商品名,..." の形）は --sample のときだけ使う
+            if include_samples and re.match(r"^#\s*[^,#\s][^,]*,", stripped):
                 body_lines.append(stripped.lstrip("#").strip())
             continue
         body_lines.append(line)
@@ -135,26 +176,28 @@ def load_products(include_samples: bool = False) -> list[dict]:
     reader = csv.DictReader(io.StringIO("\n".join([header] + body_lines)))
     products: list[dict] = []
     problems: list[str] = []
+    seen_ids: set[str] = set()
 
-    for row_no, row in enumerate(reader, start=2):
-        row = {(k or "").strip(): (v or "").strip() for k, v in row.items() if k}
-        pid = row.get("id", "")
+    for row_no, raw_row in enumerate(reader, start=2):
+        row = _normalize_row(raw_row)
         name = row.get("name", "")
         url = row.get("url", "")
+        pid = row.get("id", "") or name
         if not (pid or name or url):
             continue
-        if not pid:
-            problems.append(f"{row_no}行目: id が空です")
-            continue
         if not name:
-            problems.append(f"{pid}: name（商品名）が空です")
+            problems.append(f"{row_no}行目: 商品名が空です")
             continue
         if not url.startswith(("http://", "https://")):
-            problems.append(f"{pid}: url が http/https で始まっていません")
+            problems.append(f"{name}: URL が http/https で始まっていません")
             continue
         if not include_samples and "example.com" in url:
-            problems.append(f"{pid}: url がサンプルのまま（example.com）です")
+            problems.append(f"{name}: URL がサンプルのまま（example.com）です")
             continue
+        if pid in seen_ids:
+            problems.append(f"{pid}: 商品IDが重複しています")
+            continue
+        seen_ids.add(pid)
         products.append({
             "id": pid,
             "name": name,
@@ -165,7 +208,7 @@ def load_products(include_samples: bool = False) -> list[dict]:
         })
 
     if problems:
-        print("[注意] products.csv で読み飛ばした行があります:", file=sys.stderr)
+        print(f"[注意] {PRODUCTS_CSV.name} で読み飛ばした行があります:", file=sys.stderr)
         for p in problems:
             print("  - " + p, file=sys.stderr)
 
@@ -173,29 +216,49 @@ def load_products(include_samples: bool = False) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
-# 画像の準備
+# 画像の準備（mamc_images フォルダを使う）
 # --------------------------------------------------------------------------
-def resolve_image(product: dict) -> Path | None:
-    """商品に対応する画像ファイルを探す。"""
-    IMAGES_DIR.mkdir(exist_ok=True)
+def image_pool() -> list[Path]:
+    if not IMAGES_DIR.is_dir():
+        return []
+    return sorted(
+        p for p in IMAGES_DIR.iterdir()
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTS
+    )
+
+
+def resolve_image(product: dict, history: dict | None = None,
+                  rng: random.Random | None = None) -> Path | None:
+    """商品に対応する画像を決める。
+
+    1. mamc_products.csv の「画像ファイル名」に書かれたファイル
+    2. 商品ID で始まるファイル名のファイル
+    3. mamc_images の中から、最近使っていない画像を自動で選ぶ
+    """
+    pool = image_pool()
+    if not pool:
+        return None
 
     named = product.get("image", "")
     if named:
         candidate = IMAGES_DIR / named
         if candidate.exists():
             return candidate
-        alt = ROOT / named
-        if alt.exists():
-            return alt
-        print(f"[注意] {product['id']}: 画像 '{named}' が見つかりません。id で探し直します。", file=sys.stderr)
+        print(f"[注意] {product['id']}: 画像 '{named}' が {IMAGES_DIR.name} にありません。"
+              f"自動選択に切り替えます。", file=sys.stderr)
 
-    matches = sorted(
-        p for p in IMAGES_DIR.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTS and p.stem.lower().startswith(product["id"].lower())
-    )
+    prefix = product["id"].lower()
+    matches = [p for p in pool if p.stem.lower().startswith(prefix)]
     if matches:
         return matches[0]
-    return None
+
+    # 自動選択：直近で使った画像は避ける
+    history = history or {"posts": []}
+    recent = [e.get("image") for e in history["posts"] if e.get("image")][::-1]
+    avoid = set(recent[: max(0, min(len(pool) - 1, 20))])
+    candidates = [p for p in pool if p.name not in avoid] or pool
+    rng = rng or random.Random()
+    return rng.choice(candidates)
 
 
 def prepare_image(path: Path) -> Path:
@@ -208,7 +271,7 @@ def prepare_image(path: Path) -> Path:
         print("[注意] 画像が大きいですが Pillow が無いため縮小できません。", file=sys.stderr)
         return path
 
-    out = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / f"resized_{path.stem}.jpg"
+    out = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / f"mamc_resized_{path.stem}.jpg"
     with Image.open(path) as im:
         im = im.convert("RGB")
         im.thumbnail((2048, 2048))
@@ -218,7 +281,7 @@ def prepare_image(path: Path) -> Path:
 
 
 # --------------------------------------------------------------------------
-# 履歴（同じ商品が続かないようにする）
+# 履歴（同じ商品が連続しないようにする）
 # --------------------------------------------------------------------------
 def load_history() -> dict:
     if HISTORY_JSON.exists():
@@ -232,7 +295,6 @@ def load_history() -> dict:
 
 
 def save_history(history: dict) -> None:
-    HISTORY_JSON.parent.mkdir(parents=True, exist_ok=True)
     history["posts"] = history["posts"][-60:]
     HISTORY_JSON.write_text(
         json.dumps(history, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -247,11 +309,9 @@ def pick_product(products: list[dict], history: dict, rng: random.Random) -> dic
 
     candidates = [p for p in products if p["id"] not in avoid]
     if not candidates:
-        # 全部が最近使われている場合は、いちばん古いものを選ぶ
         order = {pid: i for i, pid in enumerate(recent_ids)}
         candidates = sorted(products, key=lambda p: -order.get(p["id"], 10**6))[:1]
 
-    # 投稿回数が少ないものを優先しつつ、その中からランダムに選ぶ
     counts = {p["id"]: 0 for p in products}
     for entry in history["posts"]:
         if entry.get("id") in counts:
@@ -374,7 +434,8 @@ def generate_text_claude(product: dict, rules: str, rng: random.Random) -> str |
             model="claude-opus-5",
             max_tokens=2000,
             output_config={"effort": "low"},
-            system="あなたはアパレル/ライフスタイルブランドのSNS運用担当です。押し売りにならない自然な日本語の投稿文を書きます。",
+            system="あなたはアパレル/ライフスタイルブランド MAMC のSNS運用担当です。"
+                   "押し売りにならない自然な日本語の投稿文を書きます。",
             messages=[{"role": "user", "content": user_prompt}],
         )
         if getattr(response, "stop_reason", None) == "refusal":
@@ -415,25 +476,38 @@ def build_tweet(body: str, product: dict) -> str:
 # X へ投稿
 # --------------------------------------------------------------------------
 def get_credentials() -> dict:
-    keys = {
-        "consumer_key": "X_API_KEY",
-        "consumer_secret": "X_API_SECRET",
-        "access_token": "X_ACCESS_TOKEN",
-        "access_token_secret": "X_ACCESS_TOKEN_SECRET",
-    }
-    creds = {}
-    missing = []
-    for field, env in keys.items():
+    creds: dict[str, str] = {}
+    missing: list[str] = []
+    for field, env in CREDENTIAL_ENV.items():
         value = os.environ.get(env, "").strip()
         if not value:
             missing.append(env)
         creds[field] = value
     if missing:
         raise SystemExit(
-            "Xの認証情報が設定されていません: " + ", ".join(missing) +
+            "MAMC用のXの認証情報が設定されていません: " + ", ".join(missing) +
             "\nGitHub の Settings > Secrets and variables > Actions に登録してください。"
+            "\n（既存の『輝く未来教育』の X_API_KEY などとは別の名前です）"
         )
     return creds
+
+
+def verify_account(client) -> None:
+    """投稿先アカウントが @MAMC_JP かどうか確認する（誤投稿防止）。"""
+    try:
+        me = client.get_me(user_auth=True)
+        username = me.data.username
+    except Exception as exc:
+        print(f"[注意] 投稿先アカウントを確認できませんでした（{exc}）。"
+              f"確認なしで続行します。", file=sys.stderr)
+        return
+    if username.lower() != EXPECTED_USERNAME.lower():
+        raise SystemExit(
+            f"投稿を中止しました。設定されているキーのアカウントは @{username} ですが、"
+            f"MAMCの投稿先は @{EXPECTED_USERNAME} です。\n"
+            f"MAMC_X_* の Secrets が @{EXPECTED_USERNAME} のものか確認してください。"
+        )
+    print(f"[情報] 投稿先アカウントを確認しました: @{username}")
 
 
 def upload_media(creds: dict, image_path: Path) -> str:
@@ -452,6 +526,7 @@ def upload_media(creds: dict, image_path: Path) -> str:
         print(f"[情報] v1.1 での画像アップロードに失敗（{exc}）。v2 で再試行します。", file=sys.stderr)
 
     import mimetypes
+
     import requests
     from requests_oauthlib import OAuth1
 
@@ -471,19 +546,18 @@ def upload_media(creds: dict, image_path: Path) -> str:
     if resp.status_code >= 400:
         raise SystemExit(f"画像のアップロードに失敗しました: {resp.status_code} {resp.text}")
     payload = resp.json()
-    media_id = payload.get("data", {}).get("id") or payload.get("id") or payload.get("media_id_string")
+    media_id = (payload.get("data", {}).get("id")
+                or payload.get("id")
+                or payload.get("media_id_string"))
     if not media_id:
         raise SystemExit(f"画像のアップロード応答から media_id を取得できませんでした: {payload}")
     return str(media_id)
 
 
 def post_to_x(text: str, image_path: Path | None) -> str:
-    import tweepy
+    creds = get_credentials()   # 認証情報の確認を先に行う（分かりやすいエラーにするため）
 
-    creds = get_credentials()
-    media_ids = None
-    if image_path is not None:
-        media_ids = [upload_media(creds, image_path)]
+    import tweepy
 
     client = tweepy.Client(
         consumer_key=creds["consumer_key"],
@@ -491,6 +565,12 @@ def post_to_x(text: str, image_path: Path | None) -> str:
         access_token=creds["access_token"],
         access_token_secret=creds["access_token_secret"],
     )
+    verify_account(client)
+
+    media_ids = None
+    if image_path is not None:
+        media_ids = [upload_media(creds, image_path)]
+
     response = client.create_tweet(text=text, media_ids=media_ids)
     return str(response.data["id"])
 
@@ -499,9 +579,11 @@ def post_to_x(text: str, image_path: Path | None) -> str:
 # メイン
 # --------------------------------------------------------------------------
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MAMC 商品を X へ画像付きで投稿します。")
+    parser = argparse.ArgumentParser(
+        description=f"MAMC 商品を X（@{EXPECTED_USERNAME}）へ画像付きで投稿します。")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずに内容だけ表示する")
-    parser.add_argument("--sample", action="store_true", help="products.csv のサンプル行も対象にする（動作確認用）")
+    parser.add_argument("--sample", action="store_true",
+                        help="mamc_products.csv のサンプル行も対象にする（動作確認用）")
     parser.add_argument("--check", action="store_true", help="設定と画像の点検だけ行う")
     parser.add_argument("--product-id", help="投稿する商品を指定する（指定しなければ自動で選ぶ）")
     parser.add_argument("--no-image", action="store_true", help="画像なしで投稿する")
@@ -509,32 +591,40 @@ def main() -> int:
 
     now = datetime.now(JST)
     products = load_products(include_samples=args.sample)
+    history = load_history()
+    pool = image_pool()
 
     if args.check:
-        print(f"商品数: {len(products)}")
-        ok = True
+        print(f"投稿先アカウント : @{EXPECTED_USERNAME}")
+        print(f"商品リスト       : {PRODUCTS_CSV.name}（{len(products)}件）")
+        print(f"投稿ルール       : {PROMPT_TXT.name}（{'あり' if PROMPT_TXT.exists() else 'なし'}）")
+        print(f"画像フォルダ     : {IMAGES_DIR.name}（{len(pool)}枚）")
+        print(f"投稿履歴         : {HISTORY_JSON.name}（{len(history['posts'])}件）")
+        rng = random.Random(0)
         for p in products:
-            img = resolve_image(p)
-            mark = "OK" if img else "画像なし"
-            if not img:
-                ok = False
-            print(f"  [{mark}] {p['id']} / {p['name']} / 画像: {img.name if img else '-'}")
-        print("画像フォルダ:", IMAGES_DIR)
-        return 0 if (products and ok) else 1
+            img = resolve_image(p, history, rng)
+            print(f"  - {p['id']} / {p['name']} / 画像: {img.name if img else 'なし'}")
+        if not products:
+            print("\n[要対応] 商品が登録されていません。"
+                  f"{PRODUCTS_CSV.name} に商品を追加してください。")
+        if not pool:
+            print(f"\n[要対応] {IMAGES_DIR.name} に画像がありません。")
+        return 0 if (products and pool) else 1
 
     if not products:
         raise SystemExit(
-            "投稿できる商品がありません。products.csv に商品を追加してください。\n"
+            f"投稿できる商品がありません。{PRODUCTS_CSV.name} に商品を追加してください。\n"
             "（サンプル行は「#」が付いているため無視されます。実際の商品は「#」なしで書いてください）"
         )
 
-    history = load_history()
-    rng = random.Random(f"{now.strftime('%Y-%m-%d')}-{len(history['posts'])}-{os.environ.get('GITHUB_RUN_ID', '')}")
+    rng = random.Random(
+        f"{now.strftime('%Y-%m-%d')}-{len(history['posts'])}-{os.environ.get('GITHUB_RUN_ID', '')}"
+    )
 
     if args.product_id:
         matched = [p for p in products if p["id"] == args.product_id]
         if not matched:
-            raise SystemExit(f"id '{args.product_id}' の商品が products.csv にありません。")
+            raise SystemExit(f"商品ID '{args.product_id}' が {PRODUCTS_CSV.name} にありません。")
         product = matched[0]
     else:
         product = pick_product(products, history, rng)
@@ -553,28 +643,32 @@ def main() -> int:
 
     image_path = None
     if not args.no_image:
-        found = resolve_image(product)
+        found = resolve_image(product, history, rng)
         if found:
             image_path = prepare_image(found)
         else:
-            print(f"[注意] {product['id']} の画像が images フォルダに見つかりません。文章だけ投稿します。", file=sys.stderr)
+            print(f"[注意] {IMAGES_DIR.name} に使える画像がありません。文章だけ投稿します。",
+                  file=sys.stderr)
 
     print("--- 投稿する内容 ---")
     print(text)
     print("--------------------")
-    print(f"商品: {product['id']} / 画像: {image_path.name if image_path else 'なし'} / 文字数: {weighted_len(text)}/{TWEET_LIMIT}")
+    print(f"投稿先: @{EXPECTED_USERNAME} / 商品: {product['id']} / "
+          f"画像: {image_path.name if image_path else 'なし'} / "
+          f"文字数: {weighted_len(text)}/{TWEET_LIMIT}")
 
     if args.dry_run:
         print("[dry-run] 実際には投稿していません。")
         return 0
 
     tweet_id = post_to_x(text, image_path)
-    print(f"投稿しました: https://x.com/i/web/status/{tweet_id}")
+    print(f"投稿しました: https://x.com/{EXPECTED_USERNAME}/status/{tweet_id}")
 
     history["posts"].append({
         "date": now.isoformat(timespec="seconds"),
         "id": product["id"],
         "combo": combo,
+        "image": image_path.name if image_path else None,
         "tweet_id": tweet_id,
     })
     save_history(history)

@@ -1,34 +1,46 @@
+# MAMC ブランド専用の自動投稿ワークフロー。
+# 既存の「輝く未来教育」用ワークフロー（x-post.yml）とは完全に別物で、
+# 使う Secrets・商品リスト・画像フォルダ・投稿履歴もすべて分けてあります。
 name: MAMC X Auto Post
 
 on:
   schedule:
-    # 日本時間 毎日20:00（UTC 11:00）
-    # ※GitHubの都合で数分〜数十分ずれることがあります
-    - cron: '0 11 * * *'
+    # 日本時間 毎日20:13（UTC 11:13）。
+    # 毎時0分はGitHubが混雑し遅延・スキップが起きやすいため、
+    # 既存の x-post.yml と同じ考え方で数分ずらしています。
+    - cron: '13 11 * * *'
 
   # 手動テスト用（Actionsタブから実行できます）
   workflow_dispatch:
     inputs:
       dry_run:
-        description: '投稿せずに文章だけ確認する'
+        description: 'テスト実行（実際には投稿しない）'
         type: boolean
         default: true
       product_id:
-        description: '投稿したい商品のid（空欄なら自動で選びます）'
+        description: '投稿したい商品ID（空欄なら自動で選びます）'
         type: string
         default: ''
 
 permissions:
   contents: write
 
+# 既存の x-post.yml（group: x-auto-post）とは別グループ。互いに影響しません。
 concurrency:
-  group: mamc-x-post
+  group: mamc-x-auto-post
   cancel-in-progress: false
 
 jobs:
   post:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # ★自動投稿の安全スイッチ★
+    # Xの認証情報の準備ができるまで、毎日の自動実行は動きません。
+    # 開始するときは Settings > Secrets and variables > Actions > Variables で
+    # MAMC_POSTING_ENABLED = true を追加してください。
+    # 手動実行（workflow_dispatch）は、この設定がなくてもテストできます。
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.MAMC_POSTING_ENABLED == 'true' }}
 
     steps:
       - name: リポジトリを取得
@@ -38,18 +50,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
 
       - name: 必要なライブラリをインストール
-        run: pip install -r requirements.txt
+        run: pip install tweepy anthropic requests requests-oauthlib Pillow
 
-      - name: X へ投稿
+      - name: 設定と画像を点検
+        run: python scripts/mamc_post_to_x.py --check || true
+
+      - name: X（@MAMC_JP）へ投稿
         env:
-          X_API_KEY: ${{ secrets.X_API_KEY }}
-          X_API_SECRET: ${{ secrets.X_API_SECRET }}
-          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          # 任意：登録されていれば、Claude が毎回文章を書き分けます。
+          # MAMC専用の認証情報。既存システムの X_API_KEY などとは別の名前です。
+          MAMC_X_API_KEY: ${{ secrets.MAMC_X_API_KEY }}
+          MAMC_X_API_SECRET: ${{ secrets.MAMC_X_API_SECRET }}
+          MAMC_X_ACCESS_TOKEN: ${{ secrets.MAMC_X_ACCESS_TOKEN }}
+          MAMC_X_ACCESS_TOKEN_SECRET: ${{ secrets.MAMC_X_ACCESS_TOKEN_SECRET }}
+          # 投稿先アカウントの確認用（違うアカウントなら投稿せず中止します）
+          MAMC_X_USERNAME: MAMC_JP
+          # 任意：登録されていれば Claude が毎回文章を書き分けます。
           # 未登録でも、テンプレートで文章が作られるので動きます。
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -58,23 +75,23 @@ jobs:
           ARGS=()
           if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           if [ -n "$PRODUCT_ID" ]; then ARGS+=(--product-id "$PRODUCT_ID"); fi
-          python scripts/post_to_x.py "${ARGS[@]}"
+          python scripts/mamc_post_to_x.py "${ARGS[@]}"
 
       - name: 投稿履歴を保存
         if: ${{ inputs.dry_run != true }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state/history.json
+          git add mamc_history.json
           if git diff --cached --quiet; then
             echo "履歴に変更はありません"
             exit 0
           fi
-          git commit -m "Update MAMC post history"
+          git commit -m "MAMC投稿履歴を更新"
           for i in 1 2 3 4; do
-            if git push; then exit 0; fi
+            if git push origin HEAD; then exit 0; fi
             echo "push に失敗しました。少し待って再試行します..."
             sleep $((2 ** i))
-            git pull --rebase --autostash || true
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
           done
-          git push
+          git push origin HEAD
