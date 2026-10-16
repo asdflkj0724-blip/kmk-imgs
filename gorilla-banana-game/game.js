@@ -19,7 +19,7 @@
   const HIVE_RADIUS = 30; // ハチの巣の当たり判定の半径
   const BEES_PER_HIVE = 2; // ハチの巣にさわったときに出てくるハチの数
   const HIVE_COOLDOWN = 4; // 同じ巣から次のハチが出てくるまでの秒数
-  const BEE_SPEED = GORILLA_SPEED / 2; // ハチはゴリラの半分のスピード
+  const BEE_SPEED = GORILLA_SPEED / 4; // ハチはゴリラの4分の1のスピード
   const BEE_RADIUS = 14;
   const BEE_LIFE = 9; // ハチが追いかけてくる秒数（すぎたら巣に帰る）
   const MARGIN = 40; // フィールドの端からの余白
@@ -285,6 +285,11 @@
   let mushrooms = [];
   let hives = [];
   let bees = [];
+  // 右下のすみにある、めっちゃでっかいハチの巣（10秒ごとにハチが1ぴき出てくる）
+  const BIG_HIVE_SIZE = 2.6; // ふつうの巣の何倍の大きさか
+  const BIG_HIVE_INTERVAL = 10; // ハチが出てくる間かく（秒）
+  const bigHive = { x: W - 100, y: H - 122, timer: BIG_HIVE_INTERVAL, shake: 0 };
+  const BIG_HIVE_RADIUS = HIVE_RADIUS * BIG_HIVE_SIZE;
   let hits = 0; // 毒キノコを食べた回数
   let endReason = 'time'; // 'time' | 'poison'
   let target = null; // マウスでクリックしたバナナ（ゴリラがそこまで歩いていく）
@@ -320,7 +325,9 @@
       const farFromOthers = bananas
         .concat(mushrooms)
         .every((b) => Math.hypot(x - b.x, y - b.y) > BANANA_RADIUS * 2.6);
-      const farFromHives = hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + radius + 30);
+      const farFromHives =
+        hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + radius + 30) &&
+        Math.hypot(x - bigHive.x, y - bigHive.y) > BIG_HIVE_RADIUS + radius + 20;
       if (farFromGorilla && farFromOthers && farFromHives) break;
     }
     return { x, y };
@@ -333,7 +340,8 @@
     const notCrowded = (x, y) =>
       bananas.every((b) => Math.hypot(x - b.x, y - b.y) > 60) &&
       mushrooms.every((m) => Math.hypot(x - m.x, y - m.y) > 70) &&
-      hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + r + 30);
+      hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + r + 30) &&
+      Math.hypot(x - bigHive.x, y - bigHive.y) > BIG_HIVE_RADIUS + r + 20;
     for (let tries = 0; tries < 80; tries++) {
       let x;
       let y;
@@ -380,7 +388,8 @@
         y = rand(MARGIN + HIVE_RADIUS + 10, H - MARGIN - HIVE_RADIUS - 10);
         const farFromStart = Math.hypot(x - W / 2, y - H / 2) > 180;
         const farFromHives = hives.every((h) => Math.hypot(x - h.x, y - h.y) > 220);
-        if (farFromStart && farFromHives) break;
+        const farFromBig = Math.hypot(x - bigHive.x, y - bigHive.y) > BIG_HIVE_RADIUS + HIVE_RADIUS + 60;
+        if (farFromStart && farFromHives && farFromBig) break;
       }
       hives.push({ x, y, cooldown: 0, shake: 0 });
     }
@@ -415,7 +424,31 @@
     });
   }
 
+  // でっかい巣からハチが1ぴき出てくる（このハチはさすまで追いかけてくる）
+  function releaseBigHiveBee() {
+    bigHive.shake = 0.8;
+    bees.push({
+      x: bigHive.x - 20,
+      y: bigHive.y - 30,
+      life: Infinity,
+      leaving: 0,
+      wiggle: rand(0, Math.PI * 2),
+      delay: 0,
+      age: 0,
+      facing: -1,
+    });
+    floatTexts.push({ x: bigHive.x - 40, y: bigHive.y - 90, t: 0, text: 'ブーン！', fill: '#ffd60a', stroke: '#3a2a00' });
+    sfx.buzz();
+  }
+
   function updateBees(dt) {
+    bigHive.shake = Math.max(0, bigHive.shake - dt);
+    bigHive.timer -= dt;
+    if (bigHive.timer <= 0) {
+      bigHive.timer += BIG_HIVE_INTERVAL;
+      releaseBigHiveBee();
+    }
+
     hives.forEach((h) => {
       h.cooldown = Math.max(0, h.cooldown - dt);
       h.shake = Math.max(0, h.shake - dt);
@@ -478,6 +511,8 @@
     bananas = [];
     mushrooms = [];
     bees = [];
+    bigHive.timer = BIG_HIVE_INTERVAL;
+    bigHive.shake = 0;
     hits = 0;
     endReason = 'time';
     gorilla.hurt = 0;
@@ -991,10 +1026,11 @@
     ctx.restore();
   }
 
-  function drawHive(h) {
+  function drawHive(h, size) {
     ctx.save();
     const shake = h.shake > 0 ? Math.sin(h.shake * 50) * 4 : 0;
     ctx.translate(h.x + shake, h.y);
+    if (size) ctx.scale(size, size);
     ctx.rotate(shake * 0.02);
 
     // 影
@@ -1372,7 +1408,8 @@
       drawBanana(ef.x + (mx - ef.x) * p, ef.y + (my - ef.y) * p, ef.angle + p * 3, 1 - p);
     });
 
-    hives.forEach(drawHive);
+    drawHive(bigHive, BIG_HIVE_SIZE);
+    hives.forEach((h) => drawHive(h));
     mushrooms.forEach(drawMushroom);
 
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
@@ -1469,6 +1506,8 @@
     get hasTarget() { return !!target; },
     get hits() { return hits; },
     get gorillaScale() { return gorilla.scale; },
+    get bigHive() { return { x: bigHive.x, y: bigHive.y, timer: bigHive.timer }; },
+    get beeCount() { return bees.length; },
     get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
     get bees() { return bees.filter((b) => b.delay <= 0 && b.leaving === 0).map((b) => ({ x: b.x, y: b.y })); },
     get mushrooms() { return mushrooms.map((m) => ({ x: m.x, y: m.y })); },
