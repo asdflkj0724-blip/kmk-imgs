@@ -62,6 +62,14 @@ body {
   font-weight: bold;
 }
 
+.good {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: #1c6fb8;
+  font-weight: bold;
+}
+
 .time-box.hurry {
   background: #ff5b5b;
   color: #fff;
@@ -159,8 +167,8 @@ body {
 }
 
 .howto {
-  font-size: 18px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.45;
   margin: 0 0 12px;
 }
 

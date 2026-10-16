@@ -21,6 +21,15 @@
   const HIVE_COOLDOWN = 4; // 同じ巣から次のハチが出てくるまでの秒数
   const BEE_SPEED = GORILLA_SPEED / 4; // ハチはゴリラの4分の1のスピード
   const BEE_RADIUS = 14;
+  const ITEM_RADIUS = 26; // にじいろリンゴ・スターの当たり判定の半径
+  const ITEM_LIFE = 8; // リンゴやスターが出ている秒数
+  const APPLE_FIRST = 8; // 最初のにじいろリンゴが出るまでの秒数
+  const APPLE_INTERVAL = 15; // 次のにじいろリンゴが出るまでの秒数
+  const STAR_FIRST = 18; // 最初のスターが出るまでの秒数
+  const STAR_INTERVAL = 18; // 次のスターが出るまでの秒数
+  const FRIEND_TIME = 12; // なかまがいてくれる秒数
+  const FRIEND_SPEED = GORILLA_SPEED * 0.9;
+  const INVINCIBLE_TIME = 20; // スターの無敵タイム（秒）
   const BEE_LIFE = 9; // ハチが追いかけてくる秒数（すぎたら巣に帰る）
   const MARGIN = 40; // フィールドの端からの余白
   const BEST_KEY = 'gorillaBanana.best';
@@ -122,6 +131,20 @@
       // 「ぶよよ〜ん」と下がる音
       tone(520, 0, 0.45, 'sawtooth', 0.12, 140);
       tone(300, 0.05, 0.4, 'square', 0.08, 90);
+    },
+    apple() {
+      if (!soundOn || !ensureAudio()) return;
+      [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, i * 0.06, 0.15, 'triangle', 0.2));
+    },
+    star() {
+      if (!soundOn || !ensureAudio()) return;
+      [784, 988, 1175, 1568, 1175, 1568, 1976].forEach((f, i) => tone(f, i * 0.07, 0.12, 'square', 0.1));
+    },
+    pop() {
+      if (!soundOn || !ensureAudio()) return;
+      // 「ポコッ！」
+      tone(300, 0, 0.08, 'square', 0.15, 900);
+      tone(1200, 0.07, 0.12, 'triangle', 0.2, 1800);
     },
     buzz() {
       if (!soundOn || !ensureAudio()) return;
@@ -285,6 +308,10 @@
   let mushrooms = [];
   let hives = [];
   let bees = [];
+  let specials = []; // にじいろリンゴとスター
+  let appleTimer = APPLE_FIRST;
+  let starTimer = STAR_FIRST;
+  let friend = null; // にじいろリンゴでやってくる、ハチをやっつけてくれるなかま
   // 右下のすみにある、めっちゃでっかいハチの巣（10秒ごとにハチが1ぴき出てくる）
   const BIG_HIVE_SIZE = 2.6; // ふつうの巣の何倍の大きさか
   const BIG_HIVE_INTERVAL = 10; // ハチが出てくる間かく（秒）
@@ -306,6 +333,7 @@
     chomp: 0, // もぐもぐアニメーション（秒）
     hurt: 0, // 毒キノコを食べたときのくらくらアニメーション（秒）
     scale: 1, // 今の大きさ（size に向かってなめらかに変わる）
+    invincible: 0, // スターの無敵タイムののこり（秒）
     size: 1, // 毒キノコで小さくなった大きさ
   };
 
@@ -441,6 +469,171 @@
     sfx.buzz();
   }
 
+  // ハチをやっつける（星がとびちって、ハチはいなくなる）
+  function defeatBee(i) {
+    const b = bees[i];
+    bees.splice(i, 1);
+    floatTexts.push({ x: b.x, y: b.y - 20, t: 0, text: 'やっつけた！', fill: '#7be0ff', stroke: '#14527a' });
+    for (let k = 0; k < 12; k++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(80, 220);
+      particles.push({
+        x: b.x,
+        y: b.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 100,
+        life: rand(0.4, 0.8),
+        rot: rand(0, Math.PI),
+        vr: rand(-8, 8),
+        color: ['#ffe14d', '#7be0ff', '#ffffff', '#ff6fa8'][k % 4],
+        star: true,
+      });
+    }
+    sfx.pop();
+  }
+
+  // ===== にじいろリンゴとスター =====
+  function spawnSpecial(kind) {
+    const { x, y } = freeSpot(ITEM_RADIUS, 70);
+    specials.push({ kind, x, y, life: ITEM_LIFE, appear: 0, phase: rand(0, Math.PI * 2) });
+    floatTexts.push({
+      x,
+      y: y - 40,
+      t: 0,
+      text: kind === 'apple' ? 'にじいろリンゴ！' : 'スター！',
+      fill: '#ffffff',
+      stroke: kind === 'apple' ? '#c0392b' : '#b8860b',
+    });
+  }
+
+  function updateSpecials(dt) {
+    if (!specials.some((it) => it.kind === 'apple')) {
+      appleTimer -= dt;
+      if (appleTimer <= 0) {
+        appleTimer = APPLE_INTERVAL;
+        spawnSpecial('apple');
+      }
+    }
+    if (!specials.some((it) => it.kind === 'star')) {
+      starTimer -= dt;
+      if (starTimer <= 0) {
+        starTimer = STAR_INTERVAL;
+        spawnSpecial('star');
+      }
+    }
+    for (let i = specials.length - 1; i >= 0; i--) {
+      const it = specials[i];
+      it.appear = Math.min(1, it.appear + dt * 3);
+      it.phase += dt * 4;
+      it.life -= dt;
+      if (it.life <= 0) {
+        specials.splice(i, 1);
+        if (it === target) target = null;
+        continue;
+      }
+      if (Math.hypot(it.x - gorilla.x, it.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + ITEM_RADIUS - 4) {
+        specials.splice(i, 1);
+        if (it === target) target = null;
+        sparkle(it.x, it.y, 16);
+        if (it.kind === 'apple') {
+          sfx.apple();
+          callFriend(it.x, it.y);
+        } else {
+          sfx.star();
+          gorilla.invincible = INVINCIBLE_TIME;
+          gorilla.hurt = 0;
+          floatTexts.push({ x: it.x, y: it.y - 24, t: 0, text: 'むてき！', fill: '#ffe600', stroke: '#c0392b' });
+        }
+      }
+    }
+  }
+
+  function sparkle(x, y, n) {
+    const rainbow = ['#ff4d4d', '#ff9f1c', '#ffe14d', '#5ad15a', '#4fc3ff', '#7a5cff', '#ff6fd8'];
+    for (let k = 0; k < n; k++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(80, 240);
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 100,
+        life: rand(0.5, 1),
+        rot: rand(0, Math.PI),
+        vr: rand(-8, 8),
+        color: rainbow[k % rainbow.length],
+        star: true,
+      });
+    }
+  }
+
+  // ===== なかま =====
+  function callFriend(x, y) {
+    if (friend && friend.leaving === 0) {
+      friend.time = FRIEND_TIME; // もういちど取ったら時間がのびる
+    } else {
+      friend = { x, y, facing: 1, walk: 0, moving: false, chomp: 0, hurt: 0, scale: 0.85, time: FRIEND_TIME, leaving: 0 };
+    }
+    floatTexts.push({ x, y: y - 50, t: 0, text: 'なかまが きたよ！', fill: '#ffffff', stroke: '#c0392b' });
+  }
+
+  function updateFriend(dt) {
+    if (!friend) return;
+    const f = friend;
+    f.chomp = Math.max(0, f.chomp - dt);
+    if (f.leaving > 0 || f.time <= 0) {
+      if (f.leaving === 0) {
+        floatTexts.push({ x: f.x, y: f.y - 50, t: 0, text: 'またね！', fill: '#ffffff', stroke: '#c0392b' });
+      }
+      f.leaving += dt * 1.5;
+      f.y -= 40 * dt;
+      if (f.leaving >= 1) friend = null;
+      return;
+    }
+    f.time -= dt;
+
+    // いちばん近いハチをねらう。ハチがいなければゴリラのそばにいる
+    let tx = gorilla.x - 60 * gorilla.facing;
+    let ty = gorilla.y;
+    let chase = null;
+    let best = Infinity;
+    bees.forEach((b) => {
+      if (b.delay > 0 || b.leaving > 0) return;
+      const d = Math.hypot(b.x - f.x, b.y - f.y);
+      if (d < best) {
+        best = d;
+        chase = b;
+      }
+    });
+    if (chase) {
+      tx = chase.x;
+      ty = chase.y;
+    }
+    const dx = tx - f.x;
+    const dy = ty - f.y;
+    const dist = Math.hypot(dx, dy);
+    f.moving = dist > (chase ? 2 : 20);
+    if (f.moving) {
+      const step = Math.min(dist, FRIEND_SPEED * dt);
+      f.x += (dx / dist) * step;
+      f.y += (dy / dist) * step;
+      if (Math.abs(dx) > 3) f.facing = dx > 0 ? 1 : -1;
+      f.walk += dt * 14;
+    }
+    f.x = Math.max(MARGIN, Math.min(W - MARGIN, f.x));
+    f.y = Math.max(MARGIN + 10, Math.min(H - MARGIN, f.y));
+
+    // ハチにタッチしたらやっつける
+    for (let i = bees.length - 1; i >= 0; i--) {
+      const b = bees[i];
+      if (b.delay > 0 || b.leaving > 0) continue;
+      if (Math.hypot(b.x - f.x, b.y - (f.y - 10)) < GORILLA_RADIUS * f.scale + BEE_RADIUS) {
+        defeatBee(i);
+        f.chomp = 0.4; // ばんざい
+      }
+    }
+  }
+
   function updateBees(dt) {
     bigHive.shake = Math.max(0, bigHive.shake - dt);
     bigHive.timer -= dt;
@@ -477,6 +670,11 @@
       b.y += (dy / d) * BEE_SPEED * dt + Math.sin(b.wiggle * 1.3) * 20 * dt;
       if (Math.abs(dx) > 2) b.facing = dx > 0 ? 1 : -1;
 
+      // 無敵のゴリラにぶつかったハチはやっつけられる
+      if (gorilla.invincible > 0 && d < GORILLA_RADIUS * gorilla.scale + BEE_RADIUS) {
+        defeatBee(i);
+        continue;
+      }
       // ゴリラをさした
       if (b.age > 1 && gorilla.hurt <= 0 && d < GORILLA_RADIUS * gorilla.scale + BEE_RADIUS - 4) {
         bees.splice(i, 1);
@@ -511,6 +709,11 @@
     bananas = [];
     mushrooms = [];
     bees = [];
+    specials = [];
+    appleTimer = APPLE_FIRST;
+    starTimer = STAR_FIRST;
+    friend = null;
+    gorilla.invincible = 0;
     bigHive.timer = BIG_HIVE_INTERVAL;
     bigHive.shake = 0;
     hits = 0;
@@ -679,7 +882,7 @@
     const y = ((e.clientY - rect.top) / rect.height) * H;
     let best = null;
     let bestDist = BANANA_RADIUS + 30; // 少しはずれてもバナナを選べるように
-    bananas.concat(mushrooms).forEach((b) => {
+    bananas.concat(mushrooms, specials).forEach((b) => {
       if (b.leaving > 0) return; // 消えかけのキノコは選ばない
       const d = Math.hypot(b.x - x, b.y - y);
       if (d < bestDist) {
@@ -724,6 +927,8 @@
         eatBananas();
         eatMushrooms();
         touchHives();
+        updateSpecials(dt);
+        updateFriend(dt);
         if (state === 'playing') updateBees(dt);
         updateMushrooms(dt);
       }
@@ -738,6 +943,7 @@
 
     gorilla.chomp = Math.max(0, gorilla.chomp - dt);
     gorilla.hurt = Math.max(0, gorilla.hurt - dt);
+    if (state === 'playing') gorilla.invincible = Math.max(0, gorilla.invincible - dt);
     gorilla.scale += (gorilla.size - gorilla.scale) * Math.min(1, dt * 6);
     mushrooms.forEach((m) => {
       m.appear = Math.min(1, m.appear + dt * 4);
@@ -776,13 +982,13 @@
 
     // 矢印キーを押していないときは、クリックしたバナナに向かって歩く
     if (dx === 0 && dy === 0 && target) {
-      if (!bananas.includes(target) && !mushrooms.includes(target)) {
+      if (!bananas.includes(target) && !mushrooms.includes(target) && !specials.includes(target)) {
         target = null;
       } else {
         const tx = target.x - gorilla.x;
         const ty = target.y - gorilla.y;
         const dist = Math.hypot(tx, ty);
-        const step = GORILLA_SPEED * dt;
+        const step = GORILLA_SPEED * (gorilla.invincible > 0 ? 1.3 : 1) * dt;
         if (dist <= step) {
           gorilla.x = target.x;
           gorilla.y = target.y;
@@ -799,8 +1005,9 @@
     gorilla.moving = dx !== 0 || dy !== 0;
     if (gorilla.moving) {
       const len = Math.hypot(dx, dy);
-      gorilla.x += (dx / len) * GORILLA_SPEED * dt;
-      gorilla.y += (dy / len) * GORILLA_SPEED * dt;
+      const speed = GORILLA_SPEED * (gorilla.invincible > 0 ? 1.3 : 1);
+      gorilla.x += (dx / len) * speed * dt;
+      gorilla.y += (dy / len) * speed * dt;
       if (dx !== 0 && !target) gorilla.facing = dx > 0 ? 1 : -1;
       gorilla.walk += dt * 12;
     }
@@ -846,6 +1053,7 @@
 
   // 毒キノコやハチにやられたとき：小さくなって、10回でゲームオーバー
   function hurtGorilla(x, y, text, fill, stroke, colors) {
+    if (gorilla.invincible > 0) return;
     hits += 1;
     gorilla.hurt = 1;
     gorilla.chomp = 0;
@@ -878,6 +1086,14 @@
       if (Math.hypot(m.x - gorilla.x, m.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + MUSHROOM_RADIUS - 2) {
         mushrooms.splice(i, 1);
         if (m === target) target = null;
+        if (gorilla.invincible > 0) {
+          // 無敵のときは毒キノコをはじきとばす
+          floatTexts.push({ x: m.x, y: m.y - 24, t: 0, text: 'へっちゃら！', fill: '#ffe600', stroke: '#c0392b' });
+          sparkle(m.x, m.y, 8);
+          sfx.pop();
+          spawnMushroom();
+          continue;
+        }
         sfx.poison();
         hurtGorilla(m.x, m.y, 'ちいさく なっちゃう…', '#d9a6ff', '#4a1a6b', ['#a64dff', '#7a2fd0', '#c58bff']);
         if (state !== 'playing') return;
@@ -1154,8 +1370,124 @@
     ctx.restore();
   }
 
-  function drawGorilla() {
+  function drawApple(it) {
+    const blink = it.life < 2 ? (Math.sin(it.life * 20) > 0 ? 1 : 0.3) : 1; // 消える前はチカチカ
+    const s = easeOutBack(it.appear) * 1.25;
+    ctx.save();
+    ctx.globalAlpha = blink;
+    ctx.translate(it.x, it.y + Math.sin(it.phase) * 4);
+    ctx.scale(s, s);
+
+    // ひかり
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 36);
+    glow.addColorStop(0, 'rgba(255,255,255,0.9)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // にじいろのリンゴ（色がぐるぐる変わる）
+    const shift = (it.phase * 40) % 360;
+    const grad = ctx.createLinearGradient(-20, -20, 20, 20);
+    for (let k = 0; k <= 6; k++) grad.addColorStop(k / 6, `hsl(${(shift + k * 60) % 360}, 95%, 60%)`);
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.bezierCurveTo(10, -22, 26, -12, 20, 6);
+    ctx.bezierCurveTo(16, 20, 6, 22, 0, 18);
+    ctx.bezierCurveTo(-6, 22, -16, 20, -20, 6);
+    ctx.bezierCurveTo(-26, -12, -10, -22, 0, -12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // つや
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.beginPath();
+    ctx.ellipse(-9, -6, 4, 7, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // じくと葉っぱ
+    ctx.strokeStyle = '#6b4a1e';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.quadraticCurveTo(2, -20, 5, -24);
+    ctx.stroke();
+    ctx.fillStyle = '#3cb043';
+    ctx.beginPath();
+    ctx.ellipse(10, -22, 8, 4, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStarItem(it) {
+    const blink = it.life < 2 ? (Math.sin(it.life * 20) > 0 ? 1 : 0.3) : 1;
+    const s = easeOutBack(it.appear);
+    ctx.save();
+    ctx.globalAlpha = blink;
+    ctx.translate(it.x, it.y + Math.abs(Math.sin(it.phase)) * -8);
+    ctx.scale(s, s);
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 40);
+    glow.addColorStop(0, 'rgba(255,240,120,0.9)');
+    glow.addColorStop(1, 'rgba(255,240,120,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffd60a';
+    drawStar(0, 0, 28, Math.sin(it.phase) * 0.2);
+    ctx.strokeStyle = '#b8860b';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    // かわいい目
+    ctx.fillStyle = '#3a2a00';
+    ctx.beginPath();
+    ctx.ellipse(-6, -2, 2.5, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(6, -2, 2.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 無敵のときのにじいろオーラ
+  function drawInvincibleAura() {
     const g = gorilla;
+    const t = performance.now() / 1000;
+    const ending = g.invincible < 3 && Math.sin(t * 25) < 0; // 終わりかけはチカチカ
+    if (ending) return;
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = `hsla(${(t * 360 + k * 120) % 360}, 95%, 60%, 0.8)`;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, (GORILLA_RADIUS + 14 + k * 7) * g.scale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    if (Math.random() < 0.5) {
+      const a = rand(0, Math.PI * 2);
+      particles.push({
+        x: g.x + Math.cos(a) * 40 * g.scale,
+        y: g.y + Math.sin(a) * 40 * g.scale,
+        vx: 0,
+        vy: -60,
+        life: 0.5,
+        rot: 0,
+        vr: 4,
+        color: `hsl(${(t * 360) % 360}, 95%, 65%)`,
+        star: true,
+      });
+    }
+  }
+
+  // なかま（オレンジ色で赤いハチマキのゴリラ）
+  const FRIEND_LOOK = { fur: '#c7772e', furDark: '#a35f22', skin: '#f0c9a0', skinLight: '#fbe3c8', headband: true };
+
+  function drawGorilla(g = gorilla, look = {}) {
     const bob = g.moving ? Math.sin(g.walk) * 3 : Math.sin(performance.now() / 400) * 1.5;
     const swing = g.moving ? Math.sin(g.walk) * 0.5 : 0;
 
@@ -1174,10 +1506,10 @@
     ctx.translate(0, bob);
     ctx.scale(g.facing, 1);
 
-    const fur = '#4a3b35';
-    const furDark = '#3a2d28';
-    const skin = '#c9a28a';
-    const skinLight = '#e3c4ad';
+    const fur = look.fur || '#4a3b35';
+    const furDark = look.furDark || '#3a2d28';
+    const skin = look.skin || '#c9a28a';
+    const skinLight = look.skinLight || '#e3c4ad';
 
     // 足
     ctx.fillStyle = furDark;
@@ -1240,6 +1572,18 @@
     ctx.moveTo(-8, hy - 24);
     ctx.quadraticCurveTo(0, hy - 36, 6, hy - 25);
     ctx.fill();
+
+    // なかまの赤いハチマキ
+    if (look.headband) {
+      ctx.fillStyle = '#e8262f';
+      ctx.fillRect(-25, hy - 18, 50, 7);
+      ctx.beginPath();
+      ctx.moveTo(-24, hy - 15);
+      ctx.lineTo(-40, hy - 22 + Math.sin(performance.now() / 80) * 3);
+      ctx.lineTo(-38, hy - 10 + Math.sin(performance.now() / 90) * 3);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     // 顔（ハート型っぽく）
     ctx.fillStyle = skinLight;
@@ -1413,7 +1757,15 @@
     mushrooms.forEach(drawMushroom);
 
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
+    specials.forEach((it) => (it.kind === 'apple' ? drawApple(it) : drawStarItem(it)));
+    if (gorilla.invincible > 0 && state === 'playing') drawInvincibleAura();
     drawGorilla();
+    if (friend) {
+      ctx.save();
+      ctx.globalAlpha = 1 - Math.min(1, friend.leaving);
+      drawGorilla(friend, FRIEND_LOOK);
+      ctx.restore();
+    }
 
     bees.forEach(drawBee);
 
@@ -1439,6 +1791,14 @@
       outlinedText(f.text, Math.max(150, Math.min(W - 150, f.x)), f.y, size, f.fill, f.stroke);
     });
     ctx.globalAlpha = 1;
+
+    // 無敵タイム・なかまののこり時間
+    if (state === 'playing') {
+      const labels = [];
+      if (gorilla.invincible > 0) labels.push(`⭐ むてき あと ${Math.ceil(gorilla.invincible)}びょう`);
+      if (friend && friend.leaving === 0) labels.push(`🌈 なかま あと ${Math.ceil(friend.time)}びょう`);
+      labels.forEach((text, i) => outlinedText(text, W / 2, 28 + i * 34, 26, '#ffffff', '#c0392b'));
+    }
 
     // 残り10秒のカウントダウン
     if (state === 'playing' && timeLeft <= 10) {
@@ -1508,6 +1868,11 @@
     get gorillaScale() { return gorilla.scale; },
     get bigHive() { return { x: bigHive.x, y: bigHive.y, timer: bigHive.timer }; },
     get beeCount() { return bees.length; },
+    get specials() { return specials.map((it) => ({ kind: it.kind, x: it.x, y: it.y })); },
+    get friend() { return friend ? { x: friend.x, y: friend.y, time: friend.time } : null; },
+    get invincible() { return gorilla.invincible; },
+    get hitCount() { return hits; },
+    releaseBee() { releaseBigHiveBee(); },
     get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
     get bees() { return bees.filter((b) => b.delay <= 0 && b.leaving === 0).map((b) => ({ x: b.x, y: b.y })); },
     get mushrooms() { return mushrooms.map((m) => ({ x: m.x, y: m.y })); },
