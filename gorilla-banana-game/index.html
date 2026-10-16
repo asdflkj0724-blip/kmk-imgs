@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ゴリラのバナナあつめ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="hud">
+      <div class="hud-box score-box">🍌 <span id="score">0</span> ほん</div>
+      <div class="hud-box time-box">⏰ のこり <span id="time">60</span> びょう</div>
+      <div class="hud-box best-box">👑 さいこう <span id="best">0</span> ほん</div>
+      <button id="soundBtn" class="hud-btn" type="button" aria-pressed="true">🔊 おと オン</button>
+    </header>
+
+    <div id="stage">
+      <canvas id="game" width="800" height="560"></canvas>
+
+      <!-- スタート画面 -->
+      <div id="startScreen" class="overlay">
+        <div class="panel">
+          <h1>🦍 ゴリラの<br>バナナあつめ 🍌</h1>
+          <p class="howto">
+            <span class="keys">⬆️ ⬇️ ⬅️ ➡️</span><br>
+            やじるしキーで ゴリラを うごかそう！<br>
+            60びょうで バナナを いっぱい たべてね！
+          </p>
+          <button id="startBtn" class="big-btn" type="button">▶ スタート！</button>
+          <p class="hint">（スペースキーや エンターキーでも はじまるよ）</p>
+        </div>
+      </div>
+
+      <!-- 終了画面 -->
+      <div id="endScreen" class="overlay hidden">
+        <div class="panel">
+          <h2>おしまい！</h2>
+          <p class="result">バナナを<br><span id="finalScore">0</span> ほん<br>たべたよ！</p>
+          <p id="newRecord" class="new-record hidden">🎉 しんきろく！ 🎉</p>
+          <p id="message" class="message"></p>
+          <button id="retryBtn" class="big-btn" type="button">🔁 もういっかい あそぶ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
