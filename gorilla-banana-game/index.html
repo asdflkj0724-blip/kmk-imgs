@@ -11,6 +11,7 @@
     <header id="hud">
       <div class="hud-box score-box">🍌 <span id="score">0</span> ほん</div>
       <div class="hud-box time-box">⏰ のこり <span id="time">60</span> びょう</div>
+      <div class="hud-box hits-box">🍄 <span id="hits">0</span>/10</div>
       <div class="hud-box best-box">👑 さいこう <span id="best">0</span> ほん</div>
       <button id="soundBtn" class="hud-btn" type="button" aria-pressed="true">🔊 おと オン</button>
     </header>
@@ -26,7 +27,9 @@
             <span class="keys">⬆️ ⬇️ ⬅️ ➡️</span><br>
             やじるしキーで ゴリラを うごかそう！<br>
             バナナを クリックしても あるいていくよ！<br>
-            60びょうで バナナを いっぱい たべてね！
+            60びょうで バナナを いっぱい たべてね！<br>
+            <span class="warn">🍄 あかと しろの どくキノコに ちゅうい！<br>
+            たべると ちいさく なって、10かいで ゲームオーバー！</span>
           </p>
           <button id="startBtn" class="big-btn" type="button">▶ スタート！</button>
           <p class="hint">（やじるしキーや スペースキーを おしても はじまるよ）</p>
@@ -36,7 +39,7 @@
       <!-- 終了画面 -->
       <div id="endScreen" class="overlay hidden">
         <div class="panel">
-          <h2>おしまい！</h2>
+          <h2 id="endTitle">おしまい！</h2>
           <p class="result">バナナを<br><span id="finalScore">0</span> ほん<br>たべたよ！</p>
           <p id="newRecord" class="new-record hidden">🎉 しんきろく！ 🎉</p>
           <p id="message" class="message"></p>

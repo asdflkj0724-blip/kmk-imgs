@@ -27,7 +27,7 @@ body {
 #hud {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
@@ -37,8 +37,9 @@ body {
   background: #fff;
   border: 4px solid #5a3a1a;
   border-radius: 18px;
-  padding: 6px 14px;
-  font-size: 22px;
+  padding: 5px 10px;
+  font-size: 18px;
+  white-space: nowrap;
   font-weight: bold;
   box-shadow: 0 4px 0 #5a3a1a;
 }
@@ -46,6 +47,20 @@ body {
 .score-box { background: #fff36b; }
 .time-box { background: #ffd0e0; }
 .best-box { background: #d6ecff; }
+.hits-box { background: #fff; }
+
+.hits-box.danger {
+  background: #b56cff;
+  color: #fff;
+}
+
+.warn {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: #c0182a;
+  font-weight: bold;
+}
 
 .time-box.hurry {
   background: #ff5b5b;
@@ -60,7 +75,7 @@ body {
 
 .hud-btn {
   font: inherit;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   background: #b9f27a;
   border: 4px solid #5a3a1a;
