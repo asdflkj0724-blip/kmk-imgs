@@ -246,6 +246,7 @@
   let lastCountdown = null;
   let endTimer = 0;
   let bananas = [];
+  let target = null; // マウスでクリックしたバナナ（ゴリラがそこまで歩いていく）
   let effects = []; // 食べたバナナのアニメーション
   let particles = [];
   let floatTexts = [];
@@ -294,6 +295,7 @@
     gorilla.chomp = 0;
     gorilla.walk = 0;
     bananas = [];
+    target = null;
     effects = [];
     particles = [];
     floatTexts = [];
@@ -399,7 +401,10 @@
       e.preventDefault(); // 矢印キーでページがスクロールしないように
       // スタート画面では矢印キーを押すだけでゲームが始まる
       if (state === 'title') startGame();
-      if (state === 'playing') keys[dir] = true;
+      if (state === 'playing') {
+        keys[dir] = true;
+        target = null; // 矢印キーを使ったらクリックの行き先は取り消す
+      }
       return;
     }
     if (e.key === ' ' || e.key === 'Enter') {
@@ -430,9 +435,31 @@
     if (e.target === canvas) {
       e.preventDefault();
       grabFocus();
+      if (state === 'playing') pickBanana(e);
     }
     hasFocus = true;
   });
+
+  // クリックした場所のいちばん近くにあるバナナを行き先にする
+  function pickBanana(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * W;
+    const y = ((e.clientY - rect.top) / rect.height) * H;
+    let best = null;
+    let bestDist = BANANA_RADIUS + 30; // 少しはずれてもバナナを選べるように
+    bananas.forEach((b) => {
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = b;
+      }
+    });
+    if (best) {
+      target = best;
+      best.picked = 0; // 選んだときの「ぽよん」アニメーション用
+      if (soundOn && ensureAudio()) tone(660, 0, 0.08, 'triangle', 0.18);
+    }
+  }
 
   startBtn.addEventListener('click', startGame);
   retryBtn.addEventListener('click', startGame);
@@ -504,15 +531,40 @@
     if (keys.up) dy -= 1;
     if (keys.down) dy += 1;
 
+    // 矢印キーを押していないときは、クリックしたバナナに向かって歩く
+    if (dx === 0 && dy === 0 && target) {
+      if (!bananas.includes(target)) {
+        target = null;
+      } else {
+        const tx = target.x - gorilla.x;
+        const ty = target.y - gorilla.y;
+        const dist = Math.hypot(tx, ty);
+        const step = GORILLA_SPEED * dt;
+        if (dist <= step) {
+          gorilla.x = target.x;
+          gorilla.y = target.y;
+          gorilla.walk += dt * 12;
+          gorilla.moving = false;
+          return clampGorilla();
+        }
+        dx = tx / dist;
+        dy = ty / dist;
+        if (Math.abs(tx) > 4) gorilla.facing = tx > 0 ? 1 : -1;
+      }
+    }
+
     gorilla.moving = dx !== 0 || dy !== 0;
     if (gorilla.moving) {
       const len = Math.hypot(dx, dy);
       gorilla.x += (dx / len) * GORILLA_SPEED * dt;
       gorilla.y += (dy / len) * GORILLA_SPEED * dt;
-      if (dx !== 0) gorilla.facing = dx > 0 ? 1 : -1;
+      if (dx !== 0 && !target) gorilla.facing = dx > 0 ? 1 : -1;
       gorilla.walk += dt * 12;
     }
+    clampGorilla();
+  }
 
+  function clampGorilla() {
     // フィールドの外に出ないように
     gorilla.x = Math.max(MARGIN, Math.min(W - MARGIN, gorilla.x));
     gorilla.y = Math.max(MARGIN + 10, Math.min(H - MARGIN, gorilla.y));
@@ -523,6 +575,7 @@
       const b = bananas[i];
       if (Math.hypot(b.x - gorilla.x, b.y - gorilla.y) < GORILLA_RADIUS + BANANA_RADIUS - 6) {
         bananas.splice(i, 1);
+        if (b === target) target = null;
         score += 1;
         gorilla.chomp = 0.35;
         effects.push({ x: b.x, y: b.y, angle: b.angle, t: 0, dur: 0.25 });
@@ -788,6 +841,26 @@
   function draw() {
     ctx.drawImage(bg, 0, 0);
 
+    // クリックしたバナナの目印（くるくる回る点線の輪）
+    if (target && state === 'playing') {
+      target.picked = Math.min(1, (target.picked || 0) + 1 / 15);
+      const t = performance.now() / 1000;
+      const r = (BANANA_RADIUS + 14) * (0.6 + 0.4 * easeOutBack(target.picked)) + Math.sin(t * 6) * 3;
+      ctx.save();
+      ctx.translate(target.x, target.y);
+      ctx.rotate(t * 2);
+      ctx.setLineDash([10, 8]);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ff6fa8';
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // バナナ（ふわふわ揺れる）
     bananas.forEach((b) => {
       const s = easeOutBack(b.appear);
@@ -887,6 +960,7 @@
     get bananaCount() { return bananas.length; },
     get gorilla() { return { x: gorilla.x, y: gorilla.y }; },
     get bananas() { return bananas.map((b) => ({ x: b.x, y: b.y })); },
+    get hasTarget() { return !!target; },
     setTimeLeft(t) { timeLeft = t; },
   };
 })();
