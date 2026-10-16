@@ -11,7 +11,7 @@
   const GORILLA_SPEED = 260; // ピクセル/秒
   const GORILLA_RADIUS = 38; // 当たり判定の半径
   const BANANA_RADIUS = 32; // 当たり判定の半径
-  const MUSHROOM_COUNT = 1; // 毒キノコの数（バナナ10本に1こ ≒ 10%）
+  const MUSHROOM_COUNT = 5; // 毒キノコの数（いつも5こくらい出ている）
   const MUSHROOM_RADIUS = 24; // 毒キノコの当たり判定の半径
   const MUSHROOM_LIMIT = 10; // 毒キノコを何回食べたらゲームオーバーか
   const SHRINK_PER_HIT = 0.055; // 1回食べるごとに小さくなる割合
@@ -306,8 +306,38 @@
     return { x, y };
   }
 
+  // 毒キノコは当たりやすいように、ゴリラの近くやバナナのすぐそばに出す
+  function mushroomSpot() {
+    const r = MUSHROOM_RADIUS;
+    const inField = (x, y) => x > MARGIN + r && x < W - MARGIN - r && y > MARGIN + r && y < H - MARGIN - r;
+    const notCrowded = (x, y) =>
+      bananas.every((b) => Math.hypot(x - b.x, y - b.y) > 60) &&
+      mushrooms.every((m) => Math.hypot(x - m.x, y - m.y) > 70);
+    for (let tries = 0; tries < 80; tries++) {
+      let x;
+      let y;
+      if (Math.random() < 0.5 || bananas.length === 0) {
+        // ゴリラのまわり（すぐ横には出さない）
+        const a = rand(0, Math.PI * 2);
+        const d = rand(100, 210);
+        x = gorilla.x + Math.cos(a) * d;
+        y = gorilla.y + Math.sin(a) * d;
+      } else {
+        // バナナのすぐそば
+        const b = bananas[Math.floor(Math.random() * bananas.length)];
+        const a = rand(0, Math.PI * 2);
+        const d = rand(62, 80);
+        x = b.x + Math.cos(a) * d;
+        y = b.y + Math.sin(a) * d;
+      }
+      const farEnoughFromGorilla = Math.hypot(x - gorilla.x, y - gorilla.y) > GORILLA_RADIUS + r + 40;
+      if (inField(x, y) && farEnoughFromGorilla && notCrowded(x, y)) return { x, y };
+    }
+    return freeSpot(r, 60);
+  }
+
   function spawnMushroom() {
-    const { x, y } = freeSpot(MUSHROOM_RADIUS, 110);
+    const { x, y } = mushroomSpot();
     mushrooms.push({
       x,
       y,
@@ -499,14 +529,15 @@
     hasFocus = true;
   });
 
-  // クリックした場所のいちばん近くにあるバナナを行き先にする
+  // クリックした場所のいちばん近くにあるバナナ（または毒キノコ）を行き先にする
   function pickBanana(e) {
     const rect = canvas.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * W;
     const y = ((e.clientY - rect.top) / rect.height) * H;
     let best = null;
     let bestDist = BANANA_RADIUS + 30; // 少しはずれてもバナナを選べるように
-    bananas.forEach((b) => {
+    bananas.concat(mushrooms).forEach((b) => {
+      if (b.leaving > 0) return; // 消えかけのキノコは選ばない
       const d = Math.hypot(b.x - x, b.y - y);
       if (d < bestDist) {
         bestDist = d;
@@ -600,7 +631,7 @@
 
     // 矢印キーを押していないときは、クリックしたバナナに向かって歩く
     if (dx === 0 && dy === 0 && target) {
-      if (!bananas.includes(target)) {
+      if (!bananas.includes(target) && !mushrooms.includes(target)) {
         target = null;
       } else {
         const tx = target.x - gorilla.x;
@@ -673,8 +704,9 @@
     for (let i = mushrooms.length - 1; i >= 0; i--) {
       const m = mushrooms[i];
       if (m.leaving > 0.5) continue;
-      if (Math.hypot(m.x - gorilla.x, m.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + MUSHROOM_RADIUS - 8) {
+      if (Math.hypot(m.x - gorilla.x, m.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + MUSHROOM_RADIUS - 2) {
         mushrooms.splice(i, 1);
+        if (m === target) target = null;
         hits += 1;
         gorilla.hurt = 1;
         gorilla.chomp = 0;
