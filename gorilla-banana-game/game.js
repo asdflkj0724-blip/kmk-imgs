@@ -316,7 +316,7 @@
     endScreen.classList.add('hidden');
     keys.up = keys.down = keys.left = keys.right = false;
     sfx.start();
-    canvas.focus && canvas.focus();
+    grabFocus();
   }
 
   function finishGame() {
@@ -361,12 +361,44 @@
     S: 'down',
     A: 'left',
     D: 'right',
+    // 古いブラウザ用の名前
+    Up: 'up',
+    Down: 'down',
+    Left: 'left',
+    Right: 'right',
   };
+  const codeMap = {
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    KeyW: 'up',
+    KeyS: 'down',
+    KeyA: 'left',
+    KeyD: 'right',
+  };
+  function dirOf(e) {
+    return keyMap[e.key] || codeMap[e.code] || null;
+  }
+
+  // ゲーム画面にキー入力が届いているか（別の場所をクリックすると届かなくなる）
+  let hasFocus = document.hasFocus ? document.hasFocus() : true;
+  function grabFocus() {
+    try {
+      window.focus();
+    } catch (err) {
+      // フォーカスできない環境では何もしない
+    }
+    canvas.focus({ preventScroll: true });
+  }
 
   window.addEventListener('keydown', (e) => {
-    const dir = keyMap[e.key];
+    hasFocus = true;
+    const dir = dirOf(e);
     if (dir) {
       e.preventDefault(); // 矢印キーでページがスクロールしないように
+      // スタート画面では矢印キーを押すだけでゲームが始まる
+      if (state === 'title') startGame();
       if (state === 'playing') keys[dir] = true;
       return;
     }
@@ -381,13 +413,25 @@
   });
 
   window.addEventListener('keyup', (e) => {
-    const dir = keyMap[e.key];
+    const dir = dirOf(e);
     if (dir) keys[dir] = false;
   });
 
   // ウィンドウからフォーカスが外れたら止める（キーが押しっぱなしにならないように）
   window.addEventListener('blur', () => {
+    hasFocus = false;
     keys.up = keys.down = keys.left = keys.right = false;
+  });
+  window.addEventListener('focus', () => {
+    hasFocus = true;
+  });
+  // ゲーム画面をクリックしたら、キー入力がゲームに届くようにする
+  document.getElementById('stage').addEventListener('pointerdown', (e) => {
+    if (e.target === canvas) {
+      e.preventDefault();
+      grabFocus();
+    }
+    hasFocus = true;
   });
 
   startBtn.addEventListener('click', startGame);
@@ -401,7 +445,9 @@
       b.phase += dt * 3;
     });
 
-    if (state === 'playing') {
+    if (state === 'playing' && !hasFocus) {
+      // キーが届かない間は時間を止めて「クリックしてね」を出す
+    } else if (state === 'playing') {
       timeLeft -= dt;
 
       // 残り10秒からカウントダウン音
@@ -791,6 +837,13 @@
       ctx.globalAlpha = 1;
     }
 
+    if (state === 'playing' && !hasFocus) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, W, H);
+      outlinedText('ちょっと おやすみ', W / 2, H / 2 - 40, 56, '#ffffff', '#5a3a1a');
+      outlinedText('ゲームの がめんを クリックしてね', W / 2, H / 2 + 40, 36, '#ffe600', '#5a3a1a');
+    }
+
     if (state === 'timeup') {
       const s = Math.min(1, endTimer * 3);
       ctx.fillStyle = `rgba(0,0,0,${0.25 * s})`;
@@ -823,6 +876,7 @@
   resetGame();
   state = 'title';
   updateHud();
+  startBtn.focus({ preventScroll: true });
   requestAnimationFrame(loop);
 
   // テスト・デバッグ用（ゲームには影響しません）
