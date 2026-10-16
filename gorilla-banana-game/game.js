@@ -15,6 +15,13 @@
   const MUSHROOM_RADIUS = 24; // 毒キノコの当たり判定の半径
   const MUSHROOM_LIMIT = 10; // 毒キノコを何回食べたらゲームオーバーか
   const SHRINK_PER_HIT = 0.055; // 1回食べるごとに小さくなる割合
+  const HIVE_COUNT = 3; // ハチの巣の数
+  const HIVE_RADIUS = 30; // ハチの巣の当たり判定の半径
+  const BEES_PER_HIVE = 2; // ハチの巣にさわったときに出てくるハチの数
+  const HIVE_COOLDOWN = 4; // 同じ巣から次のハチが出てくるまでの秒数
+  const BEE_SPEED = GORILLA_SPEED / 2; // ハチはゴリラの半分のスピード
+  const BEE_RADIUS = 14;
+  const BEE_LIFE = 9; // ハチが追いかけてくる秒数（すぎたら巣に帰る）
   const MARGIN = 40; // フィールドの端からの余白
   const BEST_KEY = 'gorillaBanana.best';
   const SOUND_KEY = 'gorillaBanana.sound';
@@ -115,6 +122,16 @@
       // 「ぶよよ〜ん」と下がる音
       tone(520, 0, 0.45, 'sawtooth', 0.12, 140);
       tone(300, 0.05, 0.4, 'square', 0.08, 90);
+    },
+    buzz() {
+      if (!soundOn || !ensureAudio()) return;
+      // 「ブブブブ…」
+      for (let i = 0; i < 6; i++) tone(i % 2 ? 180 : 220, i * 0.07, 0.08, 'sawtooth', 0.09);
+    },
+    sting() {
+      if (!soundOn || !ensureAudio()) return;
+      tone(1800, 0, 0.06, 'square', 0.12, 900);
+      tone(400, 0.06, 0.35, 'sawtooth', 0.1, 120);
     },
     gameover() {
       if (!soundOn || !ensureAudio()) return;
@@ -266,6 +283,8 @@
   let endTimer = 0;
   let bananas = [];
   let mushrooms = [];
+  let hives = [];
+  let bees = [];
   let hits = 0; // 毒キノコを食べた回数
   let endReason = 'time'; // 'time' | 'poison'
   let target = null; // マウスでクリックしたバナナ（ゴリラがそこまで歩いていく）
@@ -301,7 +320,8 @@
       const farFromOthers = bananas
         .concat(mushrooms)
         .every((b) => Math.hypot(x - b.x, y - b.y) > BANANA_RADIUS * 2.6);
-      if (farFromGorilla && farFromOthers) break;
+      const farFromHives = hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + radius + 30);
+      if (farFromGorilla && farFromOthers && farFromHives) break;
     }
     return { x, y };
   }
@@ -312,7 +332,8 @@
     const inField = (x, y) => x > MARGIN + r && x < W - MARGIN - r && y > MARGIN + r && y < H - MARGIN - r;
     const notCrowded = (x, y) =>
       bananas.every((b) => Math.hypot(x - b.x, y - b.y) > 60) &&
-      mushrooms.every((m) => Math.hypot(x - m.x, y - m.y) > 70);
+      mushrooms.every((m) => Math.hypot(x - m.x, y - m.y) > 70) &&
+      hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + r + 30);
     for (let tries = 0; tries < 80; tries++) {
       let x;
       let y;
@@ -348,6 +369,91 @@
     });
   }
 
+  // ハチの巣はスタート位置から少しはなれた場所に、おたがい間をあけて置く
+  function placeHives() {
+    hives = [];
+    for (let n = 0; n < HIVE_COUNT; n++) {
+      let x = 0;
+      let y = 0;
+      for (let tries = 0; tries < 100; tries++) {
+        x = rand(MARGIN + HIVE_RADIUS + 10, W - MARGIN - HIVE_RADIUS - 10);
+        y = rand(MARGIN + HIVE_RADIUS + 10, H - MARGIN - HIVE_RADIUS - 10);
+        const farFromStart = Math.hypot(x - W / 2, y - H / 2) > 180;
+        const farFromHives = hives.every((h) => Math.hypot(x - h.x, y - h.y) > 220);
+        if (farFromStart && farFromHives) break;
+      }
+      hives.push({ x, y, cooldown: 0, shake: 0 });
+    }
+  }
+
+  function releaseBees(h) {
+    h.cooldown = HIVE_COOLDOWN;
+    h.shake = 0.6;
+    for (let i = 0; i < BEES_PER_HIVE; i++) {
+      const a = rand(0, Math.PI * 2);
+      bees.push({
+        x: h.x + Math.cos(a) * 10,
+        y: h.y - 10 + Math.sin(a) * 10,
+        life: BEE_LIFE,
+        leaving: 0, // 0 → 1 で消えていく
+        wiggle: rand(0, Math.PI * 2),
+        delay: i * 0.25, // 少しずつ順番に飛び出す
+        age: 0, // 巣から出てすぐはささない（にげる時間）
+        facing: 1,
+      });
+    }
+    floatTexts.push({ x: h.x, y: h.y - 40, t: 0, text: 'ブーン！', fill: '#ffd60a', stroke: '#3a2a00' });
+    sfx.buzz();
+  }
+
+  function touchHives() {
+    hives.forEach((h) => {
+      if (h.cooldown > 0) return;
+      if (Math.hypot(h.x - gorilla.x, h.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + HIVE_RADIUS - 4) {
+        releaseBees(h);
+      }
+    });
+  }
+
+  function updateBees(dt) {
+    hives.forEach((h) => {
+      h.cooldown = Math.max(0, h.cooldown - dt);
+      h.shake = Math.max(0, h.shake - dt);
+    });
+    for (let i = bees.length - 1; i >= 0; i--) {
+      const b = bees[i];
+      b.wiggle += dt * 8;
+      if (b.delay > 0) {
+        b.delay -= dt;
+        continue;
+      }
+      b.life -= dt;
+      b.age += dt;
+      if (b.life <= 0) {
+        // 時間がたったら上へ飛んでいなくなる
+        b.leaving += dt * 1.5;
+        b.y -= 120 * dt;
+        if (b.leaving >= 1) bees.splice(i, 1);
+        continue;
+      }
+      // ゴリラに向かってまっすぐ（少しふらふら）飛ぶ
+      const dx = gorilla.x - b.x;
+      const dy = gorilla.y - 10 - b.y;
+      const d = Math.hypot(dx, dy) || 1;
+      b.x += (dx / d) * BEE_SPEED * dt + Math.cos(b.wiggle) * 20 * dt;
+      b.y += (dy / d) * BEE_SPEED * dt + Math.sin(b.wiggle * 1.3) * 20 * dt;
+      if (Math.abs(dx) > 2) b.facing = dx > 0 ? 1 : -1;
+
+      // ゴリラをさした
+      if (b.age > 1 && gorilla.hurt <= 0 && d < GORILLA_RADIUS * gorilla.scale + BEE_RADIUS - 4) {
+        bees.splice(i, 1);
+        sfx.sting();
+        hurtGorilla(b.x, b.y, 'いたっ！ ちくっ！', '#ffd60a', '#3a2a00', ['#ffd60a', '#2a2a2a', '#ffffff']);
+        if (state !== 'playing') return;
+      }
+    }
+  }
+
   function spawnBanana() {
     const { x, y } = freeSpot(BANANA_RADIUS, 50);
     bananas.push({
@@ -371,6 +477,7 @@
     gorilla.walk = 0;
     bananas = [];
     mushrooms = [];
+    bees = [];
     hits = 0;
     endReason = 'time';
     gorilla.hurt = 0;
@@ -380,6 +487,7 @@
     effects = [];
     particles = [];
     floatTexts = [];
+    placeHives();
     for (let i = 0; i < BANANA_COUNT; i++) spawnBanana();
     for (let i = 0; i < MUSHROOM_COUNT; i++) spawnMushroom();
     updateHud();
@@ -427,7 +535,7 @@
     newRecordEl.classList.toggle('hidden', !isRecord);
     endTitleEl.textContent = endReason === 'poison' ? 'ゲームオーバー' : 'おしまい！';
     messageEl.textContent =
-      endReason === 'poison' ? 'どくキノコを 10かい たべちゃった… つぎは きをつけてね！' : messageFor(score);
+      endReason === 'poison' ? 'どくキノコや ハチに 10かい やられちゃった… つぎは きをつけてね！' : messageFor(score);
   }
 
   function messageFor(n) {
@@ -580,6 +688,8 @@
         moveGorilla(dt);
         eatBananas();
         eatMushrooms();
+        touchHives();
+        if (state === 'playing') updateBees(dt);
         updateMushrooms(dt);
       }
       updateHud();
@@ -699,6 +809,32 @@
     }
   }
 
+  // 毒キノコやハチにやられたとき：小さくなって、10回でゲームオーバー
+  function hurtGorilla(x, y, text, fill, stroke, colors) {
+    hits += 1;
+    gorilla.hurt = 1;
+    gorilla.chomp = 0;
+    gorilla.size = Math.max(0.4, 1 - hits * SHRINK_PER_HIT);
+    floatTexts.push({ x, y: y - 24, t: 0, text, fill, stroke });
+    for (let k = 0; k < 14; k++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(60, 180);
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 80,
+        life: rand(0.5, 0.9),
+        rot: 0,
+        vr: 0,
+        color: colors[k % colors.length],
+        star: false,
+      });
+    }
+    updateHud();
+    if (hits >= MUSHROOM_LIMIT) finishGame('poison');
+  }
+
   function eatMushrooms() {
     if (gorilla.hurt > 0) return; // くらくらしている間は続けて当たらない
     for (let i = mushrooms.length - 1; i >= 0; i--) {
@@ -707,32 +843,9 @@
       if (Math.hypot(m.x - gorilla.x, m.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + MUSHROOM_RADIUS - 2) {
         mushrooms.splice(i, 1);
         if (m === target) target = null;
-        hits += 1;
-        gorilla.hurt = 1;
-        gorilla.chomp = 0;
-        gorilla.size = Math.max(0.4, 1 - hits * SHRINK_PER_HIT);
-        floatTexts.push({ x: m.x, y: m.y - 24, t: 0, text: 'ちいさく なっちゃう…', fill: '#d9a6ff', stroke: '#4a1a6b' });
-        for (let k = 0; k < 14; k++) {
-          const a = rand(0, Math.PI * 2);
-          const sp = rand(60, 180);
-          particles.push({
-            x: m.x,
-            y: m.y,
-            vx: Math.cos(a) * sp,
-            vy: Math.sin(a) * sp - 80,
-            life: rand(0.5, 0.9),
-            rot: 0,
-            vr: 0,
-            color: ['#a64dff', '#7a2fd0', '#c58bff'][k % 3],
-            star: false,
-          });
-        }
         sfx.poison();
-        updateHud();
-        if (hits >= MUSHROOM_LIMIT) {
-          finishGame('poison');
-          return;
-        }
+        hurtGorilla(m.x, m.y, 'ちいさく なっちゃう…', '#d9a6ff', '#4a1a6b', ['#a64dff', '#7a2fd0', '#c58bff']);
+        if (state !== 'playing') return;
         spawnMushroom();
       }
     }
@@ -873,6 +986,133 @@
     ctx.fill();
     ctx.beginPath();
     ctx.arc(0, 16, 3, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawHive(h) {
+    ctx.save();
+    const shake = h.shake > 0 ? Math.sin(h.shake * 50) * 4 : 0;
+    ctx.translate(h.x + shake, h.y);
+    ctx.rotate(shake * 0.02);
+
+    // 影
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(0, 30, 32, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // だんだんの巣（下の段ほど大きい）
+    const rows = [
+      [-24, 12, 8],
+      [-12, 20, 9],
+      [2, 26, 10],
+      [17, 24, 10],
+    ];
+    rows.forEach(([y, rx, ry], i) => {
+      ctx.fillStyle = i % 2 ? '#f2b33d' : '#e89b1c';
+      ctx.strokeStyle = '#8a5a10';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(0, y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    // てっぺん
+    ctx.fillStyle = '#e89b1c';
+    ctx.beginPath();
+    ctx.ellipse(0, -32, 6, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 入り口
+    ctx.fillStyle = '#3a2408';
+    ctx.beginPath();
+    ctx.ellipse(0, 10, 8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // はちみつのしずく
+    ctx.fillStyle = '#ffcc33';
+    ctx.beginPath();
+    ctx.moveTo(14, 26);
+    ctx.quadraticCurveTo(18, 34, 14, 38);
+    ctx.quadraticCurveTo(10, 34, 14, 26);
+    ctx.fill();
+
+    // つや
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(-6, -6, 14, Math.PI * 1.1, Math.PI * 1.45);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawBee(b) {
+    if (b.delay > 0) return;
+    const alpha = 1 - Math.min(1, b.leaving);
+    if (alpha <= 0) return;
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(b.x, b.y);
+    ctx.scale(b.facing, 1);
+
+    // はね（パタパタ）
+    const flap = Math.abs(Math.sin(t * 40)) * 0.6 + 0.4;
+    ctx.fillStyle = 'rgba(220,245,255,0.85)';
+    ctx.strokeStyle = 'rgba(80,120,150,0.8)';
+    ctx.lineWidth = 1.5;
+    [-4, 4].forEach((wx) => {
+      ctx.beginPath();
+      ctx.ellipse(wx, -12, 6, 10 * flap, wx * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    // からだ（黄色と黒のしましま）
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15, 11, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd60a';
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-6, -12, 5, 24);
+    ctx.fillRect(3, -12, 5, 24);
+    ctx.restore();
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15, 11, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // はり
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.moveTo(-14, -3);
+    ctx.lineTo(-22, 0);
+    ctx.lineTo(-14, 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // かお（おこっている目）
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.arc(10, -2, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(7, -7);
+    ctx.lineTo(13, -5);
+    ctx.stroke();
+    // しょっかく
+    ctx.beginPath();
+    ctx.moveTo(11, -9);
+    ctx.quadraticCurveTo(14, -16, 18, -15);
     ctx.stroke();
 
     ctx.restore();
@@ -1132,10 +1372,13 @@
       drawBanana(ef.x + (mx - ef.x) * p, ef.y + (my - ef.y) * p, ef.angle + p * 3, 1 - p);
     });
 
+    hives.forEach(drawHive);
     mushrooms.forEach(drawMushroom);
 
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
     drawGorilla();
+
+    bees.forEach(drawBee);
 
     // キラキラ
     particles.forEach((p) => {
@@ -1226,6 +1469,8 @@
     get hasTarget() { return !!target; },
     get hits() { return hits; },
     get gorillaScale() { return gorilla.scale; },
+    get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
+    get bees() { return bees.filter((b) => b.delay <= 0 && b.leaving === 0).map((b) => ({ x: b.x, y: b.y })); },
     get mushrooms() { return mushrooms.map((m) => ({ x: m.x, y: m.y })); },
     setTimeLeft(t) { timeLeft = t; },
   };
