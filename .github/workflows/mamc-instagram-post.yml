@@ -1,0 +1,142 @@
+# MAMC の Instagram（@mamc_jp）自動投稿ワークフロー。
+# 商品画像から11秒のリール動画を作り、毎日20:00（日本時間）に投稿します。
+# X 用（mamc-x-post.yml）・教育用（x-post.yml）とは完全に別物で、
+# Secrets・変数・投稿履歴も分けてあります（画像フォルダと文章ルールだけ共通）。
+name: MAMC Instagram Auto Post
+
+on:
+  schedule:
+    # 日本時間 19:40 に起動 → 動画を作って 20:00 まで待ってから投稿します。
+    # GitHub Actions は混雑すると起動が遅れることがあるため、
+    # 20:20 と 21:20 にも予備の起動を入れています（その日に投稿済みなら何もしません）。
+    - cron: '40 10 * * *'
+    - cron: '20 11 * * *'
+    - cron: '20 12 * * *'
+
+  # 手動テスト用（Actionsタブから実行できます）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'テスト実行（実際には投稿しない・動画はダウンロードして確認できます）'
+        type: boolean
+        default: true
+      verify_auth:
+        description: 'トークンと権限の確認だけを行う（投稿しない）'
+        type: boolean
+        default: false
+      format:
+        description: '投稿形式（reel = 11秒のリール動画 / image = 画像1枚）'
+        type: choice
+        options: [reel, image]
+        default: reel
+      source:
+        description: '内容の決め方（auto = Xの投稿を使う・無ければ新規 / x = Xの投稿のみ / new = 新規作成）'
+        type: choice
+        options: [auto, x, new]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mamc-instagram-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # ★自動投稿の安全スイッチ★
+    # 準備ができるまで、毎日の自動実行は動きません。
+    # 開始するときは Settings > Secrets and variables > Actions > Variables で
+    # MAMC_IG_POSTING_ENABLED = true を追加してください。
+    # 手動実行（workflow_dispatch）は、この設定がなくてもテストできます。
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.MAMC_IG_POSTING_ENABLED == 'true' }}
+
+    env:
+      FORMAT: ${{ inputs.format || vars.MAMC_IG_FORMAT || 'reel' }}
+      IS_REAL_POST: ${{ github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true) }}
+
+    steps:
+      - name: リポジトリを取得（最新の履歴を使うため既定ブランチの最新を取得）
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 必要なライブラリをインストール
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk > /dev/null
+          pip install requests Pillow anthropic
+
+      - name: トークンと権限を確認（投稿しません）
+        if: ${{ inputs.verify_auth == true }}
+        env:
+          MAMC_IG_ACCESS_TOKEN: ${{ secrets.MAMC_IG_ACCESS_TOKEN }}
+          MAMC_IG_USER_ID: ${{ secrets.MAMC_IG_USER_ID }}
+        run: python scripts/mamc_post_to_instagram.py --verify-auth
+
+      # 画像1枚の投稿のときだけ必要（Instagram の縦横比に合わせた画像を公開URLにする）
+      - name: Instagram用の画像を準備
+        if: ${{ env.FORMAT == 'image' && env.IS_REAL_POST == 'true' }}
+        run: |
+          python scripts/mamc_post_to_instagram.py --prepare-images
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mamc_images_instagram
+          if ! git diff --cached --quiet; then
+            git commit -m "MAMC Instagram用画像を追加"
+            git pull --rebase origin "${{ github.event.repository.default_branch }}"
+            git push origin HEAD
+          fi
+
+      - name: Instagram（@mamc_jp）へ投稿
+        if: ${{ inputs.verify_auth != true }}
+        env:
+          MAMC_IG_ACCESS_TOKEN: ${{ secrets.MAMC_IG_ACCESS_TOKEN }}
+          MAMC_IG_USER_ID: ${{ secrets.MAMC_IG_USER_ID }}
+          # 任意：Xの投稿が無い日に新しく文章を作るとき、Claude で書き分けます
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SOURCE: ${{ inputs.source || 'auto' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          ARGS=(--format "$FORMAT" --source "$SOURCE" --video-out "$RUNNER_TEMP/mamc_reel.mp4")
+          if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          if [ "$EVENT" = "schedule" ]; then ARGS+=(--scheduled); fi
+          python scripts/mamc_post_to_instagram.py "${ARGS[@]}"
+
+      - name: 作成した動画を保存（Actions の画面からダウンロードできます）
+        if: ${{ always() && inputs.verify_auth != true && env.FORMAT == 'reel' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamc-reel-${{ github.run_id }}
+          path: ${{ runner.temp }}/mamc_reel.mp4
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: 投稿履歴・失敗ログを保存
+        # 失敗したときも原因を残すため always() で実行する
+        if: ${{ always() && env.IS_REAL_POST == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mamc_instagram_history.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "履歴に変更はありません"
+            exit 0
+          fi
+          git commit -m "MAMC Instagram投稿履歴を更新"
+          for i in 1 2 3 4; do
+            if git push origin HEAD; then exit 0; fi
+            echo "push に失敗しました。少し待って再試行します..."
+            sleep $((2 ** i))
+            git pull --rebase origin "${{ github.event.repository.default_branch }}" || true
+          done
+          git push origin HEAD
