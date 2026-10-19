@@ -1,0 +1,146 @@
+# MAMC Instagram 自動投稿システム（リール）
+
+MAMC の商品画像から **11秒のおしゃれな縦型動画** を自動で作り、
+**毎晩20:00（日本時間）に Instagram（@mamc_jp）のリール** へ投稿します。
+GitHub Actions で動くので、パソコンを開いていなくても投稿されます。
+
+> **現在の状態：自動投稿は停止中です。**
+> 下の「やること」を終えて手動テストで確認してから、安全スイッチを入れてください。
+
+---
+
+## しくみ
+
+1. 毎日 19:40（日本時間）に GitHub Actions が起動します
+2. **X（@MAMC_JP）でまだ Instagram に載せていない投稿** があれば、その**文章と画像**を使います。
+   無ければ、X と同じルール（`mamc_prompt.txt`）・同じ画像フォルダ（`mamc_images/`）から新しく作ります
+3. その画像に、**最近使っていない画像2枚**を加えて、11秒の動画（1080×1920）を作ります
+   - シーン1：画像1 ＋ 文章の1行目
+   - シーン2：画像2 ＋ 文章の2行目
+   - シーン3：画像3 ＋「BUYMAで販売中／プロフィールのリンクから」
+   - ゆっくりズームとクロスフェードでつなぎ、上部に MAMC ロゴを表示します
+4. **20:00 まで待ってから**、Meta 公式の Instagram API でリールとして投稿します（フィードにも表示）
+5. 結果を `mamc_instagram_history.json` に記録します（失敗したときは原因も記録します）
+
+### 同じ商品ばかりにならない工夫
+- メイン画像：直近20回の Instagram 投稿で使った画像は使いません
+- 追加の2枚：直近3回で使った画像を避け、使った回数が少ない画像を優先します
+- 文章：過去の X・Instagram 投稿と同じ文章は使いません
+
+### 重複投稿を防ぐ仕組み
+- 投稿履歴に「今日の投稿」があれば、投稿しません
+- 履歴が保存できなかった場合に備えて、**Instagram 上に今日の自動投稿がすでにないか**も確認します
+  （定型文「プロフィール（@mamc_jp）のリンクから」が入った投稿だけを対象にするので、手動の投稿は対象外です）
+- 公開の応答がエラーでも実際には投稿できていることがあるため、確認してから失敗扱いにします
+- 予備の起動（20:20・21:20）は、その日に投稿済みなら何もしません
+
+### 投稿が失敗したとき
+- Actions の画面でジョブが **赤い ✕** になります（GitHub からメールでも通知されます）
+- 原因と対処法がログに表示され、`mamc_instagram_history.json` の `errors` にも記録されます
+
+### X の自動投稿との関係
+X 用のファイル（`scripts/mamc_post_to_x.py`・`mamc-x-post.yml`・`mamc_history.json`）は**一切変更していません**。
+Instagram 側は X の履歴を「読むだけ」です。
+
+| | X（既存） | Instagram（今回） |
+|---|---|---|
+| ワークフロー | `mamc-x-post.yml` | `mamc-instagram-post.yml` |
+| スクリプト | `scripts/mamc_post_to_x.py` | `scripts/mamc_post_to_instagram.py`・`scripts/mamc_reel_video.py` |
+| 履歴 | `mamc_history.json` | `mamc_instagram_history.json` |
+| Secrets | `MAMC_X_...` | `MAMC_IG_ACCESS_TOKEN`（・`MAMC_IG_USER_ID`） |
+| 安全スイッチ | `MAMC_POSTING_ENABLED` | `MAMC_IG_POSTING_ENABLED` |
+
+---
+
+## あなたにお願いしたい作業（1回だけ）
+
+### ステップ0：Instagram がプロアカウントか確認する
+Instagram アプリ →（@mamc_jp）プロフィール →「≡」→「アカウントの種類とツール」。
+「**ビジネス**」または「**クリエイター**」になっていればOKです（Facebookページ連携済みなら通常OK）。
+
+### ステップ1：Meta のアプリを作る
+1. パソコンで https://developers.facebook.com/apps を開き、MAMC の Facebook にログイン
+2. 「**アプリを作成**」をクリック
+3. ユースケースは「**Instagramでメッセージとコンテンツを管理**」（表示が違う場合は「その他」→「**ビジネス**」）
+4. アプリ名は「MAMC Auto Post」など自由に。ビジネスポートフォリオは **FABMIC（MAMC）** を選択
+5. 作成後、「Instagram」の設定で「**Facebookログインによる API 設定**」を選びます
+
+### ステップ2：トークン（投稿用の鍵）を作る ― 期限なしの「システムユーザー」方式
+1. https://business.facebook.com/settings を開く（ビジネス設定）
+2. 左メニュー「ユーザー」→「**システムユーザー**」→「追加」
+   - 名前：`mamc-auto-post`、役割：**管理者**
+3. 作ったシステムユーザーを選び「**アセットを割り当てる**」
+   - 「ページ」→ MAMC の Facebookページ → **フルコントロール**
+   - 「Instagramアカウント」→ @mamc_jp → **フルコントロール**
+   - 「アプリ」→ ステップ1のアプリ → **フルコントロール**
+4. 「**新しいトークンを生成**」
+   - アプリ：ステップ1のアプリ
+   - 有効期限：**なし**
+   - 権限にチェック：
+     `instagram_basic` / `instagram_content_publish` / `pages_show_list` / `pages_read_engagement` / `business_management`
+5. 表示された長い文字列（トークン）をコピー。**この画面を閉じると二度と表示されません**
+
+> トークンは「パスワード」と同じです。チャットやメールに貼らないでください。
+
+### ステップ3：GitHub にトークンを登録する
+1. https://github.com/asdflkj0724-blip/kmk-imgs/settings/secrets/actions を開く
+2. 「**New repository secret**」
+   - Name：`MAMC_IG_ACCESS_TOKEN`
+   - Secret：ステップ2でコピーしたトークン
+3. 「Add secret」
+
+（`MAMC_IG_USER_ID` は登録しなくても自動で見つけます）
+
+### ステップ4：Instagram のプロフィールに BUYMA のリンクを入れる
+Instagram ではキャプションのリンクを押せないため、投稿では「プロフィールのリンクから」と案内します。
+Instagram アプリ →「プロフィールを編集」→「リンク」→「外部リンクを追加」に次のURLを貼ってください。
+
+```
+https://www.buyma.com/r/_MAMC-%E3%82%A8%E3%83%A0%E3%82%A8%E3%83%BC%E3%82%A8%E3%83%A0%E3%82%B7%E3%83%BC/-B10083192/
+```
+
+### ステップ5：テストする（投稿はされません）
+1. https://github.com/asdflkj0724-blip/kmk-imgs/actions を開き、左の「**MAMC Instagram Auto Post**」
+2. 「**Run workflow**」→「**トークンと権限の確認だけを行う**」にチェック → Run
+   → 緑の ✓ になり、ログに「@mamc_jp へ投稿できる状態です」と出ればOK
+3. もう一度「Run workflow」→ そのまま（テスト実行にチェックが入った状態）で Run
+   → 終わったら実行結果の画面下の「Artifacts」から **動画をダウンロード** して確認できます
+
+### ステップ6：本番の1回目を手動で投稿する
+「Run workflow」→「テスト実行」の**チェックを外して** Run → Instagram にリールが投稿されます。
+
+### ステップ7：毎日の自動投稿を開始する
+1. https://github.com/asdflkj0724-blip/kmk-imgs/settings/variables/actions を開く
+2. 「**New repository variable**」
+   - Name：`MAMC_IG_POSTING_ENABLED`
+   - Value：`true`
+
+これで毎晩20:00に自動投稿されます。止めたいときは値を `false` にしてください。
+
+---
+
+## 設定の一覧
+
+| 種類 | 名前 | 内容 |
+|---|---|---|
+| Secret（必須） | `MAMC_IG_ACCESS_TOKEN` | Meta のアクセストークン |
+| Secret（任意） | `MAMC_IG_USER_ID` | Instagram ビジネスアカウントID（未設定なら自動検出） |
+| Secret（任意） | `ANTHROPIC_API_KEY` | X と共通。新しく文章を作るときに使用 |
+| Variable | `MAMC_IG_POSTING_ENABLED` | `true` で毎日の自動投稿を開始 |
+| Variable（任意） | `MAMC_IG_FORMAT` | `image` にすると動画ではなく画像1枚の投稿 |
+
+## 困ったときは
+
+| ログの内容 | 対処 |
+|---|---|
+| code=190 トークンが無効か期限切れ | ステップ2でトークンを作り直し、Secret を更新 |
+| code=10 / 200 権限が足りません | ステップ2の権限のチェックと、アセットの割り当てを確認 |
+| @mamc_jp の Instagram ビジネスアカウントが見つかりません | Facebookページと Instagram の連携、システムユーザーへのページ割り当てを確認 |
+| アプリが開発モードのため使えない旨のエラー | アプリの管理画面で「公開（ライブ）」に切り替え（プライバシーポリシーURLが必要） |
+| 動画の処理に失敗しました | もう一度手動で実行。続く場合は履歴の `errors` を確認 |
+| 20:00ちょうどに投稿されない | GitHub の混雑で起動が遅れることがあります。予備の起動で21時台までに投稿されます |
+
+## 補足
+- 動画には音楽を入れていません（無音）。API ではInstagramの楽曲を付けられないためです
+- API での投稿は24時間に50件までです（1日1件なので問題ありません）
+- 動画の見た目（秒数・文字・色）は `scripts/mamc_reel_video.py` の先頭で変更できます
