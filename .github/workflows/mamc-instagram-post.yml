@@ -87,7 +87,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-noto-cjk > /dev/null
-          pip install requests Pillow anthropic
+          # requests: Meta API / Pillow・numpy: 動画の作成 / anthropic: 新しく文章を作るとき（任意）
+          pip install requests Pillow numpy anthropic
 
       - name: トークンと権限を確認（投稿しません）
         if: ${{ inputs.verify_auth == true }}
