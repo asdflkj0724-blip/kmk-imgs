@@ -5,8 +5,8 @@
 構成（11秒・30fps）:
     シーン1  写真 + ロゴ「MAMC」      （ゆっくりズーム）
     シーン2  写真
-    シーン3  写真 + ロゴ「MAMC」
-各シーンはクロスフェードでつなぐ。ロゴが読みやすい写真ほどロゴのあるシーンに使う。
+    シーン3  写真
+各シーンはクロスフェードでつなぐ。ロゴがいちばん読みやすい写真を最初のシーンに使う。
 
 【構図のルール】
     ・写真は画面いっぱいに大きく表示し、モデルと洋服を主役にする
@@ -56,7 +56,7 @@ BRAND = "MAMC"
 TEXT_COLOR = (255, 255, 255, 255)   # 純白 #FFFFFF。影・縁取り・帯は付けない
 LOGO_SIZE = 150                     # ロゴの大きさ（画面幅の約4割）
 LOGO_TRACKING = 0.04                # 字間（文字サイズに対する割合）
-LOGO_SCENES = (0, 2)                # ロゴを出すシーン（最初と最後）
+LOGO_SCENES = (0,)                  # ロゴを出すシーン（最初だけ）
 CENTER_Y = HEIGHT // 2
 PLACE_RANGE_Y = (0.30, 0.72)        # ロゴを置いてよい縦の範囲（画面の高さに対する割合）
 PLACE_SHIFT_X = 220                 # 左右にずらしてよい量（px）
@@ -256,10 +256,9 @@ def render_reel(images: list[Path], body: str = "", out_path: Path | None = None
     bases = [scene_base(p) for p in images]
     block = logo_block()
     placed = [place_logo(block, base) for base in bases]
-    # ロゴがいちばん読みやすい写真を最初のシーン（リールのカバーにもなる）に、
-    # 次に読みやすい写真を最後のシーンに、ロゴを出さないシーンには残りの写真を使う
-    order = sorted(range(len(bases)), key=lambda i: placed[i][1])
-    order = [order[0], order[2], order[1]]
+    # ロゴがいちばん読みやすい写真を最初のシーン（リールのカバーにもなる）に使う
+    first = min(range(len(bases)), key=lambda i: placed[i][1])
+    order = [first] + [i for i in range(len(bases)) if i != first]
     bases = [bases[i] for i in order]
     placed = [placed[i] for i in order]
     overlays = []
