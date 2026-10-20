@@ -1,0 +1,22 @@
+{
+  "weights": {
+    "template": {
+      "compare": 1,
+      "detail": 1,
+      "ad": 1
+    },
+    "duration": {
+      "8": 1,
+      "11": 2,
+      "15": 1
+    },
+    "transition": {
+      "fade": 1,
+      "push": 1,
+      "cut": 1
+    }
+  },
+  "data_sufficient": {},
+  "updated_at": null,
+  "note": "初期値（データが集まるまで均等に試す。長さは11秒を基本に8秒・15秒と比較）"
+}

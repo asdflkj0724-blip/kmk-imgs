@@ -41,6 +41,20 @@ on:
         type: choice
         options: [auto, x, new]
         default: auto
+      samples:
+        description: '3種類（比較・デザイン紹介・広告風）のサンプル動画を作る（投稿しない）'
+        type: boolean
+        default: false
+      template:
+        description: '動画の種類（auto = 計画にしたがって選ぶ / compare = コーデ比較 / detail = デザイン紹介 / ad = 広告風）'
+        type: choice
+        options: [auto, compare, detail, ad]
+        default: auto
+      duration:
+        description: '動画の長さ（auto = 計画にしたがって選ぶ。基本は11秒）'
+        type: choice
+        options: [auto, '8', '11', '15']
+        default: auto
 
 permissions:
   contents: write
@@ -63,7 +77,7 @@ jobs:
 
     env:
       FORMAT: ${{ inputs.format || vars.MAMC_IG_FORMAT || 'reel' }}
-      IS_REAL_POST: ${{ github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true) }}
+      IS_REAL_POST: ${{ github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true && inputs.samples != true) }}
 
     steps:
       - name: リポジトリを取得（最新の履歴を使うため既定ブランチの最新を取得）
@@ -120,9 +134,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
           SOURCE: ${{ inputs.source || 'auto' }}
+          SAMPLES: ${{ inputs.samples }}
+          TEMPLATE: ${{ inputs.template || 'auto' }}
+          DURATION: ${{ inputs.duration || 'auto' }}
           EVENT: ${{ github.event_name }}
         run: |
-          ARGS=(--format "$FORMAT" --source "$SOURCE" --video-out "$RUNNER_TEMP/mamc_reel.mp4")
+          if [ "$SAMPLES" = "true" ]; then
+            # 3種類のサンプル動画を作るだけ（投稿・履歴の更新はしない）
+            python scripts/mamc_post_to_instagram.py --samples --source "$SOURCE" \
+              --duration "$DURATION" --video-out "$RUNNER_TEMP/mamc_reels"
+            exit 0
+          fi
+          ARGS=(--format "$FORMAT" --source "$SOURCE" --template "$TEMPLATE" --duration "$DURATION"
+                --video-out "$RUNNER_TEMP/mamc_reel.mp4")
           if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           if [ "$EVENT" = "schedule" ]; then ARGS+=(--scheduled); fi
           python scripts/mamc_post_to_instagram.py "${ARGS[@]}"
@@ -132,7 +156,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mamc-reel-${{ github.run_id }}
-          path: ${{ runner.temp }}/mamc_reel.mp4
+          path: |
+            ${{ runner.temp }}/mamc_reel.mp4
+            ${{ runner.temp }}/mamc_reels/
           if-no-files-found: ignore
           retention-days: 14
 
