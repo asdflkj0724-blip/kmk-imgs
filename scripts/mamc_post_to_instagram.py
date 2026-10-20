@@ -24,7 +24,15 @@ X 用の仕組み（scripts/mamc_post_to_x.py / mamc-x-post.yml / mamc_history.j
     python scripts/mamc_post_to_instagram.py --dry-run         # 投稿せず内容と動画を確認
     python scripts/mamc_post_to_instagram.py --verify-auth     # トークンと権限の確認
     python scripts/mamc_post_to_instagram.py --prepare-images  # 画像の変換だけ
+    python scripts/mamc_post_to_instagram.py --status          # 今の投稿枠で投稿済みか（標準ライブラリのみ）
     python scripts/mamc_post_to_instagram.py                   # 実際に投稿する
+
+1日1回の「投稿枠」:
+    毎日 19:30 〜 翌日 19:30（日本時間）を1つの投稿枠とし、1枠につき1回だけ投稿する。
+    GitHub Actions の起動が遅れて日付をまたいでも、その枠のうちなら前日分として投稿する
+    （投稿漏れを防ぐ）。19:30〜20:00 に起動したときは、動画を作ってから 20:00 まで待つ。
+    同じ枠にすでに投稿があれば、履歴と Instagram 上の投稿の両方で確認して投稿しない
+    （二重投稿を防ぐ）。
 
 秘密情報はコードに書かず、すべて環境変数から読み込む。
 """
@@ -38,13 +46,12 @@ import random
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mamc_post_to_x as xbase  # noqa: E402  X 用の関数を再利用する（X 側は変更しない）
-import mamc_reel_video as reel  # noqa: E402
 
 ROOT = xbase.ROOT
 JST = xbase.JST
@@ -82,7 +89,7 @@ IG_EXTRA_TAGS = ["#BUYMA", "#バイマ"]
 MIRROR_MAX_AGE_DAYS = 3
 # 定期実行のときに投稿してよい時間帯（日本時間）
 POST_HOUR = 20
-EARLY_WAIT_MINUTES = 30     # 20:00 より前に起動したら、この範囲内なら20:00まで待つ
+EARLY_WAIT_MINUTES = 30     # 投稿枠は 19:30 から。20:00 より前に起動したら 20:00 まで待つ
 
 # Instagram ではキャプションのリンクを押せないため、プロフィールへ誘導する。
 # SIGNATURE は「自動投稿かどうか」の判定（重複防止）にも使うので変えないこと。
@@ -143,10 +150,21 @@ def parse_date(value: str) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=JST)
 
 
-def posted_today_in_history(history: dict, now: datetime) -> dict | None:
+def slot_of(dt: datetime) -> date:
+    """その時刻が属する投稿枠（19:30〜翌19:30）の日付。例: 10/21 02:00 → 10/20 の枠。"""
+    start = timedelta(hours=POST_HOUR) - timedelta(minutes=EARLY_WAIT_MINUTES)
+    return (dt.astimezone(JST) - start).date()
+
+
+def posted_in_slot(history: dict, slot: date) -> dict | None:
+    """履歴に、この投稿枠の投稿があればそれを返す。"""
     for entry in reversed(history["posts"]):
+        if entry.get("slot"):
+            if entry["slot"] == slot.isoformat():
+                return entry
+            continue
         dt = parse_date(entry.get("date", ""))
-        if dt and dt.astimezone(JST).date() == now.date():
+        if dt and slot_of(dt) == slot:
             return entry
     return None
 
@@ -450,6 +468,8 @@ def compose(source: str, now: datetime, fmt: str = "reel") -> dict:
 
 
 def render_video(post: dict, out_path: Path) -> Path:
+    import mamc_reel_video as reel  # Pillow が必要なので、使うときだけ読み込む
+
     print(f"[情報] リール動画を作成しています（{reel.DURATION:.0f}秒・{reel.WIDTH}x{reel.HEIGHT}）...")
     started = time.time()
     reel.render_reel(post["images"], post["body"], out_path)
@@ -624,8 +644,8 @@ def verify_auth_only() -> int:
     return 0
 
 
-def find_auto_post_today(graph: Graph, ig_id: str, now: datetime) -> dict | None:
-    """Instagram 上に、今日の自動投稿（定型文入り）がすでに無いか確認する。"""
+def find_auto_post_in_slot(graph: Graph, ig_id: str, slot: date) -> dict | None:
+    """Instagram 上に、この投稿枠の自動投稿（定型文入り）がすでに無いか確認する。"""
     media = graph.call("GET", f"{ig_id}/media", fields="id,caption,timestamp,permalink", limit=10)
     for item in media.get("data", []):
         ts = item.get("timestamp", "")
@@ -633,7 +653,7 @@ def find_auto_post_today(graph: Graph, ig_id: str, now: datetime) -> dict | None
             dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").astimezone(JST)
         except ValueError:
             continue
-        if dt.date() == now.date() and SIGNATURE in (item.get("caption") or ""):
+        if slot_of(dt) == slot and SIGNATURE in (item.get("caption") or ""):
             return item
     return None
 
@@ -773,18 +793,13 @@ def publish_reel(graph: Graph, ig_id: str, post: dict) -> dict:
 # --------------------------------------------------------------------------
 # メイン
 # --------------------------------------------------------------------------
-def wait_for_post_time(now: datetime) -> datetime | None:
-    """定期実行の時間調整。20:00 前なら待ち、時間帯の外なら None（投稿しない）。"""
+def wait_for_post_time(now: datetime) -> None:
+    """19:30〜20:00 に起動したときだけ、20:00 まで待つ。それ以外（遅れた起動）はすぐ投稿する。"""
     target = now.replace(hour=POST_HOUR, minute=0, second=0, microsecond=0)
-    if now < target:
-        if target - now > timedelta(minutes=EARLY_WAIT_MINUTES):
-            print(f"[情報] 投稿時刻（{POST_HOUR}:00）より前のため、今回は投稿しません。")
-            return None
+    if timedelta(0) < target - now <= timedelta(minutes=EARLY_WAIT_MINUTES):
         wait = (target - now).total_seconds()
         print(f"[情報] {POST_HOUR}:00 まで {int(wait)} 秒待ちます。")
         time.sleep(wait)
-        return datetime.now(JST)
-    return now  # 20:00〜23:59 は投稿してよい
 
 
 def main() -> int:
@@ -793,7 +808,9 @@ def main() -> int:
     parser.add_argument("--verify-auth", action="store_true", help="トークンと権限の確認だけ行う")
     parser.add_argument("--prepare-images", action="store_true", help="Instagram用画像の変換だけ行う")
     parser.add_argument("--scheduled", action="store_true",
-                        help="定期実行用（20:00まで待つ・1日1回だけ投稿する）")
+                        help="定期実行用（19:30〜20:00の起動なら20:00まで待つ）")
+    parser.add_argument("--status", action="store_true",
+                        help="今の投稿枠で投稿済みかを表示する（GitHub Actions の出力 done=true/false）")
     parser.add_argument("--source", choices=["auto", "x", "new"], default="auto",
                         help="auto: Xの投稿をミラー（無ければ新規）/ x: ミラーのみ / new: 新規作成")
     parser.add_argument("--format", choices=["reel", "image"],
@@ -810,19 +827,25 @@ def main() -> int:
         return 0
 
     now = datetime.now(JST)
+    slot = slot_of(now)
     ig_history = load_ig_history()
+    done = posted_in_slot(ig_history, slot)
 
-    if args.scheduled and not args.dry_run:
-        target = now.replace(hour=POST_HOUR, minute=0, second=0, microsecond=0)
-        if target - now > timedelta(minutes=EARLY_WAIT_MINUTES):
-            print(f"[情報] 投稿時刻（{POST_HOUR}:00）より前のため、今回は投稿しません。")
-            return 0
+    if args.status:
+        print(f"[情報] 現在の投稿枠: {slot} 19:30 〜 翌日 19:30（日本時間）")
+        print(f"[情報] この枠の投稿: {'済み ' + str(done.get('permalink')) if done else 'まだ'}")
+        output = os.environ.get("GITHUB_OUTPUT")
+        if output:
+            with open(output, "a", encoding="utf-8") as fh:
+                fh.write(f"done={'true' if done else 'false'}\n")
+        return 0
 
     if not args.dry_run:
-        done = posted_today_in_history(ig_history, now)
         if done:
-            print(f"[情報] 今日はすでに投稿済みのため、重複投稿を防ぐため中止します: {done.get('permalink')}")
+            print(f"[情報] この投稿枠（{slot}）はすでに投稿済みのため、二重投稿を防ぐため中止します: "
+                  f"{done.get('permalink')}")
             return 0
+        print(f"[情報] 投稿枠 {slot}（19:30〜翌日19:30）の投稿を行います。")
 
     try:
         post = compose(args.source, now, args.format)
@@ -854,20 +877,20 @@ def main() -> int:
                      f"{post['image_ig'].relative_to(ROOT)} がコミットされておらず、公開URLから取得できません。")
         return 1
 
-    # 動画の作成が終わってから、20:00 まで待って投稿する
+    # 動画の作成が終わってから、20:00 前なら 20:00 まで待って投稿する
     if args.scheduled:
-        waited = wait_for_post_time(datetime.now(JST))
-        if waited is None:
-            return 0
+        wait_for_post_time(datetime.now(JST))
 
     graph = Graph(get_token())
     try:
         ig_id = check_account(graph)
-        existing = find_auto_post_today(graph, ig_id, now)
+        existing = find_auto_post_in_slot(graph, ig_id, slot)
         if existing:
-            print(f"[情報] Instagram 上に今日の自動投稿がすでにあるため中止します: {existing.get('permalink')}")
+            print(f"[情報] Instagram 上にこの投稿枠の自動投稿がすでにあるため中止します: "
+                  f"{existing.get('permalink')}")
             ig_history["posts"].append({
-                "date": now.isoformat(timespec="seconds"), "source": "recovered",
+                "date": now.isoformat(timespec="seconds"), "slot": slot.isoformat(),
+                "source": "recovered",
                 "ig_media_id": existing.get("id"), "permalink": existing.get("permalink"),
                 "note": "履歴に無い自動投稿を検出したため記録のみ",
             })
@@ -887,6 +910,7 @@ def main() -> int:
     print(f"投稿しました: {result['permalink']}")
     ig_history["posts"].append({
         "date": datetime.now(JST).isoformat(timespec="seconds"),
+        "slot": slot.isoformat(),
         "source": post["source"],
         "format": post["format"],
         "x_tweet_id": post["x_tweet_id"],
