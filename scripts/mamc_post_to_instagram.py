@@ -16,12 +16,16 @@ X 用の仕組み（scripts/mamc_post_to_x.py / mamc-x-post.yml / mamc_history.j
     1. X（@MAMC_JP）で投稿済みで、まだ Instagram に載せていない投稿があれば、
        その文章と画像をそのまま使う（ミラー投稿）
     2. 無ければ、X と同じルール・同じ画像フォルダから新しく作る
-    3. リール（既定）では、その画像に最近使っていない画像2枚を加えて
-       11秒の縦型動画を作る（scripts/mamc_reel_video.py）。
+    3. リール（既定）では、今週の計画（mamc_instagram_plan.json）にしたがって企画
+       （コーデ比較・デザイン紹介・広告風 / 長さ / 切り替え方 / 最初の1秒の文字）を選び、
+       最近使っていない画像を加えて縦型動画を作る（scripts/mamc_reel_formats.py・
+       企画の選び方と反応の分析は scripts/mamc_instagram_growth.py）。
+       投稿前に文字切れ・画面表示との重なり・読みやすさ・表示崩れを検証し、合格したものだけ投稿する。
        --format image なら、画像1枚のフィード投稿にする。
 
 使い方:
     python scripts/mamc_post_to_instagram.py --dry-run         # 投稿せず内容と動画を確認
+    python scripts/mamc_post_to_instagram.py --samples         # 3種類のサンプル動画を作る（投稿しない）
     python scripts/mamc_post_to_instagram.py --verify-auth     # トークンと権限の確認
     python scripts/mamc_post_to_instagram.py --prepare-images  # 画像の変換だけ
     python scripts/mamc_post_to_instagram.py --status          # 今の投稿枠で投稿済みか（標準ライブラリのみ）
@@ -65,14 +69,25 @@ GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_VERSION}"
 EXPECTED_USERNAME = os.environ.get("MAMC_IG_USERNAME", "mamc_jp").lstrip("@")
 REPO = os.environ.get("GITHUB_REPOSITORY", "asdflkj0724-blip/kmk-imgs")
 RUPLOAD_BASE = f"https://rupload.facebook.com/ig-api-upload/{GRAPH_VERSION}"
-REEL_IMAGES = 3             # 1本のリールに使う画像の枚数
-REEL_COVER_MS = 1500        # リールのカバーに使う位置（ミリ秒）
+REEL_CANDIDATES = 10        # 動画づくりの候補にする画像の枚数（検証に合格する組み合わせを探す）
+REEL_ATTEMPTS = 8           # 検証に合格するまで、写真の組み合わせを変えて作り直す回数（1種類あたり）
+# 選んだ種類で合格する動画が作れないときに、切り替える順番（文字を置きやすい順）
+FALLBACK_TEMPLATES = ("compare", "ad", "detail")
+REEL_COVER_MS = 500         # リールのカバーに使う位置（ミリ秒）。フックの文字が出ている時点
+
+# 企画ごとの、キャプションでの呼びかけ（保存・シェア・コメント・フォローを促す）
+CTAS = {
+    "compare": "A派？B派？コメントで教えてね👇",
+    "detail": "あとで見返せるように保存してね🔖",
+    "ad": "フォローすると毎日20時にコーデが届きます✨",
+}
 
 REQUIRED_PERMISSIONS = [
     "instagram_basic",
     "instagram_content_publish",
     "pages_show_list",
     "pages_read_engagement",
+    "instagram_manage_insights",   # 再生数・保存数などの反応を記録するため
 ]
 
 # Instagram（Graph API）の画像の条件
@@ -437,14 +452,16 @@ def build_ig_hashtags(base_tags: list[str], ig_history: dict, seed: str) -> list
     return tags[:IG_HASHTAG_LIMIT]
 
 
-def build_caption(body: str, tags: list[str]) -> str:
-    caption = f"{body.strip()}\n\n{FOOTER}\n\n{' '.join(tags)}"
+def build_caption(body: str, tags: list[str], cta: str = "") -> str:
+    cta_part = f"\n\n{cta}" if cta else ""
+    caption = f"{body.strip()}{cta_part}\n\n{FOOTER}\n\n{' '.join(tags)}"
     if len(caption) > IG_CAPTION_LIMIT:
         raise RuntimeError(f"キャプションが長すぎます（{len(caption)}文字 / {IG_CAPTION_LIMIT}文字）")
     return caption
 
 
-def compose(source: str, now: datetime, fmt: str = "reel") -> dict:
+def compose(source: str, now: datetime, fmt: str = "reel",
+            template: str = "auto", duration: str = "auto") -> dict:
     products = xbase.load_products()
     x_history = xbase.load_history()
     ig_history = load_ig_history()
@@ -461,28 +478,103 @@ def compose(source: str, now: datetime, fmt: str = "reel") -> dict:
         post = generate_new(x_history, ig_history, products, now)
 
     post["tags"] = build_ig_hashtags(post["x_tags"], ig_history, f"tags-{now.date()}-{post['body']}")
-    post["caption"] = build_caption(post["body"], post["tags"])
     post["format"] = fmt
     if fmt == "reel":
-        rng = random.Random(f"reel-{now.date()}-{post['image_src'].name}")
-        extra = pick_extra_images(post["image_src"], ig_history, rng, REEL_IMAGES - 1)
-        post["images"] = [post["image_src"]] + extra
+        import mamc_instagram_growth as growth
+        import mamc_reel_formats as fm
+
+        # 起動ごとに変わる番号も混ぜ、失敗した日の予備の起動では別の組み合わせで作り直す
+        rng = random.Random(f"reel-{now.date()}-{post['image_src'].name}-{template}-{duration}"
+                            f"-{os.environ.get('GITHUB_RUN_ID', '')}")
+        post["variant"] = growth.choose_variant(ig_history, growth.load_plan(), rng, now.month,
+                                                template, duration)
+        post["context"] = {"ig_history": ig_history, "now": now, "rng": rng}
+        extra = pick_extra_images(post["image_src"], ig_history, rng, REEL_CANDIDATES - 1)
+        post["candidates"] = [post["image_src"]] + extra
+        post["images"] = post["candidates"][:fm.IMAGES_NEEDED[post["variant"]["template"]]]
+        post["caption"] = build_caption(post["body"], post["tags"],
+                                        CTAS[post["variant"]["template"]])
     else:
+        post["caption"] = build_caption(post["body"], post["tags"])
         post["images"] = [post["image_src"]]
         post["image_ig"] = ig_image_for(post["image_src"])
         post["image_urls"] = public_image_urls(post["image_ig"])
     return post
 
 
-def render_video(post: dict, out_path: Path) -> Path:
-    import mamc_reel_video as reel  # Pillow が必要なので、使うときだけ読み込む
+def build_checked_reel(post: dict, v: dict):
+    """1つの企画で、検証に合格するまで写真の組み合わせを変えて構成する。合格しなければ None。"""
+    import mamc_reel_formats as fm
 
-    print(f"[情報] リール動画を作成しています（{reel.DURATION:.0f}秒・{reel.WIDTH}x{reel.HEIGHT}）...")
+    need = fm.IMAGES_NEEDED[v["template"]]
+    cands = post["candidates"]
+    main = cands[0]
+    cache = post.setdefault("stage_cache", {})
+    for attempt in range(min(REEL_ATTEMPTS, len(cands))):
+        first = cands[attempt]
+        images = [first] + [c for c in cands if c != first][:need - 1]
+        if main not in images:          # X と同じ画像は必ず使う
+            images[-1] = main
+        built = fm.layout(v["template"], images, v["duration"], v["transition"], v["hook_text"], cache)
+        problems = built.check()
+        if not problems:
+            return built, images, []
+        print(f"[情報] 試作{attempt + 1}は検証で不合格のため、写真の組み合わせを変えます: {problems}")
+    return None, None, problems
+
+
+def render_video(post: dict, out_path: Path, allow_switch: bool = True) -> Path:
+    """企画どおりに動画を作る。投稿前の検証（文字切れ・画面表示との重なり・読みやすさ・
+    表示崩れ・長さ・解像度）に合格しなければ、写真の組み合わせを変えて作り直す。
+    それでも合格しなければ（allow_switch のとき）別の種類の動画に切り替える。
+    合格する動画が作れなければ投稿しない。"""
+    import mamc_instagram_growth as growth
+    import mamc_reel_formats as fm  # Pillow・numpy が必要なので、使うときだけ読み込む
+    import mamc_reel_video as reel
+
     started = time.time()
-    reel.render_reel(post["images"], post["body"], out_path)
-    print(f"[情報] 動画を作成しました（{time.time() - started:.0f}秒）: {out_path}")
-    print(f"       {reel.probe(out_path)}")
+    v = post["variant"]
+    order = [v["template"]] + ([t for t in FALLBACK_TEMPLATES if t != v["template"]]
+                               if allow_switch else [])
+    problems: list[str] = []
+    built = None
+    for template in order:
+        if template != v["template"]:
+            ctx = post["context"]
+            print(f"[情報] {fm.TEMPLATE_LABELS[v['template']]}では検証に合格する動画を作れなかったため、"
+                  f"{fm.TEMPLATE_LABELS[template]}に切り替えます。")
+            v = growth.choose_variant(ctx["ig_history"], growth.load_plan(), ctx["rng"],
+                                      ctx["now"].month, template, str(int(v["duration"])))
+            post["variant"] = v
+            post["caption"] = caption_for(post, template)
+        # AI が作ったキャッチコピーを先に試し、だめなら定型のキャッチコピーで作り直す
+        hooks = []
+        ai = post.get("ai_hook")
+        if ai and ai["template"] == template:
+            hooks.append(("ai", ai["text"]))
+        hooks.append((v["hook_id"], v["hook_text"]))
+        for hook_id, hook in hooks:
+            v = {**v, "hook_id": hook_id, "hook_text": hook}
+            print(f"[情報] リール動画を作成しています（{fm.TEMPLATE_LABELS[v['template']]}・"
+                  f"{v['duration']:.0f}秒・{v['transition']}・キャッチコピー「{hook.replace(chr(10), ' ')}」"
+                  f"{'（AI）' if hook_id == 'ai' else ''}）...")
+            built, images, problems = build_checked_reel(post, v)
+            if built is not None:
+                break
+        if built is not None:
+            post["variant"] = v
+            break
+    else:
+        raise RuntimeError("投稿前の検証に合格する動画を作れませんでした: " + " / ".join(problems))
+    built.encode(out_path)
+    problems = fm.probe_ok(out_path, v["duration"])
+    if problems:
+        raise RuntimeError("書き出した動画に問題があります: " + " / ".join(problems))
+    post["images"] = images
+    post["checks"] = built.describe()
     post["video"] = out_path
+    print(f"[情報] 動画を作成しました（{time.time() - started:.0f}秒・検証に合格）: {out_path}")
+    print(f"       {reel.probe(out_path)}")
     return out_path
 
 
@@ -496,15 +588,27 @@ def attach_bgm(post: dict, ig_history: dict, now: datetime) -> dict | None:
     return mamc_bgm.add_bgm(post["video"], ig_history["posts"])
 
 
+def caption_for(post: dict, template: str | None) -> str:
+    """今の紹介文・タグ・動画の種類から、投稿文全体を組み立てる。"""
+    cta = CTAS.get(template, "") if template else ""
+    if post.get("caption_source"):
+        import mamc_caption
+
+        return mamc_caption.assemble(post["body"], post["tags"], cta)
+    return build_caption(post["body"], post["tags"], cta)
+
+
 def apply_caption(post: dict, ig_history: dict, now: datetime) -> None:
-    """商品紹介文とハッシュタグ3〜5個を作り直す（scripts/mamc_caption.py）。
-    失敗しても、それまでの投稿文のまま投稿を続ける。"""
+    """商品紹介文とハッシュタグ3〜5個（リールなら冒頭のキャッチコピーも）を作る
+    （scripts/mamc_caption.py）。失敗しても、それまでの投稿文のまま投稿を続ける。"""
+    template = post.get("variant", {}).get("template") if post["format"] == "reel" else None
+    images = post.get("candidates", post["images"])[:3]
     try:
         import mamc_caption
 
         seed = f"{now.date()}-{post['image_src'].name}-{os.environ.get('GITHUB_RUN_ID', '')}"
-        result = mamc_caption.make_caption(post["images"], post["product"], ig_history["posts"],
-                                           now.month, seed)
+        result = mamc_caption.make_caption(images, post["product"], ig_history["posts"],
+                                           now.month, seed, template, CTAS.get(template, ""))
     except Exception as exc:  # 投稿文づくりの失敗で投稿を止めない
         print(f"[注意] 投稿文を作り直せなかったため、元の投稿文を使います（{exc}）", file=sys.stderr)
         return
@@ -515,8 +619,11 @@ def apply_caption(post: dict, ig_history: dict, now: datetime) -> None:
     post["tags"] = result["tags"]
     post["caption"] = result["caption"]
     post["caption_source"] = result["source"]
+    if result.get("hook") and template:
+        post["ai_hook"] = {"template": template, "text": result["hook"]}
     print(f"[情報] 投稿文を作りました（{'AI' if result['source'] == 'ai' else '定型文'}）: "
-          f"{result['text']} / {' '.join(result['tags'])}")
+          f"{result['text']} / {' '.join(result['tags'])}"
+          + (f" / キャッチコピー「{result['hook'].replace(chr(10), ' ')}」" if result.get("hook") else ""))
 
 
 def show_post(post: dict) -> None:
@@ -529,7 +636,20 @@ def show_post(post: dict) -> None:
              if post["source"] == "x_mirror" else "新規作成（Xと同じルール）"))
     product = post["product"]
     print(f"【種類】 {'ブランド紹介' if not product.get('name') else '商品: ' + product['name']}")
-    print(f"【投稿形式】 {'リール（11秒動画）' if post['format'] == 'reel' else 'フィード（画像1枚）'}")
+    if post["format"] == "reel":
+        import mamc_reel_formats as fm
+
+        v = post["variant"]
+        print(f"【投稿形式】 リール（{fm.TEMPLATE_LABELS[v['template']]}・{v['duration']:.0f}秒・"
+              f"切り替え: {v['transition']}）")
+        print(f"【フック】 {v['hook_text'].replace(chr(10), ' ')}（{v['hook_id']}）")
+        for ov in post.get("checks", {}).get("overlays", []):
+            print(f"【文字の検証】 {ov['kind']}「{ov['text'].replace(chr(10), ' ')}」 位置{ov['pos']} "
+                  f"色 {'白' if ov.get('color') == 'white' else '墨'}・大きさ {ov.get('size')}・"
+                  f"背景に溶ける {ov.get('bad', 0):.0%}（1文字の最大 {ov.get('worst_char', 0):.0%}）・"
+                  f"顔 {'重なり' if ov.get('on_face') else 'なし'}・商品との重なり {ov.get('on_product', 0):.0%}")
+    else:
+        print("【投稿形式】 フィード（画像1枚）")
     for i, img in enumerate(post["images"], 1):
         print(f"【画像{i}】 {img.relative_to(ROOT)}")
     if post["format"] == "image":
@@ -863,6 +983,31 @@ def wait_for_post_time(now: datetime) -> None:
         time.sleep(wait)
 
 
+def make_samples(args, now: datetime) -> int:
+    """3種類の企画のサンプル動画を作る（投稿・履歴ファイルの更新はしない）。"""
+    ig_history = load_ig_history()
+    out_dir = Path(args.video_out) if args.video_out else (
+        Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "mamc_reels")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    failed = []
+    for template in ("compare", "detail", "ad"):
+        print(f"\n########## サンプル: {template} ##########")
+        try:
+            post = compose(args.source, now, "reel", template, args.duration)
+            apply_caption(post, ig_history, now)
+            render_video(post, out_dir / f"mamc_reel_{template}.mp4", allow_switch=False)
+            post["bgm"] = attach_bgm(post, ig_history, now)
+            show_post(post)
+            # 次のサンプルが同じ曲・同じ文にならないよう、作った内容を仮の履歴に積む
+            ig_history["posts"].append({"bgm": post["bgm"], "body": post["body"], "tags": post["tags"],
+                                        "variant": post["variant"]})
+        except (RuntimeError, ValueError, OSError) as exc:
+            print(f"[エラー] {template} のサンプルを作れませんでした: {exc}", file=sys.stderr)
+            failed.append(template)
+    print(f"\n[サンプル] 保存先: {out_dir}（投稿はしていません）")
+    return 1 if failed else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=f"MAMC を Instagram（@{EXPECTED_USERNAME}）へ投稿します。")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずに内容だけ表示する")
@@ -880,7 +1025,13 @@ def main() -> int:
                         default=os.environ.get("MAMC_IG_FORMAT", "").strip() or "reel",
                         help="reel: 11秒のリール動画（既定）/ image: 画像1枚のフィード投稿")
     parser.add_argument("--video-out", default="",
-                        help="作った動画の保存先（省略時は一時フォルダ）")
+                        help="作った動画の保存先（省略時は一時フォルダ。--samples のときはフォルダ）")
+    parser.add_argument("--template", choices=["auto", "compare", "detail", "ad"], default="auto",
+                        help="動画の種類（auto: 計画にしたがって選ぶ）")
+    parser.add_argument("--duration", choices=["auto", "11"], default="auto",
+                        help="動画の長さ（auto: 計画にしたがって選ぶ）")
+    parser.add_argument("--samples", action="store_true",
+                        help="投稿せずに、3種類（比較・デザイン紹介・広告風）のサンプル動画を作る")
     args = parser.parse_args()
 
     if args.verify_auth:
@@ -893,6 +1044,9 @@ def main() -> int:
     slot = slot_of(now)
     ig_history = load_ig_history()
     done = posted_in_slot(ig_history, slot)
+
+    if args.samples:
+        return make_samples(args, now)
 
     if args.status:
         print(f"[情報] 現在の投稿枠: {slot} 19:30 〜 翌日 19:30（日本時間）")
@@ -921,18 +1075,18 @@ def main() -> int:
             print(f"[情報] 投稿枠 {slot}（19:30〜翌日19:30）の投稿を行います。")
 
     try:
-        post = compose(args.source, now, args.format)
+        post = compose(args.source, now, args.format, args.template, args.duration)
+        apply_caption(post, ig_history, now)       # 紹介文・タグ・キャッチコピー（動画づくりの前）
         if post["format"] == "reel":
             out = Path(args.video_out) if args.video_out else (
                 Path(os.environ.get("RUNNER_TEMP", "/tmp")) / f"mamc_reel_{now:%Y%m%d}.mp4")
-            render_video(post, out)
+            render_video(post, out, allow_switch=args.template == "auto")
     except (RuntimeError, SystemExit, ValueError, OSError) as exc:
         if not args.dry_run:
             record_error(ig_history, "投稿内容の作成", str(exc))
         raise SystemExit(f"投稿内容を作れませんでした: {exc}")
     if post.get("video"):
         post["bgm"] = attach_bgm(post, ig_history, now)
-    apply_caption(post, ig_history, now)
     show_post(post)
 
     if args.dry_run and post["format"] == "reel":
@@ -1003,6 +1157,9 @@ def main() -> int:
         "forced": force or None,
         "image_url": post.get("image_url_used"),
         "tags": post["tags"],
+        "variant": post.get("variant"),
+        "checks": [{k: o.get(k) for k in ("kind", "text", "color", "bad", "worst_char", "on_face", "on_product")}
+                   for o in post.get("checks", {}).get("overlays", [])],
         "ig_media_id": result["media_id"],
         "permalink": result["permalink"],
     })

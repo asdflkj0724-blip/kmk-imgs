@@ -166,17 +166,17 @@ def logo_font(size: int) -> ImageFont.FreeTypeFont:
     return fnt
 
 
-def logo_block() -> Image.Image:
+def logo_block(size: int = LOGO_SIZE) -> Image.Image:
     """ロゴだけを描いた、ぴったりの大きさの透明画像。"""
-    fnt = logo_font(LOGO_SIZE)
+    fnt = logo_font(size)
     advance = [fnt.getlength(c) for c in BRAND]
-    width = sum(advance) + LOGO_SIZE * LOGO_TRACKING * (len(BRAND) - 1)
-    layer = Image.new("RGBA", (round(width) + 20, LOGO_SIZE * 2), (0, 0, 0, 0))
+    width = sum(advance) + size * LOGO_TRACKING * (len(BRAND) - 1)
+    layer = Image.new("RGBA", (round(width) + 20, size * 2), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
     x = 10.0
     for c, adv in zip(BRAND, advance):
         draw.text((x, 0), c, font=fnt, fill=TEXT_COLOR)
-        x += adv + LOGO_SIZE * LOGO_TRACKING
+        x += adv + size * LOGO_TRACKING
     return layer.crop(layer.getbbox())
 
 
@@ -296,17 +296,7 @@ def render_reel(images: list[Path], body: str = "", out_path: Path | None = None
 
     total_frames = round(DURATION * FPS)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS), "-i", "-",
-        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-        "-t", f"{DURATION}",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
-        "-preset", "medium", "-crf", "20", "-r", str(FPS), "-g", str(FPS * 2),
-        "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
-        "-shortest", "-movflags", "+faststart", str(out_path),
-    ]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    proc = subprocess.Popen(encoder_cmd(out_path, DURATION), stdin=subprocess.PIPE)
     try:
         for f in range(total_frames):
             t = f / FPS
@@ -323,6 +313,20 @@ def render_reel(images: list[Path], body: str = "", out_path: Path | None = None
     if code != 0:
         raise RuntimeError(f"ffmpeg で動画を作れませんでした（終了コード {code}）")
     return out_path
+
+
+def encoder_cmd(out_path: Path, duration: float) -> list[str]:
+    """1コマずつ送る RGB の映像を、Instagram リール向けの MP4（H.264 / AAC 無音）にする ffmpeg コマンド。"""
+    return [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS), "-i", "-",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-t", f"{duration}",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
+        "-preset", "medium", "-crf", "20", "-r", str(FPS), "-g", str(FPS * 2),
+        "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
+        "-shortest", "-movflags", "+faststart", str(out_path),
+    ]
 
 
 def probe(path: Path) -> str:
