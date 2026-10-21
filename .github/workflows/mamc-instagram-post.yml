@@ -41,6 +41,10 @@ on:
         type: choice
         options: [auto, x, new]
         default: auto
+      force_post:
+        description: '本番投稿のとき、今日すでに投稿済みでも投稿する（直前30分以内の投稿があれば中止）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -120,11 +124,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run }}
           SOURCE: ${{ inputs.source || 'auto' }}
+          FORCE_POST: ${{ inputs.force_post }}
           EVENT: ${{ github.event_name }}
         run: |
           ARGS=(--format "$FORMAT" --source "$SOURCE" --video-out "$RUNNER_TEMP/mamc_reel.mp4")
           if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
           if [ "$EVENT" = "schedule" ]; then ARGS+=(--scheduled); fi
+          if [ "$FORCE_POST" = "true" ]; then ARGS+=(--force-post); fi
           python scripts/mamc_post_to_instagram.py "${ARGS[@]}"
 
       - name: 作成した動画を保存（Actions の画面からダウンロードできます）
