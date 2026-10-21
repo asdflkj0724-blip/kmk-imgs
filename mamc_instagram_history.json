@@ -30,6 +30,43 @@
       ],
       "ig_media_id": "18107786453612589",
       "permalink": "https://www.instagram.com/reel/DevRvYCEvAr/"
+    },
+    {
+      "date": "2026-10-21T11:54:48+09:00",
+      "slot": "2026-10-20",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2112230845939646685",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "くすみグレーの重ね着に、レースをひとさじ。\n甘さと抜け感をまとう、MAMCのレイヤード。",
+      "text": "くすみグレーの重ね着に、レースをひとさじ。\n甘さと抜け感をまとう、MAMCのレイヤード。",
+      "image": "imageye___-_imgi_4_O1CN018i3ghFmuMYL2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN018i3ghFmuMYL2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN011uPZeloteLE2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01oadPS1eRLNJ2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": true,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#レイヤードコーデ",
+        "#グレーコーデ"
+      ],
+      "ig_media_id": "18083743601348411",
+      "permalink": "https://www.instagram.com/reel/DevYbYxjpFq/"
     }
   ],
   "errors": []
