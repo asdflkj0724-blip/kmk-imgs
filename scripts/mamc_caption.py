@@ -11,7 +11,7 @@
 
 作り方:
     1. ANTHROPIC_API_KEY があれば、Claude がその日の動画に使う商品画像（と、登録されていれば
-       商品情報）を見て、紹介文とハッシュタグ候補を作る
+       商品情報）を見て、紹介文・ハッシュタグ候補・動画の冒頭に出すキャッチコピーを1回で作る
     2. 結果は必ずプログラムで検証する。不合格ならもう1回だけ作り直し、それでもだめなら 3 へ
     3. API が使えないとき・失敗したときは、あらかじめ用意した文章とタグから毎回違う組み合わせを作る
        （費用はかからない）
@@ -42,6 +42,17 @@ import mamc_post_to_x as xbase  # noqa: E402  X 用の検査関数を再利用�
 
 MODEL = "claude-opus-5-5"
 TEXT_MIN, TEXT_MAX = 20, 60
+HOOK_MIN, HOOK_MAX = 4, 16        # 動画の冒頭に出すキャッチコピーの文字数
+HOOK_LINE_MAX = 9                 # キャッチコピー1行の文字数（スマホで大きく読めるように）
+# 動画の種類ごとの、キャッチコピーの方向性と例
+HOOK_GUIDE = {
+    "compare": ("2つのコーデのどちらが好きか、見る人に問いかける一言",
+                ["着るならどっち？", "AとBなら、どっち？", "あなたはどっち派？"]),
+    "detail": ("デザインやシルエットに目を向けさせる一言",
+               ["このシルエット、好き。", "シンプルなのに目を引く", "大人っぽく着こなすなら"]),
+    "ad": ("海外ブランド広告のようなキャッチコピー",
+           ["今日の主役はこの一着", "そのコーデ、どこの？", "人と被らないかわいさ"]),
+}
 DECO_MAX = 2
 TAG_TOTAL_MIN, TAG_TOTAL_MAX = 3, 5
 TAG_MAX_CHARS = 15
@@ -111,6 +122,41 @@ def check_text(text: str, product: dict, recent_texts: list[str]) -> list[str]:
     return problems
 
 
+def fit_hook(hook: str) -> str:
+    """キャッチコピーを整える（絵文字を外し、長い1行は読点などで2行に分ける）。"""
+    hook = xbase.DECO_RE.sub("", clean_text(hook)).replace("\\n", "\n")
+    lines = [l.strip() for l in hook.split("\n") if l.strip()]
+    if len(lines) == 1 and len(lines[0]) > HOOK_LINE_MAX:
+        line = lines[0]
+        # 改行は、読点・助詞・語尾（〜く・〜い・〜な）の後で、真ん中に近い所を選ぶ（言葉の途中で切らない）
+        rank = ({ch: 0 for ch in "、。！？ "} | {ch: 1 for ch in "にはがをでもてとくど"}
+                | {"い": 1.5, "の": 2})
+        options = [(rank[ch] + abs(len(line) / 2 - (i + 1)) / 2, i + 1) for i, ch in enumerate(line[:-1])
+                   if ch in rank and i + 1 <= HOOK_LINE_MAX and len(line) - (i + 1) <= HOOK_LINE_MAX]
+        cut = min(options)[1] if options else (len(line) + 1) // 2
+        lines = [line[:cut].strip(), line[cut:].strip()]
+    return "\n".join(lines)
+
+
+def check_hook(hook: str, product: dict, recent_hooks: list[str]) -> list[str]:
+    problems = []
+    lines = hook.split("\n")
+    n = xbase.body_char_len(hook)
+    if not HOOK_MIN <= n <= HOOK_MAX:
+        problems.append(f"キャッチコピーの長さが範囲外です（{n}文字 / {HOOK_MIN}〜{HOOK_MAX}文字）")
+    if len(lines) > 2 or any(xbase.body_char_len(l) > HOOK_LINE_MAX for l in lines):
+        problems.append(f"キャッチコピーは2行まで・1行{HOOK_LINE_MAX}文字以内にしてください")
+    if [c for c in xbase.find_foreign_text(hook, product) if c not in JAPANESE_OK and c not in ("A", "B")]:
+        problems.append("キャッチコピーに日本語以外の文字が混ざっています")
+    if xbase.find_unverifiable_claims(hook, product) or any(w in hook for w in xbase.BANNED_WORDS):
+        problems.append("キャッチコピーに使えない表現・確認できない情報があります")
+    if re.search(r"[MmＭ][AaＡ][MmＭ][CcＣ]", hook):
+        problems.append("キャッチコピーにブランド名は入れません")
+    if hook.replace("\n", "") in {h.replace("\n", "") for h in recent_hooks}:
+        problems.append("最近使ったキャッチコピーと同じです")
+    return problems
+
+
 def clean_tags(candidates: list[str]) -> list[str]:
     """候補のタグを整え、使ってよいものだけを順に返す（#MAMC は除く）。"""
     out: list[str] = []
@@ -165,8 +211,9 @@ SCHEMA = {
         "text": {"type": "string", "description": "商品紹介文（20〜60文字）"},
         "tags": {"type": "array", "items": {"type": "string"},
                  "description": "ハッシュタグ候補を6〜8個（#MAMC 以外）。関係の強い順"},
+        "hook": {"type": "string", "description": "動画の冒頭1〜2秒に大きく出すキャッチコピー"},
     },
-    "required": ["text", "tags"],
+    "required": ["text", "tags", "hook"],
     "additionalProperties": False,
 }
 
@@ -178,7 +225,8 @@ SYSTEM = (
 
 
 def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags: list[list[str]],
-                 season_tag: str, problems: list[str]) -> str:
+                 season_tag: str, problems: list[str], template: str | None = None,
+                 recent_hooks: list[str] | None = None) -> str:
     info = (f"商品名: {product['name']}\n特徴: {'、'.join(product.get('features') or []) or '（登録なし）'}"
             if product.get("name") else "商品情報: 登録なし（画像から読み取れることだけを使う）")
     lines = [
@@ -203,6 +251,18 @@ def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags
         "- 画像の商品と関係ないタグ、英語だけの人気タグ（#instagood など）、韓国を含むタグは入れない",
         "- 1つのタグは15文字以内",
     ]
+    if template in HOOK_GUIDE:
+        aim, examples = HOOK_GUIDE[template]
+        lines += [
+            "",
+            "=== 動画の冒頭に出すキャッチコピー（hook）のルール ===",
+            f"- 動画の最初の1〜2秒に大きく出して、思わず見続けたくなる{aim}",
+            f"- {HOOK_MIN}〜{HOOK_MAX}文字。2行にするときは改行（\\n）で区切り、1行は{HOOK_LINE_MAX}文字以内",
+            "- 例（そのまま使わず、商品に合わせて毎回違う言葉で）: " + " ／ ".join(examples),
+            "- 絵文字・ハッシュタグ・ブランド名は入れない。素材・価格など確認できない情報も入れない",
+        ]
+        if recent_hooks:
+            lines.append("- 最近使ったキャッチコピー（同じものは避ける）: " + " ／ ".join(recent_hooks))
     if rules:
         lines += ["", "=== ブランドのルール（mamc_prompt.txt）===", rules[:1500]]
     if recent_texts:
@@ -272,8 +332,9 @@ def template_caption(product: dict, recent_texts: list[str], last_tags: list[str
 # まとめ
 # --------------------------------------------------------------------------
 def make_caption(images: list[Path], product: dict, history_posts: list[dict], month: int,
-                 seed: str) -> dict:
-    """紹介文・タグ・投稿文全体を作る。戻り値: {text, tags, caption, source, problems}"""
+                 seed: str, template: str | None = None, cta: str = "") -> dict:
+    """紹介文・タグ・投稿文全体（と、template があれば動画のキャッチコピー）を作る。
+    戻り値: {text, tags, caption, source, hook, problems}（hook は検証に通らなければ None）"""
     rng = random.Random(seed)
     recent = history_posts[-8:]
     recent_texts = [p.get("body") or p.get("text") or "" for p in recent if p.get("body") or p.get("text")]
@@ -281,11 +342,13 @@ def make_caption(images: list[Path], product: dict, history_posts: list[dict], m
     last_tags = recent_tags[-1] if recent_tags else []
     season = SEASON_TAGS.get(month, "")
     rules = xbase.load_rules()
+    recent_hooks = [p["variant"]["hook_text"] for p in history_posts[-8:]
+                    if isinstance(p.get("variant"), dict) and p["variant"].get("hook_text")]
 
     problems: list[str] = []
     for attempt in range(2):
         data = ask_claude(images, build_prompt(product, rules, recent_texts[-5:], recent_tags,
-                                               season, problems))
+                                               season, problems, template, recent_hooks))
         if data is None:
             break
         text = clean_text(str(data.get("text", "")))
@@ -294,13 +357,23 @@ def make_caption(images: list[Path], product: dict, history_posts: list[dict], m
         if tags is None:
             problems.append("使えるハッシュタグが足りません（日本語で商品に合うタグを6〜8個）")
         if not problems:
-            return {"text": text, "tags": tags, "caption": assemble(text, tags), "source": "ai",
-                    "model": MODEL, "attempts": attempt + 1}
+            hook = None
+            if template:
+                hook = fit_hook(str(data.get("hook", "")))
+                hook_problems = check_hook(hook, product, recent_hooks)
+                if hook_problems:
+                    print(f"[注意] AI のキャッチコピー「{hook}」は使いません（定型のものを使います）: "
+                          f"{hook_problems}", file=sys.stderr)
+                    hook = None
+            return {"text": text, "tags": tags, "caption": assemble(text, tags, cta), "source": "ai",
+                    "model": MODEL, "attempts": attempt + 1, "hook": hook}
         print(f"[注意] AI の投稿文を採用しませんでした（{attempt + 1}回目）: {problems}", file=sys.stderr)
     text, tags = template_caption(product, recent_texts, last_tags, month, rng)
-    return {"text": text, "tags": tags, "caption": assemble(text, tags), "source": "template",
-            "problems": problems}
+    return {"text": text, "tags": tags, "caption": assemble(text, tags, cta), "source": "template",
+            "problems": problems, "hook": None}
 
 
-def assemble(text: str, tags: list[str]) -> str:
-    return f"{text}\n\n{BUY_LINE}\n\n{' '.join(tags)}"
+def assemble(text: str, tags: list[str], cta: str = "") -> str:
+    """紹介文（＋動画の種類ごとの呼びかけ）・購入案内・ハッシュタグをつなげる。"""
+    head = f"{text}\n{cta}" if cta else text
+    return f"{head}\n\n{BUY_LINE}\n\n{' '.join(tags)}"
