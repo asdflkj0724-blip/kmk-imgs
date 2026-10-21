@@ -479,6 +479,39 @@ def render_video(post: dict, out_path: Path) -> Path:
     return out_path
 
 
+def attach_bgm(post: dict, ig_history: dict, now: datetime) -> dict | None:
+    """動画に BGM を付ける（scripts/mamc_bgm.py）。失敗しても無音の動画のまま投稿を続ける。"""
+    try:
+        import mamc_bgm
+    except ImportError as exc:
+        print(f"[注意] BGM の部品を読み込めないため、無音のまま投稿します（{exc}）", file=sys.stderr)
+        return None
+    return mamc_bgm.add_bgm(post["video"], ig_history["posts"])
+
+
+def apply_caption(post: dict, ig_history: dict, now: datetime) -> None:
+    """商品紹介文とハッシュタグ3〜5個を作り直す（scripts/mamc_caption.py）。
+    失敗しても、それまでの投稿文のまま投稿を続ける。"""
+    try:
+        import mamc_caption
+
+        seed = f"{now.date()}-{post['image_src'].name}-{os.environ.get('GITHUB_RUN_ID', '')}"
+        result = mamc_caption.make_caption(post["images"], post["product"], ig_history["posts"],
+                                           now.month, seed)
+    except Exception as exc:  # 投稿文づくりの失敗で投稿を止めない
+        print(f"[注意] 投稿文を作り直せなかったため、元の投稿文を使います（{exc}）", file=sys.stderr)
+        return
+    if SIGNATURE not in result["caption"]:   # 二重投稿の確認に使う一文が無ければ使わない
+        print("[注意] 投稿文に購入案内の一文が無いため、元の投稿文を使います", file=sys.stderr)
+        return
+    post["body"] = result["text"]
+    post["tags"] = result["tags"]
+    post["caption"] = result["caption"]
+    post["caption_source"] = result["source"]
+    print(f"[情報] 投稿文を作りました（{'AI' if result['source'] == 'ai' else '定型文'}）: "
+          f"{result['text']} / {' '.join(result['tags'])}")
+
+
 def show_post(post: dict) -> None:
     print("=" * 68)
     print(" Instagram 投稿内容")
@@ -499,6 +532,13 @@ def show_post(post: dict) -> None:
             w, h = im.size
         print(f"【投稿画像】 {post['image_ig'].relative_to(ROOT)}（{w}x{h}・縦横比 {w / h:.2f}）")
         print(f"【画像URL】 {post['image_urls'][0]}")
+    if post["format"] == "reel":
+        bgm = post.get("bgm")
+        if bgm is None:
+            print("【BGM】 なし（無音）")
+        else:
+            print(f"【BGM】 {bgm['title']}（{bgm['license']}・クレジット不要）"
+                  f"{bgm.get('lufs')} LUFS・ピーク {bgm.get('true_peak_db')} dBTP")
     print(f"【ハッシュタグ】 {len(post['tags'])}個 / キャプション {len(post['caption'])}文字")
     print("\n--- キャプション（そのままの形）---")
     print(post["caption"])
@@ -857,6 +897,9 @@ def main() -> int:
         if not args.dry_run:
             record_error(ig_history, "投稿内容の作成", str(exc))
         raise SystemExit(f"投稿内容を作れませんでした: {exc}")
+    if post.get("video"):
+        post["bgm"] = attach_bgm(post, ig_history, now)
+    apply_caption(post, ig_history, now)
     show_post(post)
 
     if args.dry_run and post["format"] == "reel":
@@ -921,6 +964,8 @@ def main() -> int:
         "text": post["body"],
         "image": post["image_src"].name,
         "images": [p.name for p in post["images"]],
+        "bgm": post.get("bgm"),
+        "caption_source": post.get("caption_source"),
         "image_url": post.get("image_url_used"),
         "tags": post["tags"],
         "ig_media_id": result["media_id"],
