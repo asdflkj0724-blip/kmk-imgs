@@ -62,14 +62,18 @@ WHITE = (255, 255, 255)
 INK = (28, 28, 28)           # 白い余白の上に置く文字の色（墨色）
 CONTRAST_MIN = 100           # 文字と背景の明るさの差がこれ未満の所は「読めない」とみなす
 # 文字のうち背景に溶けてよい割合（全体 / 1文字ぶんのマス目）
-MAX_BAD = {"hook": 0.10, "cta": 0.10, "label": 0.15, "logo": 0.20}
+MAX_BAD = {"hook": 0.10, "cta": 0.10, "label": 0.15, "logo": 0.20, "thanks": 0.10}
 # 商品（写真の背景以外）に重なる割合へのペナルティ。ロゴは従来どおり洋服の上に置くので 0
-SUBJECT_WEIGHT = {"hook": 300, "cta": 300, "label": 150, "logo": 0}
-MIN_TEXT_SIZE = {"hook": 56, "cta": 48, "label": 90, "logo": 100}
+SUBJECT_WEIGHT = {"hook": 300, "cta": 300, "label": 150, "logo": 0, "thanks": 300}
+MIN_TEXT_SIZE = {"hook": 56, "cta": 48, "label": 90, "logo": 100, "thanks": 34}
 MAX_PRODUCT_COVER = 0.5      # キャッチコピーが商品に重なる割合がこれを超えたら、小さくして余白を探す
 # 文字のうち明るい背景にかかってよい割合と、文字の下の背景の平均の明るさの上限
 # （平均150以下 ≒ 白い文字とのコントラスト比 3:1 以上。大きい文字の読みやすさの目安）
 # 1文字ぶんのマス目のうち、明るい背景にかかってよい割合（1文字だけ欠けて見えるのを防ぐ）
+# ロゴと同時に出す、お礼のひとこと（黒・小さめ。ロゴの下が第一候補）。読める場所が無いときは出さない
+THANKS_TEXT = "高評価ありがとうございます"
+THANKS_SIZE = 40
+THANKS_SECONDS = 2.0
 MIN_FRAME_STD = 8.0          # 画面がほぼ1色（表示崩れ）でないかの目安
 
 # フック（最初の1秒の文字）。事実（素材・価格など）を含まない言葉だけにする
@@ -279,7 +283,7 @@ class Shot:
 
 @dataclass
 class Overlay:
-    kind: str                                # hook / logo / label / cta
+    kind: str                                # hook / logo / label / cta / thanks
     text: str
     t0: float
     t1: float
@@ -296,7 +300,9 @@ class Overlay:
 
     @property
     def colors(self) -> list[tuple[int, int, int]]:
-        return [WHITE] if self.kind == "logo" else [WHITE, INK]
+        if self.kind == "logo":
+            return [WHITE]
+        return [INK] if self.kind == "thanks" else [WHITE, INK]
 
 
 # --------------------------------------------------------------------------
@@ -387,6 +393,7 @@ class Reel:
         self.stages = stages
         self.shots = shots
         self.overlays = overlays
+        self.soft_problems: list[str] = []   # 動画は作れるが、できれば避けたい問題（お礼の文字を省いた等）
 
     def _panel(self, panel: Panel, u: float) -> Image.Image:
         st = self.stages[panel.stage]
@@ -482,7 +489,13 @@ class Reel:
         """
         step = 4
         placed: list[tuple[float, float, tuple[int, int, int, int]]] = []
-        for ov in self.overlays:
+        for ov in list(self.overlays):
+            if ov.kind == "thanks":
+                logo = next(o for o in self.overlays if o.kind == "logo")
+                lx, ly = logo.pos
+                lw, lh = logo.block.size
+                # ロゴのすぐ下を第一候補に、黒い文字が読める明るい余白を画面全体から探す
+                ov.prefer = (lx + lw / 2, ly + lh + 70)
             ov.block = make_block(ov)
             times = [ov.t0 + 0.05, (ov.t0 + ov.t1) / 2, max(ov.t0 + 0.05, ov.t1 - 0.1)]
             rgb = [np.asarray(self.base_frame(t), dtype=np.uint8) for t in times]
@@ -545,13 +558,18 @@ class Reel:
 
             size = ov.size
             best = search(ov.block, size)
-            while (ov.kind in ("hook", "cta", "logo") and needs_retry(best)
+            while (ov.kind in ("hook", "cta", "logo", "thanks") and needs_retry(best)
                    and size * 0.86 >= MIN_TEXT_SIZE.get(ov.kind, 40)):
                 size = int(size * 0.86)
                 smaller = base.logo_block(size) if ov.kind == "logo" else text_block(ov.text, size)
                 found = search(smaller, size)
                 if found is not None and (best is None or found[0] < best[0]):
                     best, ov.block, ov.size = found, smaller, size
+            if ov.kind == "thanks" and needs_retry(best):
+                # 黒い文字が読める明るい場所がロゴの近くに無い → お礼の文字は出さない（動画は止めない）
+                self.overlays.remove(ov)
+                self.soft_problems.append("お礼の文字（黒）を読みやすく置ける明るい余白がありません")
+                continue
             if best is None:   # 置ける場所が無い（検証で失敗にする）
                 ov.pos = (round(ov.prefer[0] - ov.block.width / 2),
                           round(ov.prefer[1] - ov.block.height / 2))
@@ -630,10 +648,20 @@ class Reel:
         if code != 0:
             raise RuntimeError(f"ffmpeg で動画を作れませんでした（終了コード {code}）")
 
+    def cover_ms(self) -> int:
+        """リール一覧の表紙にする位置（ミリ秒）。お礼の文字とロゴがはっきり出ている時点。
+        お礼の文字を出さない動画は、フックの文字が出ている 0.5 秒の時点。"""
+        thanks = next((o for o in self.overlays if o.kind == "thanks"), None)
+        if thanks is None:
+            return 500
+        return round(min(thanks.t0 + thanks.fade_in + 0.4, thanks.t1 - thanks.fade_out) * 1000)
+
     def describe(self) -> dict:
         return {
             "template": self.template,
             "duration": self.duration,
+            "cover_ms": self.cover_ms(),
+            "notes": self.soft_problems,
             "shots": [{"t0": round(s.t0, 2), "t1": round(s.t1, 2), "transition": s.transition,
                        "stages": [p.stage for p in s.panels]} for s in self.shots],
             "overlays": [{"kind": o.kind, "text": o.text, "t0": round(o.t0, 2), "t1": round(o.t1, 2),
@@ -774,6 +802,9 @@ def layout(template: str, images: list[Path], duration: float, transition: str,
             cache[p] = build_stage(p)
         st.append(cache[p])
     shots, overlays = BUILDERS[template](st, duration, transition, hook)
+    logo = next(o for o in overlays if o.kind == "logo")
+    overlays.append(Overlay("thanks", THANKS_TEXT, logo.t0, logo.t0 + THANKS_SECONDS, THANKS_SIZE,
+                            SAFE, (W / 2, H / 2), fade_in=logo.fade_in, fade_out=0.6))
     reel = Reel(template, duration, st, shots, overlays)
     reel.place_overlays()
     return reel

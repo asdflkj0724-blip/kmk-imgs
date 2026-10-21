@@ -54,6 +54,15 @@ HOOK_GUIDE = {
            ["今日の主役はこの一着", "そのコーデ、どこの？", "人と被らないかわいさ"]),
 }
 DECO_MAX = 2
+# SNS ごとの紹介文の長さと書き方（Instagram は従来どおり）
+PLATFORMS = {
+    "instagram": {"name": "Instagram", "text": (TEXT_MIN, TEXT_MAX), "newlines": 1,
+                  "style": "思わず商品が欲しくなる一言にする"},
+    "facebook": {"name": "Facebook ページ", "text": (30, 100), "newlines": 2,
+                 "style": "商品の魅力と着こなしのポイントを、読みやすい2〜3文で少し丁寧に伝える"},
+    "threads": {"name": "Threads", "text": (20, 80), "newlines": 1,
+                "style": "友だちに話しかけるような、自然でやわらかい口調にする。問いかけで終えてもよい"},
+}
 TAG_TOTAL_MIN, TAG_TOTAL_MAX = 3, 5
 TAG_MAX_CHARS = 15
 BRAND_TAG = "#MAMC"
@@ -96,15 +105,18 @@ def clean_text(text: str) -> str:
     return re.sub(r"\n{2,}", "\n", text).strip().strip("「」\"'")
 
 
-def check_text(text: str, product: dict, recent_texts: list[str]) -> list[str]:
+def check_text(text: str, product: dict, recent_texts: list[str],
+               platform: str = "instagram") -> list[str]:
     problems = []
+    lo, hi = PLATFORMS[platform]["text"]
+    max_newlines = PLATFORMS[platform]["newlines"]
     n = xbase.body_char_len(text)
-    if not TEXT_MIN <= n <= TEXT_MAX:
-        problems.append(f"紹介文の長さが範囲外です（{n}文字 / {TEXT_MIN}〜{TEXT_MAX}文字）")
+    if not lo <= n <= hi:
+        problems.append(f"紹介文の長さが範囲外です（{n}文字 / {lo}〜{hi}文字）")
     if xbase.count_decorations(text) > DECO_MAX:
         problems.append(f"絵文字が多すぎます（{DECO_MAX}個まで）")
-    if text.count("\n") > 1:
-        problems.append("改行が多すぎます（1回まで）")
+    if text.count("\n") > max_newlines:
+        problems.append(f"改行が多すぎます（{max_newlines}回まで）")
     # X 用の検査の「中国語にしか無い文字」には、日本語でも使う「会」「没」が入っているため除く
     foreign = [c for c in xbase.find_foreign_text(text, product) if c not in JAPANESE_OK]
     if foreign:
@@ -218,7 +230,7 @@ SCHEMA = {
 }
 
 SYSTEM = (
-    "あなたは BUYMA のレディースファッションショップ「MAMC」の Instagram 担当です。"
+    "あなたは BUYMA のレディースファッションショップ「MAMC」の SNS（Instagram・Facebook・Threads）担当です。"
     "MAMC は、かわいい・女の子らしい・個性的で人と被らないファッションを楽しみたい20〜30代の女性向けのショップです。"
     "海外のファッションブランドのような、洗練された短い日本語で、思わず商品が欲しくなる投稿文を書きます。"
 )
@@ -226,23 +238,25 @@ SYSTEM = (
 
 def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags: list[list[str]],
                  season_tag: str, problems: list[str], template: str | None = None,
-                 recent_hooks: list[str] | None = None) -> str:
+                 recent_hooks: list[str] | None = None, platform: str = "instagram") -> str:
+    conf = PLATFORMS[platform]
+    lo, hi = conf["text"]
     info = (f"商品名: {product['name']}\n特徴: {'、'.join(product.get('features') or []) or '（登録なし）'}"
             if product.get("name") else "商品情報: 登録なし（画像から読み取れることだけを使う）")
     lines = [
         "添付した画像は、今日のリール動画に使う MAMC の商品画像です。",
-        "この商品に合わせて、Instagram の投稿文を作ってください。",
+        f"この商品に合わせて、{conf['name']} の投稿文を作ってください。",
         "",
         f"=== 商品情報 ===\n{info}",
         "",
         "=== 紹介文のルール ===",
-        f"- {TEXT_MIN}〜{TEXT_MAX}文字の、自然でおしゃれな日本語。思わず商品が欲しくなる一言にする",
+        f"- {lo}〜{hi}文字の、自然でおしゃれな日本語。{conf['style']}",
         "- 海外ファッションブランドの広告のような、洗練された言い回し。煽り文句（今だけ・絶対 など）は使わない",
         "- ブランド名を書くときは必ず「MAMC」と表記する",
         "- 書いてよいのは、画像ではっきり見えること（シルエット・色・柄・重ね着・雰囲気）と、上の商品情報だけ",
         "- 素材・価格・サイズ・在庫・送料・割引・機能・原産国は、商品情報に無い限り絶対に書かない",
         "- 「韓国ファッション」「韓国風」などの表現は使わない（MAMC は韓国ファッション専門店ではない）",
-        "- 絵文字は使わないか、1個まで。ハッシュタグや URL は紹介文に入れない。改行は1回まで",
+        f"- 絵文字は使わないか、1個まで。ハッシュタグや URL は紹介文に入れない。改行は{conf['newlines']}回まで",
         "",
         "=== ハッシュタグのルール ===",
         "- #MAMC 以外のタグ候補を6〜8個、商品との関係が強い順に",
@@ -332,7 +346,8 @@ def template_caption(product: dict, recent_texts: list[str], last_tags: list[str
 # まとめ
 # --------------------------------------------------------------------------
 def make_caption(images: list[Path], product: dict, history_posts: list[dict], month: int,
-                 seed: str, template: str | None = None, cta: str = "") -> dict:
+                 seed: str, template: str | None = None, cta: str = "",
+                 platform: str = "instagram") -> dict:
     """紹介文・タグ・投稿文全体（と、template があれば動画のキャッチコピー）を作る。
     戻り値: {text, tags, caption, source, hook, problems}（hook は検証に通らなければ None）"""
     rng = random.Random(seed)
@@ -348,11 +363,11 @@ def make_caption(images: list[Path], product: dict, history_posts: list[dict], m
     problems: list[str] = []
     for attempt in range(2):
         data = ask_claude(images, build_prompt(product, rules, recent_texts[-5:], recent_tags,
-                                               season, problems, template, recent_hooks))
+                                               season, problems, template, recent_hooks, platform))
         if data is None:
             break
         text = clean_text(str(data.get("text", "")))
-        problems = check_text(text, product, recent_texts)
+        problems = check_text(text, product, recent_texts, platform)
         tags = pick_tags(data.get("tags") or [], last_tags, rng)
         if tags is None:
             problems.append("使えるハッシュタグが足りません（日本語で商品に合うタグを6〜8個）")
