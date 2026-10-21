@@ -90,6 +90,7 @@ MIRROR_MAX_AGE_DAYS = 3
 # 定期実行のときに投稿してよい時間帯（日本時間）
 POST_HOUR = 20
 EARLY_WAIT_MINUTES = 30     # 投稿枠は 19:30 から。20:00 より前に起動したら 20:00 まで待つ
+FORCE_GUARD_MINUTES = 30    # 手動の強制投稿でも、直前この分数以内に投稿があれば中止する（押し間違い対策）
 
 # Instagram ではキャプションのリンクを押せないため、プロフィールへ誘導する。
 # SIGNATURE は「自動投稿かどうか」の判定（重複防止）にも使うので変えないこと。
@@ -157,13 +158,19 @@ def slot_of(dt: datetime) -> date:
 
 
 def posted_in_slot(history: dict, slot: date) -> dict | None:
-    """履歴に、この投稿枠の投稿があればそれを返す。"""
+    """履歴に、この投稿枠の投稿があればそれを返す。
+
+    投稿枠が始まる日（日本時間の暦の日付）にすでに投稿があれば、その枠も投稿済みとみなす
+    （その日に手動で投稿した場合は、20時の自動投稿をスキップする）。
+    """
     for entry in reversed(history["posts"]):
+        dt = parse_date(entry.get("date", ""))
+        if dt and dt.astimezone(JST).date() == slot:
+            return entry
         if entry.get("slot"):
             if entry["slot"] == slot.isoformat():
                 return entry
             continue
-        dt = parse_date(entry.get("date", ""))
         if dt and slot_of(dt) == slot:
             return entry
     return None
@@ -685,7 +692,7 @@ def verify_auth_only() -> int:
 
 
 def find_auto_post_in_slot(graph: Graph, ig_id: str, slot: date) -> dict | None:
-    """Instagram 上に、この投稿枠の自動投稿（定型文入り）がすでに無いか確認する。"""
+    """Instagram 上に、この投稿枠（または枠が始まる日）の自動投稿（定型文入り）がすでに無いか確認する。"""
     media = graph.call("GET", f"{ig_id}/media", fields="id,caption,timestamp,permalink", limit=10)
     for item in media.get("data", []):
         ts = item.get("timestamp", "")
@@ -693,7 +700,21 @@ def find_auto_post_in_slot(graph: Graph, ig_id: str, slot: date) -> dict | None:
             dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").astimezone(JST)
         except ValueError:
             continue
-        if slot_of(dt) == slot and SIGNATURE in (item.get("caption") or ""):
+        if (slot_of(dt) == slot or dt.date() == slot) and SIGNATURE in (item.get("caption") or ""):
+            return item
+    return None
+
+
+def find_recent_auto_post(graph: Graph, ig_id: str, minutes: int) -> dict | None:
+    """Instagram 上に、直前 minutes 分以内の自動投稿（定型文入り）が無いか確認する。"""
+    media = graph.call("GET", f"{ig_id}/media", fields="id,caption,timestamp,permalink", limit=5)
+    limit = datetime.now(JST) - timedelta(minutes=minutes)
+    for item in media.get("data", []):
+        try:
+            dt = datetime.strptime(item.get("timestamp", ""), "%Y-%m-%dT%H:%M:%S%z")
+        except ValueError:
+            continue
+        if dt >= limit and SIGNATURE in (item.get("caption") or ""):
             return item
     return None
 
@@ -849,6 +870,8 @@ def main() -> int:
     parser.add_argument("--prepare-images", action="store_true", help="Instagram用画像の変換だけ行う")
     parser.add_argument("--scheduled", action="store_true",
                         help="定期実行用（19:30〜20:00の起動なら20:00まで待つ）")
+    parser.add_argument("--force-post", action="store_true",
+                        help="手動の本番投稿で、投稿枠の確認を飛ばして投稿する（直前30分以内の投稿があれば中止）")
     parser.add_argument("--status", action="store_true",
                         help="今の投稿枠で投稿済みかを表示する（GitHub Actions の出力 done=true/false）")
     parser.add_argument("--source", choices=["auto", "x", "new"], default="auto",
@@ -880,12 +903,22 @@ def main() -> int:
                 fh.write(f"done={'true' if done else 'false'}\n")
         return 0
 
+    force = args.force_post and not args.dry_run and not args.scheduled
     if not args.dry_run:
-        if done:
+        if force:
+            recent = [e for e in ig_history["posts"]
+                      if (d := parse_date(e.get("date", ""))) and now - d < timedelta(minutes=FORCE_GUARD_MINUTES)]
+            if recent:
+                print(f"[情報] 直前{FORCE_GUARD_MINUTES}分以内に投稿があるため、強制投稿を中止します: "
+                      f"{recent[-1].get('permalink')}")
+                return 0
+            print("[情報] 手動の強制投稿です。投稿枠の確認を飛ばして投稿します。")
+        elif done:
             print(f"[情報] この投稿枠（{slot}）はすでに投稿済みのため、二重投稿を防ぐため中止します: "
                   f"{done.get('permalink')}")
             return 0
-        print(f"[情報] 投稿枠 {slot}（19:30〜翌日19:30）の投稿を行います。")
+        else:
+            print(f"[情報] 投稿枠 {slot}（19:30〜翌日19:30）の投稿を行います。")
 
     try:
         post = compose(args.source, now, args.format)
@@ -927,7 +960,8 @@ def main() -> int:
     graph = Graph(get_token())
     try:
         ig_id = check_account(graph)
-        existing = find_auto_post_in_slot(graph, ig_id, slot)
+        existing = (find_recent_auto_post(graph, ig_id, FORCE_GUARD_MINUTES) if force
+                    else find_auto_post_in_slot(graph, ig_id, slot))
         if existing:
             print(f"[情報] Instagram 上にこの投稿枠の自動投稿がすでにあるため中止します: "
                   f"{existing.get('permalink')}")
@@ -966,6 +1000,7 @@ def main() -> int:
         "images": [p.name for p in post["images"]],
         "bgm": post.get("bgm"),
         "caption_source": post.get("caption_source"),
+        "forced": force or None,
         "image_url": post.get("image_url_used"),
         "tags": post["tags"],
         "ig_media_id": result["media_id"],
