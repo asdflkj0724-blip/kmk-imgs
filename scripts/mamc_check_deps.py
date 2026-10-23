@@ -3,7 +3,7 @@
 """MAMC のリール動画づくり・投稿に必要なものがそろっているかを、投稿前に確かめる。
 
     ffmpeg / ffprobe        動画の書き出し（H.264）と BGM（AAC）の確認
-    Noto Serif CJK（明朝体）  日本語のキャッチコピー（代わりのフォントでは品質が変わるので不合格）
+    Noto Serif CJK（明朝体）  日本語のキャッチコピー（fonts/ に同梱。代わりのフォントでは品質が変わるので不合格）
     Python のライブラリ       requests・Pillow・numpy（anthropic は無くても定型文で続けられるので注意だけ）
 
 足りないものがあれば、理由を表示して終了コード 1 で終わる（本番投稿の前に止める）。
@@ -20,7 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-NOTO_SERIF_BOLD = ("/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+NOTO_SERIF_BOLD = (str(Path(__file__).resolve().parent.parent / "fonts" / "NotoSerifCJK-Bold.ttc"),
+                   "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
                    "/usr/share/fonts/noto-cjk/NotoSerifCJK-Bold.ttc")
 
 
