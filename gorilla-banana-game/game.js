@@ -32,7 +32,19 @@
   const INVINCIBLE_TIME = 20; // スターの無敵タイム（秒）
   const BEE_LIFE = 9; // ハチが追いかけてくる秒数（すぎたら巣に帰る）
   const MARGIN = 40; // フィールドの端からの余白
-  const BEST_KEY = 'gorillaBanana.best';
+  // 6ぴきチームになったので、最高記録はチームの合計で新しく記録する
+  const BEST_KEY = 'gorillaBanana.teamBest';
+  const PLAYER_NAME = 'ミッくん';
+  const AI_SPEED = GORILLA_SPEED * 0.36; // AIゴリラはミッくんよりゆっくり
+  const AI_EAT_REST = 0.9; // AIゴリラがバナナを食べたあと、もぐもぐして止まる秒数
+  const AI_SCALE = 0.8; // AIゴリラはミッくんより少し小さい
+  const AI_LOOKS = [
+    { name: 'ゴンタ', color: '#2f8cff', fur: '#6b6e78', furDark: '#53565f' },
+    { name: 'モモ', color: '#ff4f9a', fur: '#8a5a44', furDark: '#6e4636' },
+    { name: 'ポン', color: '#22b35a', fur: '#5c4a3e', furDark: '#463830' },
+    { name: 'キキ', color: '#ff8a1f', fur: '#9b7a55', furDark: '#7c6043' },
+    { name: 'ドン', color: '#9b5cff', fur: '#3f3f46', furDark: '#2e2e33' },
+  ];
   const SOUND_KEY = 'gorillaBanana.sound';
 
   // ===== DOM =====
@@ -53,6 +65,8 @@
   const finalScoreEl = document.getElementById('finalScore');
   const newRecordEl = document.getElementById('newRecord');
   const messageEl = document.getElementById('message');
+  const teamBoardEl = document.getElementById('teamBoard');
+  const breakdownEl = document.getElementById('breakdown');
 
   // ===== 保存（localStorage が使えない環境でも動くように） =====
   function load(key, fallback) {
@@ -111,6 +125,12 @@
       tone(784, 0.06, 0.1, 'triangle', 0.25);
       tone(1047, 0.13, 0.1, 'triangle', 0.25);
       tone(1319, 0.2, 0.18, 'triangle', 0.25);
+    },
+    eatAi() {
+      if (!soundOn || !ensureAudio()) return;
+      // なかまが食べたときは、小さく「ポン♪」
+      tone(988, 0, 0.08, 'triangle', 0.08);
+      tone(1319, 0.06, 0.1, 'triangle', 0.08);
     },
     start() {
       if (!soundOn || !ensureAudio()) return;
@@ -335,7 +355,34 @@
     scale: 1, // 今の大きさ（size に向かってなめらかに変わる）
     invincible: 0, // スターの無敵タイムののこり（秒）
     size: 1, // 毒キノコで小さくなった大きさ
+    count: 0, // ミッくんが食べたバナナの数
   };
+  const PLAYER_LOOK = { crown: true };
+
+  // AIで自動で動くなかまのゴリラ5ひき
+  const ais = AI_LOOKS.map((look, i) => ({
+    id: i,
+    name: look.name,
+    look: { fur: look.fur, furDark: look.furDark, scarf: look.color },
+    color: look.color,
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    facing: 1,
+    walk: 0,
+    moving: false,
+    chomp: 0,
+    hurt: 0,
+    scale: AI_SCALE,
+    target: null, // ねらっているバナナ
+    wander: null, // バナナがないときに歩いていく場所
+    think: 0, // 次にバナナをえらびなおすまでの秒数
+    stuck: 0, // 進めていない時間
+    rest: 0, // もぐもぐ中（止まっている）のこり秒数
+    skip: null, // 進めなかったバナナ（しばらくねらわない）
+    count: 0,
+  }));
 
   function rand(min, max) {
     return min + Math.random() * (max - min);
@@ -356,7 +403,8 @@
       const farFromHives =
         hives.every((h) => Math.hypot(x - h.x, y - h.y) > HIVE_RADIUS + radius + 30) &&
         Math.hypot(x - bigHive.x, y - bigHive.y) > BIG_HIVE_RADIUS + radius + 20;
-      if (farFromGorilla && farFromOthers && farFromHives) break;
+      const farFromAis = ais.every((a) => Math.hypot(x - a.x, y - a.y) > GORILLA_RADIUS * a.scale + radius + 30);
+      if (farFromGorilla && farFromOthers && farFromHives && farFromAis) break;
     }
     return { x, y };
   }
@@ -685,6 +733,194 @@
     }
   }
 
+  // ===== AIゴリラ =====
+  function placeAis() {
+    ais.forEach((a, i) => {
+      // ミッくんのまわりに、ぐるっと円になってスタート
+      const ang = (i / ais.length) * Math.PI * 2 + Math.PI / 2;
+      a.x = Math.max(MARGIN + 10, Math.min(W - MARGIN - 10, W / 2 + Math.cos(ang) * 170));
+      a.y = Math.max(MARGIN + 20, Math.min(H - MARGIN, H / 2 + Math.sin(ang) * 150));
+      a.vx = 0;
+      a.vy = 0;
+      a.facing = Math.cos(ang) > 0 ? -1 : 1;
+      a.walk = 0;
+      a.moving = false;
+      a.chomp = 0;
+      a.target = null;
+      a.wander = null;
+      a.think = i * 0.1; // 5ひきが同時に考えないよう少しずらす
+      a.stuck = 0;
+      a.rest = 0;
+      a.skip = null;
+      a.count = 0;
+    });
+  }
+
+  // ほかのAIがねらっていない、近くて取りやすいバナナをえらぶ
+  function chooseBanana(a) {
+    let best = null;
+    let bestCost = Infinity;
+    bananas.forEach((b) => {
+      if (b === a.skip || b === target) return; // ミッくんがクリックしたバナナはゆずる
+      if (ais.some((o) => o !== a && o.target === b)) return; // 同じバナナはねらわない
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      let cost = d;
+      // ミッくんの方がずっと近いバナナは、ミッくんにまかせる
+      const dp = Math.hypot(b.x - gorilla.x, b.y - gorilla.y);
+      if (dp < d * 0.6) cost += 160;
+      // 毒キノコやハチの巣のそばのバナナは少しあとまわし
+      if (mushrooms.some((m) => Math.hypot(b.x - m.x, b.y - m.y) < 75)) cost += 50;
+      if (hives.some((h) => Math.hypot(b.x - h.x, b.y - h.y) < 80)) cost += 50;
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = b;
+      }
+    });
+    // 今のバナナより大きく良いときだけ乗りかえる（ふらふらしないように）
+    if (a.target && bananas.includes(a.target)) {
+      const cur = Math.hypot(a.target.x - a.x, a.target.y - a.y);
+      if (!best || bestCost > cur * 0.7) return a.target;
+    }
+    return best;
+  }
+
+  // 近くのゴリラからはなれる向き（近いほど強い）
+  function separation(a) {
+    let x = 0;
+    let y = 0;
+    const others = ais.filter((o) => o !== a).concat([gorilla]);
+    if (friend) others.push(friend);
+    others.forEach((o) => {
+      const ox = a.x - o.x;
+      const oy = a.y - o.y;
+      const od = Math.hypot(ox, oy) || 0.01;
+      const space = 72;
+      if (od < space) {
+        const push = (space - od) / space;
+        x += (ox / od) * push;
+        y += (oy / od) * push;
+      }
+    });
+    return { x, y };
+  }
+
+  function updateAis(dt) {
+    ais.forEach((a) => {
+      a.chomp = Math.max(0, a.chomp - dt);
+      // 食べたあとは、少しのあいだ立ち止まってもぐもぐ
+      if (a.rest > 0) {
+        a.rest -= dt;
+        // 止まっている間も、ほかのゴリラが近すぎたら少しよける
+        const sep = separation(a);
+        a.vx = a.vx * 0.8 + sep.x * AI_SPEED * 0.5;
+        a.vy = a.vy * 0.8 + sep.y * AI_SPEED * 0.5;
+        a.x = Math.max(MARGIN, Math.min(W - MARGIN, a.x + a.vx * dt));
+        a.y = Math.max(MARGIN + 10, Math.min(H - MARGIN, a.y + a.vy * dt));
+        a.moving = false;
+        return;
+      }
+      if (a.target && !bananas.includes(a.target)) a.target = null;
+      a.think -= dt;
+      if (a.think <= 0 || !a.target) {
+        a.think = 0.4;
+        a.target = chooseBanana(a);
+        if (a.target) a.wander = null;
+      }
+
+      // 行き先：バナナ、なければぶらぶら歩く
+      let gx;
+      let gy;
+      if (a.target) {
+        gx = a.target.x;
+        gy = a.target.y;
+      } else {
+        if (!a.wander || Math.hypot(a.wander.x - a.x, a.wander.y - a.y) < 20) {
+          a.wander = { x: rand(MARGIN + 40, W - MARGIN - 40), y: rand(MARGIN + 40, H - MARGIN - 40) };
+        }
+        gx = a.wander.x;
+        gy = a.wander.y;
+      }
+      const tx = gx - a.x;
+      const ty = gy - a.y;
+      const td = Math.hypot(tx, ty) || 1;
+      let sx = tx / td;
+      let sy = ty / td;
+
+      // 障害物（毒キノコ・ハチの巣・でっかい巣）をよける
+      const body = GORILLA_RADIUS * a.scale;
+      const obstacles = mushrooms
+        .map((m) => ({ x: m.x, y: m.y, r: MUSHROOM_RADIUS }))
+        .concat(hives.map((h) => ({ x: h.x, y: h.y, r: HIVE_RADIUS })))
+        .concat([{ x: bigHive.x, y: bigHive.y, r: BIG_HIVE_RADIUS }]);
+      obstacles.forEach((o) => {
+        const ox = a.x - o.x;
+        const oy = a.y - o.y;
+        const od = Math.hypot(ox, oy) || 1;
+        const clear = o.r + body + 10;
+        const range = clear + 45;
+        if (od < range) {
+          const push = Math.min(2.5, (range - od) / 45) * 1.4;
+          const nx = ox / od;
+          const ny = oy / od;
+          // 外へおし出す力と、まわりこむ力（行きたい方向に近い向き）
+          let px = -ny;
+          let py = nx;
+          if (px * sx + py * sy < 0) {
+            px = -px;
+            py = -py;
+          }
+          sx += nx * push + px * push * 0.8;
+          sy += ny * push + py * push * 0.8;
+        }
+      });
+
+      // ゴリラ同士がなるべく重ならないように
+      const sep = separation(a);
+      sx += sep.x * 2;
+      sy += sep.y * 2;
+
+      // なめらかに向きを変える
+      const sl = Math.hypot(sx, sy) || 1;
+      const slow = !a.target && td < 60 ? td / 60 : 1;
+      const wantVx = (sx / sl) * AI_SPEED * slow;
+      const wantVy = (sy / sl) * AI_SPEED * slow;
+      const k = Math.min(1, dt * 6);
+      a.vx += (wantVx - a.vx) * k;
+      a.vy += (wantVy - a.vy) * k;
+      a.x += a.vx * dt;
+      a.y += a.vy * dt;
+      a.x = Math.max(MARGIN, Math.min(W - MARGIN, a.x));
+      a.y = Math.max(MARGIN + 10, Math.min(H - MARGIN, a.y));
+
+      const sp = Math.hypot(a.vx, a.vy);
+      a.moving = sp > 20;
+      if (a.moving) a.walk += dt * 12 * (sp / AI_SPEED);
+      if (Math.abs(a.vx) > 15) a.facing = a.vx > 0 ? 1 : -1;
+
+      // 進めなくなったら、別のバナナをさがす
+      if (a.target && sp < AI_SPEED * 0.25) {
+        a.stuck += dt;
+        if (a.stuck > 1.2) {
+          a.skip = a.target;
+          a.target = null;
+          a.think = 0;
+          a.stuck = 0;
+        }
+      } else {
+        a.stuck = Math.max(0, a.stuck - dt);
+      }
+
+      // バナナを食べる
+      for (let i = bananas.length - 1; i >= 0; i--) {
+        const b = bananas[i];
+        if (Math.hypot(b.x - a.x, b.y - a.y) < body + BANANA_RADIUS - 6) {
+          eatBanana(i, a);
+          break;
+        }
+      }
+    });
+  }
+
   function spawnBanana() {
     const { x, y } = freeSpot(BANANA_RADIUS, 50);
     bananas.push({
@@ -706,6 +942,7 @@
     gorilla.facing = 1;
     gorilla.chomp = 0;
     gorilla.walk = 0;
+    gorilla.count = 0;
     bananas = [];
     mushrooms = [];
     bees = [];
@@ -725,14 +962,46 @@
     effects = [];
     particles = [];
     floatTexts = [];
+    placeAis();
     placeHives();
     for (let i = 0; i < BANANA_COUNT; i++) spawnBanana();
     for (let i = 0; i < MUSHROOM_COUNT; i++) spawnMushroom();
     updateHud();
   }
 
+  // チームボード（6ぴきそれぞれの数）
+  const boardCounts = [];
+  (function buildTeamBoard() {
+    const members = [{ name: PLAYER_NAME, color: '#ffd60a', player: true }].concat(
+      ais.map((a) => ({ name: a.name, color: a.color, player: false }))
+    );
+    members.forEach((m) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (m.player ? ' chip-player' : '');
+      const dot = document.createElement('i');
+      dot.style.background = m.color;
+      const name = document.createElement('span');
+      name.textContent = (m.player ? '👑' : '') + m.name;
+      const num = document.createElement('b');
+      num.textContent = '0';
+      chip.append(dot, name, num);
+      teamBoardEl.appendChild(chip);
+      boardCounts.push(num);
+    });
+  })();
+
+  function memberCounts() {
+    return [{ name: PLAYER_NAME, count: gorilla.count, player: true }].concat(
+      ais.map((a) => ({ name: a.name, count: a.count, player: false }))
+    );
+  }
+
   function updateHud() {
     scoreEl.textContent = score;
+    memberCounts().forEach((m, i) => {
+      const text = String(m.count);
+      if (boardCounts[i].textContent !== text) boardCounts[i].textContent = text;
+    });
     timeEl.textContent = Math.ceil(timeLeft);
     bestEl.textContent = best;
     timeBox.classList.toggle('hurry', state === 'playing' && timeLeft <= 10);
@@ -774,13 +1043,24 @@
     endTitleEl.textContent = endReason === 'poison' ? 'ゲームオーバー' : 'おしまい！';
     messageEl.textContent =
       endReason === 'poison' ? 'どくキノコや ハチに 10かい やられちゃった… つぎは きをつけてね！' : messageFor(score);
+
+    // 6ぴきそれぞれの数（多いじゅん）
+    breakdownEl.textContent = '';
+    memberCounts()
+      .sort((a, b) => b.count - a.count || (b.player ? 1 : 0) - (a.player ? 1 : 0))
+      .forEach((m) => {
+        const row = document.createElement('span');
+        row.className = 'breakdown-item' + (m.player ? ' is-player' : '');
+        row.textContent = `${m.player ? '👑' : ''}${m.name} ${m.count}ほん`;
+        breakdownEl.appendChild(row);
+      });
   }
 
   function messageFor(n) {
-    if (n >= 50) return 'すごすぎる！ バナナの おうさまだ！👑';
-    if (n >= 35) return 'すごい！ ゴリラも おなか いっぱい！';
-    if (n >= 20) return 'よくできました！ その ちょうし！';
-    if (n >= 10) return 'がんばったね！ つぎは もっと とれるかな？';
+    if (n >= 220) return 'すごすぎる！ バナナの おうさまチームだ！👑';
+    if (n >= 190) return 'すごい！ みんな おなか いっぱい！';
+    if (n >= 160) return 'よくできました！ チームワーク ばっちり！';
+    if (n >= 120) return 'がんばったね！ つぎは もっと とれるかな？';
     return 'つぎは もっと たべよう！ ファイト！';
   }
 
@@ -925,6 +1205,7 @@
       } else {
         moveGorilla(dt);
         eatBananas();
+        updateAis(dt);
         eatMushrooms();
         touchHives();
         updateSpecials(dt);
@@ -1024,31 +1305,48 @@
     for (let i = bananas.length - 1; i >= 0; i--) {
       const b = bananas[i];
       if (Math.hypot(b.x - gorilla.x, b.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + BANANA_RADIUS - 6) {
-        bananas.splice(i, 1);
-        if (b === target) target = null;
-        score += 1;
-        gorilla.chomp = 0.35;
-        effects.push({ x: b.x, y: b.y, angle: b.angle, t: 0, dur: 0.25 });
-        floatTexts.push({ x: b.x, y: b.y - 20, t: 0, text: '+1', fill: '#ffe600', stroke: '#c0392b' });
-        for (let k = 0; k < 10; k++) {
-          const a = rand(0, Math.PI * 2);
-          const sp = rand(80, 220);
-          particles.push({
-            x: b.x,
-            y: b.y,
-            vx: Math.cos(a) * sp,
-            vy: Math.sin(a) * sp - 120,
-            life: rand(0.4, 0.8),
-            rot: rand(0, Math.PI),
-            vr: rand(-8, 8),
-            color: ['#ffe14d', '#ff9f1c', '#ff6fa8', '#ffffff', '#7be0ff'][k % 5],
-            star: k % 2 === 0,
-          });
-        }
-        sfx.eat();
-        spawnBanana(); // 1本食べたら1本ふえる → いつもたくさんある
+        eatBanana(i, gorilla);
       }
     }
+  }
+
+  // eater: ミッくん（gorilla）か AIゴリラ。だれが食べてもチームの点になる
+  function eatBanana(i, eater) {
+    const b = bananas[i];
+    const isPlayer = eater === gorilla;
+    bananas.splice(i, 1);
+    if (b === target) target = null;
+    score += 1;
+    eater.count += 1;
+    eater.chomp = isPlayer ? 0.35 : AI_EAT_REST;
+    if (!isPlayer) {
+      eater.rest = AI_EAT_REST;
+      eater.target = null;
+    }
+    effects.push({ x: b.x, y: b.y, angle: b.angle, t: 0, dur: 0.25, eater });
+    if (isPlayer) {
+      floatTexts.push({ x: b.x, y: b.y - 20, t: 0, text: '+1', fill: '#ffe600', stroke: '#c0392b' });
+    } else {
+      floatTexts.push({ x: b.x, y: b.y - 20, t: 0, text: '+1', fill: '#ffffff', stroke: eater.color });
+    }
+    for (let k = 0; k < (isPlayer ? 10 : 6); k++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(80, 220);
+      particles.push({
+        x: b.x,
+        y: b.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 120,
+        life: rand(0.4, 0.8),
+        rot: rand(0, Math.PI),
+        vr: rand(-8, 8),
+        color: ['#ffe14d', '#ff9f1c', '#ff6fa8', '#ffffff', '#7be0ff'][k % 5],
+        star: k % 2 === 0,
+      });
+    }
+    if (isPlayer) sfx.eat();
+    else sfx.eatAi();
+    spawnBanana(); // 1本食べたら1本ふえる → いつもたくさんある
   }
 
   // 毒キノコやハチにやられたとき：小さくなって、10回でゲームオーバー
@@ -1484,6 +1782,19 @@
     }
   }
 
+  function drawPlayerRing() {
+    const g = gorilla;
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.translate(g.x, g.y + 40 * g.scale);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = `rgba(255, 214, 10, ${0.75 + Math.sin(t * 5) * 0.25})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, (46 + Math.sin(t * 5) * 3) * g.scale, 14 * g.scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // なかま（オレンジ色で赤いハチマキのゴリラ）
   const FRIEND_LOOK = { fur: '#c7772e', furDark: '#a35f22', skin: '#f0c9a0', skinLight: '#fbe3c8', headband: true };
 
@@ -1572,6 +1883,33 @@
     ctx.moveTo(-8, hy - 24);
     ctx.quadraticCurveTo(0, hy - 36, 6, hy - 25);
     ctx.fill();
+
+    // ミッくんの王冠
+    if (look.crown) {
+      ctx.fillStyle = '#ffd60a';
+      ctx.strokeStyle = '#b8860b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-15, hy - 22);
+      ctx.lineTo(-17, hy - 40);
+      ctx.lineTo(-8, hy - 31);
+      ctx.lineTo(0, hy - 44);
+      ctx.lineTo(8, hy - 31);
+      ctx.lineTo(17, hy - 40);
+      ctx.lineTo(15, hy - 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ff3b5c';
+      ctx.beginPath();
+      ctx.arc(0, hy - 28, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#4fc3ff';
+      ctx.beginPath();
+      ctx.arc(-9, hy - 26, 2.2, 0, Math.PI * 2);
+      ctx.arc(9, hy - 26, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // なかまの赤いハチマキ
     if (look.headband) {
@@ -1676,6 +2014,24 @@
       ctx.stroke();
     }
 
+    // AIゴリラのスカーフ（色でだれかわかるように）
+    if (look.scarf) {
+      ctx.fillStyle = look.scarf;
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 3, 22, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-6, 5);
+      ctx.lineTo(6, 5);
+      ctx.lineTo(0, 17);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
     if (dizzy) {
       ctx.globalAlpha = 0.35 * g.hurt;
       ctx.fillStyle = '#a64dff';
@@ -1747,8 +2103,9 @@
     // 食べられたバナナ：ゴリラの口に吸い込まれて小さくなる
     effects.forEach((ef) => {
       const p = ef.t / ef.dur;
-      const mx = gorilla.x;
-      const my = gorilla.y - 12;
+      const eater = ef.eater || gorilla;
+      const mx = eater.x;
+      const my = eater.y - 12 * eater.scale;
       drawBanana(ef.x + (mx - ef.x) * p, ef.y + (my - ef.y) * p, ef.angle + p * 3, 1 - p);
     });
 
@@ -1758,14 +2115,42 @@
 
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
     specials.forEach((it) => (it.kind === 'apple' ? drawApple(it) : drawStarItem(it)));
-    if (gorilla.invincible > 0 && state === 'playing') drawInvincibleAura();
-    drawGorilla();
-    if (friend) {
-      ctx.save();
-      ctx.globalAlpha = 1 - Math.min(1, friend.leaving);
-      drawGorilla(friend, FRIEND_LOOK);
-      ctx.restore();
-    }
+    // ミッくんの足もとの黄色い輪（どれがミッくんか すぐわかるように）
+    drawPlayerRing();
+
+    // 6ぴき（＋にじいろリンゴのなかま）を、奥にいるじゅんに描く
+    const crowd = [gorilla].concat(ais);
+    if (friend) crowd.push(friend);
+    crowd.sort((p, q) => p.y - q.y);
+    crowd.forEach((g) => {
+      if (g === gorilla) {
+        if (gorilla.invincible > 0 && state === 'playing') drawInvincibleAura();
+        drawGorilla(gorilla, PLAYER_LOOK);
+      } else if (g === friend) {
+        ctx.save();
+        ctx.globalAlpha = 1 - Math.min(1, friend.leaving);
+        drawGorilla(friend, FRIEND_LOOK);
+        ctx.restore();
+      } else {
+        drawGorilla(g, g.look);
+      }
+    });
+
+    // 名前（ミッくんは大きく、▼つき）
+    // 画面のはしで名前が切れないように、少し内がわに寄せる
+    const tagX = (x, half) => Math.max(half, Math.min(W - half, x));
+    const tagY = (y) => Math.max(14, y);
+    ais.forEach((a) => {
+      outlinedText(a.name, tagX(a.x, 30), tagY(a.y - 66 * a.scale - 6), 15, '#ffffff', a.color);
+    });
+    outlinedText(
+      `${PLAYER_NAME} ▼`,
+      tagX(gorilla.x, 64),
+      tagY(gorilla.y - 70 * gorilla.scale - 10),
+      20,
+      '#ffe600',
+      '#5a3a1a'
+    );
 
     bees.forEach(drawBee);
 
@@ -1876,6 +2261,16 @@
     get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
     get bees() { return bees.filter((b) => b.delay <= 0 && b.leaving === 0).map((b) => ({ x: b.x, y: b.y })); },
     get mushrooms() { return mushrooms.map((m) => ({ x: m.x, y: m.y })); },
+    get playerCount() { return gorilla.count; },
+    get ais() {
+      return ais.map((a) => ({
+        name: a.name,
+        x: a.x,
+        y: a.y,
+        count: a.count,
+        target: a.target ? { x: a.target.x, y: a.target.y } : null,
+      }));
+    },
     setTimeLeft(t) { timeLeft = t; },
   };
 })();
