@@ -41,7 +41,8 @@ GUIDE_CATEGORY = "学校別対策ガイド"
 BRAND_TAG = "#輝く未来教育"  # 全投稿に必須のハッシュタグ
 QUOTE_SOURCE = "quote"  # 名言投稿の履歴上の種別
 HISTORY_DAYS = 90  # 重複防止に参照する履歴の日数
-IMAGE_FOLDERS = ["ブランド", "学校別対策ガイド"]
+IMAGE_FOLDERS = ["brand"]  # 普段の投稿に使う画像フォルダ
+IMAGE_FOLDERS_PRODUCT = ["brand", "school-guide"]  # 週1回の商品URL付きの日
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Xの上限は280(全角=2、URL=23換算)。読みやすさのため実際はもっと短く作る
 MAX_WEIGHTED_LEN = 276
@@ -104,6 +105,14 @@ def guide_footer(guide: dict) -> str:
     return f"学校別の出題傾向・対策はこちら → {guide['URL']}"
 
 
+def should_include_footer(history: dict) -> bool:
+    """商品URL付きの一行は週1回程度。直近6投稿にURLが無いときだけ付ける"""
+    for p in history["posts"][-6:]:
+        if "http" in (p.get("text") or ""):
+            return False
+    return True
+
+
 def season_label(now: datetime) -> str:
     return {
         1: "冬(お正月)", 2: "冬(節分の頃)", 3: "春(ひな祭り・春休みの頃)",
@@ -161,13 +170,13 @@ def choose_theme(history: dict) -> str:
     return random.choice(candidates)
 
 
-def choose_image(history: dict):
-    """ブランド画像と学校別ガイド画像から選ぶ。
+def choose_image(history: dict, folders=None):
+    """画像フォルダから選ぶ。
     直近10回で使った画像は候補から除外し、それ以外からランダムに選ぶ。
     候補が尽きた場合でも、直前の投稿と同じ画像だけは絶対に使わない。
     """
     candidates = []
-    for name in IMAGE_FOLDERS:
+    for name in folders or IMAGE_FOLDERS:
         folder = ROOT / "images" / name
         if folder.is_dir():
             candidates += [p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS]
@@ -277,6 +286,10 @@ def main() -> None:
     footer = guide_footer(guide)
     if not footer:
         print("警告: products.csv に学校別対策ガイドの有効なURLがありません(締めの一行なしで投稿します)", file=sys.stderr)
+    elif should_include_footer(history):
+        print("今日は週1回の商品URL付きの日です")
+    else:
+        footer = ""
 
     quotes = load_quotes()
     quote = choose_quote(history, quotes, footer) if is_quote_day(history, quotes) else None
@@ -304,7 +317,7 @@ def main() -> None:
     if footer and x_weighted_len(body + "\n" + footer) <= MAX_WEIGHTED_LEN:
         text = body + "\n" + footer
 
-    image_path = choose_image(history)
+    image_path = choose_image(history, IMAGE_FOLDERS_PRODUCT if footer else IMAGE_FOLDERS)
     print("---- 投稿文 ----")
     print(text)
     print(f"---- 文字数(X換算): {x_weighted_len(text)} / 280 ----")
