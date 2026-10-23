@@ -1,0 +1,139 @@
+# MAMC の Threads 自動投稿ワークフロー。
+# Instagram と同じ11秒のリール動画（BGM・キャッチコピー入り）を、毎日20:00（日本時間）に1本投稿します。
+# Instagram（mamc-instagram-post.yml）・X とは別のワークフロー・安全スイッチ・投稿履歴（mamc_threads_history.json）なので、
+# ここで失敗しても、ほかの SNS の投稿には影響しません。
+name: MAMC Threads Auto Post
+
+on:
+  schedule:
+    # 投稿枠 = 毎日 19:30 〜 翌日 19:30（日本時間）。1枠につき1回だけ投稿します。
+    # 19:40 に起動 → 動画を作って 20:00 まで待ってから投稿。予備の起動は、未投稿のときだけ投稿します。
+    - cron: '40 10 * * *'   # 19:40 JST（本番）
+    - cron: '20 11 * * *'   # 20:20 JST（予備）
+    - cron: '20 12 * * *'   # 21:20 JST（予備）
+    - cron: '20 14 * * *'   # 23:20 JST（予備）
+    - cron: '20 21 * * *'   # 06:20 JST（予備）
+    - cron: '20 6 * * *'    # 15:20 JST（予備）
+
+  # PR を作ったとき・更新したときは、テスト（dry-run）だけを自動で行う（投稿は絶対にしない）
+  pull_request:
+    paths:
+      - 'scripts/mamc_post_to_social.py'
+      - 'scripts/mamc_reel_formats.py'
+      - 'scripts/mamc_caption.py'
+      - '.github/workflows/mamc-threads-post.yml'
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'テスト実行（実際には投稿しない・動画はダウンロードして確認できます）'
+        type: boolean
+        default: true
+      verify_auth:
+        description: 'トークンと権限の確認だけを行う（投稿しない）'
+        type: boolean
+        default: false
+      force_post:
+        description: '本番投稿のとき、今日すでに投稿済みでも投稿する（直前30分以内の投稿があれば中止）'
+        type: boolean
+        default: false
+      template:
+        description: '動画の種類（auto = 計画にしたがって選ぶ / compare / detail / ad）'
+        type: choice
+        options: [auto, compare, detail, ad]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mamc-threads-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # ★自動投稿の安全スイッチ★ Settings > Secrets and variables > Actions > Variables で
+    # MAMC_THREADS_POSTING_ENABLED = true を追加すると、毎日の自動投稿が始まります（手動のテストは設定なしで実行できます）
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || vars.MAMC_THREADS_POSTING_ENABLED == 'true' }}
+
+    env:
+      IS_REAL_POST: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true && inputs.verify_auth != true) }}
+
+    steps:
+      # 本番投稿・定期実行は main の最新を使う。テスト実行（手動の dry-run・PR）は、そのブランチのコードを使う
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)) && github.event.repository.default_branch || github.ref }}
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: この投稿枠で投稿済みか確認
+        id: status
+        if: ${{ github.event_name == 'schedule' }}
+        run: python scripts/mamc_post_to_social.py --platform threads --status
+
+      - name: 必要なライブラリをインストール
+        if: ${{ steps.status.outputs.done != 'true' }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk > /dev/null
+          pip install requests Pillow numpy anthropic
+
+      - name: Threadsへ投稿
+        if: ${{ steps.status.outputs.done != 'true' }}
+        env:
+          MAMC_THREADS_ACCESS_TOKEN: ${{ secrets.MAMC_THREADS_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run == true }}
+          VERIFY_AUTH: ${{ github.event_name != 'pull_request' && inputs.verify_auth == true }}
+          FORCE_POST: ${{ inputs.force_post }}
+          TEMPLATE: ${{ inputs.template || 'auto' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          ARGS=(--platform threads --template "$TEMPLATE" --video-out "$RUNNER_TEMP/mamc_threads.mp4")
+          if [ "$EVENT" = "pull_request" ]; then
+            # PR のテストでは、トークンの確認も行う（未登録・失敗でも dry-run は続ける）
+            python scripts/mamc_post_to_social.py --platform threads --verify-auth || true
+          fi
+          if [ "$VERIFY_AUTH" = "true" ]; then ARGS+=(--verify-auth)
+          elif [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          if [ "$EVENT" = "schedule" ]; then ARGS+=(--scheduled); fi
+          if [ "$FORCE_POST" = "true" ]; then ARGS+=(--force-post); fi
+          python scripts/mamc_post_to_social.py "${ARGS[@]}"
+
+      - name: 作成した動画を保存（Actions の画面からダウンロードできます）
+        if: ${{ always() && inputs.verify_auth != true && steps.status.outputs.done != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamc-threads-${{ github.run_id }}
+          path: ${{ runner.temp }}/mamc_threads.mp4
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: 投稿履歴・失敗ログを保存
+        if: ${{ always() && env.IS_REAL_POST == 'true' && steps.status.outputs.done != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mamc_threads_history.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "履歴に変更はありません"
+            exit 0
+          fi
+          git commit -m "MAMC Threads投稿履歴を更新"
+          for i in 1 2 3 4; do
+            if git push origin HEAD; then exit 0; fi
+            echo "push に失敗しました。少し待って再試行します..."
+            sleep $((2 ** i))
+            git pull --rebase origin "${{ github.event.repository.default_branch }}" || true
+          done
+          git push origin HEAD

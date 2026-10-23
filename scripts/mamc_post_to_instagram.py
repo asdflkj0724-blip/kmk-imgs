@@ -73,7 +73,7 @@ REEL_CANDIDATES = 10        # 動画づくりの候補にする画像の枚数�
 REEL_ATTEMPTS = 8           # 検証に合格するまで、写真の組み合わせを変えて作り直す回数（1種類あたり）
 # 選んだ種類で合格する動画が作れないときに、切り替える順番（文字を置きやすい順）
 FALLBACK_TEMPLATES = ("compare", "ad", "detail")
-REEL_COVER_MS = 500         # リールのカバーに使う位置（ミリ秒）。フックの文字が出ている時点
+REEL_COVER_MS = 500         # リールのカバーに使う位置（ミリ秒）の既定値。動画ごとの値は checks["cover_ms"]
 
 # 企画ごとの、キャプションでの呼びかけ（保存・シェア・コメント・フォローを促す）
 CTAS = {
@@ -510,6 +510,7 @@ def build_checked_reel(post: dict, v: dict):
     cands = post["candidates"]
     main = cands[0]
     cache = post.setdefault("stage_cache", {})
+    fallback = None     # 合格したが、お礼の文字を置けなかった構成（ほかに無ければこれを使う）
     for attempt in range(min(REEL_ATTEMPTS, len(cands))):
         first = cands[attempt]
         images = [first] + [c for c in cands if c != first][:need - 1]
@@ -517,9 +518,15 @@ def build_checked_reel(post: dict, v: dict):
             images[-1] = main
         built = fm.layout(v["template"], images, v["duration"], v["transition"], v["hook_text"], cache)
         problems = built.check()
-        if not problems:
+        if not problems and not built.soft_problems:
             return built, images, []
+        if not problems:
+            fallback = fallback or (built, images)
+            problems = built.soft_problems
         print(f"[情報] 試作{attempt + 1}は検証で不合格のため、写真の組み合わせを変えます: {problems}")
+    if fallback:
+        print("[注意] お礼の文字を読みやすく置ける組み合わせが無かったため、お礼の文字なしで作ります")
+        return fallback[0], fallback[1], []
     return None, None, problems
 
 
@@ -648,6 +655,9 @@ def show_post(post: dict) -> None:
                   f"色 {'白' if ov.get('color') == 'white' else '墨'}・大きさ {ov.get('size')}・"
                   f"背景に溶ける {ov.get('bad', 0):.0%}（1文字の最大 {ov.get('worst_char', 0):.0%}）・"
                   f"顔 {'重なり' if ov.get('on_face') else 'なし'}・商品との重なり {ov.get('on_product', 0):.0%}")
+        checks = post.get("checks", {})
+        if "cover_ms" in checks:
+            print(f"【表紙】 {checks['cover_ms'] / 1000:.1f}秒の画面（{'・'.join(checks.get('notes') or []) or 'お礼の文字とロゴ入り'}）")
     else:
         print("【投稿形式】 フィード（画像1枚）")
     for i, img in enumerate(post["images"], 1):
@@ -943,7 +953,8 @@ def publish_reel(graph: Graph, ig_id: str, post: dict) -> dict:
     """リールのコンテナ作成 → 動画アップロード → 処理完了待ち → 公開。"""
     res = with_retry(lambda: graph.call(
         "POST", f"{ig_id}/media", media_type="REELS", upload_type="resumable",
-        caption=post["caption"], share_to_feed="true", thumb_offset=str(REEL_COVER_MS)))
+        caption=post["caption"], share_to_feed="true",
+        thumb_offset=str(post.get("checks", {}).get("cover_ms", REEL_COVER_MS))))
     container_id = res["id"]
     upload_video(graph, container_id, res.get("uri"), post["video"])
     # 動画の処理は数分かかることがある
