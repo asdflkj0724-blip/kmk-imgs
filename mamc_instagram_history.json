@@ -67,6 +67,72 @@
       ],
       "ig_media_id": "18083743601348411",
       "permalink": "https://www.instagram.com/reel/DevYbYxjpFq/"
+    },
+    {
+      "date": "2026-10-23T11:51:04+09:00",
+      "slot": "2026-10-22",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2113295064801615926",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "レースの裾、ゆれるロングライン。\nクラシカルに少しだけ遊ぶ、MAMCの重ね着。",
+      "text": "レースの裾、ゆれるロングライン。\nクラシカルに少しだけ遊ぶ、MAMCの重ね着。",
+      "image": "imageye___-_imgi_5_O1CN011uPZeloteLE2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_5_O1CN01Xrn1hEzE3sJ2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN011uPZeloteLE2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_57_O1CN01i0PssY3EWsF2vHAO_!!4611686018427380178-0-item_pic.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#レイヤードコーデ",
+        "#ワイドパンツコーデ",
+        "#ロングスカートコーデ",
+        "#ハーフパンツコーデ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "重ねるほど、\n私らしくなる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "重ねるほど、\n私らしくなる",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.041,
+          "worst_char": 0.087,
+          "on_face": false,
+          "on_product": 0.961
+        }
+      ],
+      "ig_media_id": "18119243141050351",
+      "permalink": "https://www.instagram.com/reel/De0hl1ujgNs/"
     }
   ],
   "errors": []
