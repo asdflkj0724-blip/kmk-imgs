@@ -98,6 +98,8 @@ SEASONS = {12: "この冬", 1: "この冬", 2: "この冬", 3: "この春", 4: "
            6: "この夏", 7: "この夏", 8: "この夏", 9: "この秋", 10: "この秋", 11: "この秋"}
 
 SERIF_JP_FONTS = [
+    # リポジトリに同梱した Noto Serif CJK Bold（apt の fonts-noto-cjk と同じファイル。apt に頼らない）
+    (str(Path(__file__).resolve().parent.parent / "fonts" / "NotoSerifCJK-Bold.ttc"), 0),
     ("/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc", 0),
     ("/usr/share/fonts/noto-cjk/NotoSerifCJK-Bold.ttc", 0),
     ("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc", 0),
