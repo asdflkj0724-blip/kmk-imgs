@@ -70,7 +70,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 100   # X の投稿を待つ時間（最大75分）を含む
 
     # ★自動投稿の安全スイッチ★
     # 準備ができるまで、毎日の自動実行は動きません。
@@ -182,6 +182,15 @@ jobs:
             git pull --rebase origin "${{ github.event.repository.default_branch }}"
             git push origin HEAD
           fi
+
+      # 3つの SNS で同じ商品を紹介するため、定期実行では今日の X の投稿（20:00）を待ってから
+      # その商品をミラーする。X の自動投稿が有効なときだけ待ち、期限（20:50）を過ぎたら独立して投稿する
+      - name: 今日の X の投稿を待つ（同じ商品で投稿するため）
+        if: ${{ github.event_name == 'schedule' && vars.MAMC_POSTING_ENABLED == 'true' && steps.status.outputs.done != 'true' }}
+        timeout-minutes: 75
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python scripts/mamc_wait_for_x.py --deadline 20:50
 
       - name: Instagram（@mamc_jp）へ投稿
         if: ${{ inputs.verify_auth != true && steps.status.outputs.done != 'true' }}
