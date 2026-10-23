@@ -11,6 +11,10 @@ on:
     # GitHub Actions は混雑すると起動が数時間遅れることがあるため、予備の起動を入れています。
     # 予備は、その枠でまだ投稿されていない（遅延・失敗した）ときだけ投稿し、投稿済みなら
     # 数十秒で終わります。日付をまたいでも、枠のうちなら前日分として投稿します。
+    # GitHub Actions の定期実行は数時間遅れることがあるため、18時台からも起動する（20:00 まで待つ）
+    - cron: '7 9 * * *'     # 18:07 JST（20:00 まで待つ）
+    - cron: '37 9 * * *'    # 18:37 JST（20:00 まで待つ）
+    - cron: '3 10 * * *'    # 19:03 JST（20:00 まで待つ）
     - cron: '40 10 * * *'   # 19:40 JST（本番）
     - cron: '20 11 * * *'   # 20:20 JST（予備）
     - cron: '20 12 * * *'   # 21:20 JST（予備）
@@ -70,7 +74,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 75    # X の投稿を待つ時間（最大40分）を含む
+    timeout-minutes: 210   # 20:00 まで待つ時間（最大2時間半）と X の投稿を待つ時間を含む
 
     # ★自動投稿の安全スイッチ★
     # 準備ができるまで、毎日の自動実行は動きません。
@@ -96,6 +100,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      # 定期実行：早く起動した回（17:30〜20:00）は 20:00 まで待ち、最新の履歴を取り込んでから進む
+      - name: 20:00 まで待つ（早く起動したとき）
+        if: ${{ github.event_name == 'schedule' }}
+        timeout-minutes: 160
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python scripts/mamc_wait_until_post_time.py
 
       # 定期実行では、この投稿枠で投稿済みなら以降の重い処理をすべて省略します
       - name: この投稿枠で投稿済みか確認

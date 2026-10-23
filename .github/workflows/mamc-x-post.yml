@@ -5,10 +5,20 @@ name: MAMC X Auto Post
 
 on:
   schedule:
-    # 日本時間 毎日20:00（UTC 11:00）。
-    # ※GitHub Actions の仕様上、混雑状況によって実行が数分〜数十分
-    #   遅れることがあります（指定時刻より早く実行されることはありません）。
-    - cron: '0 11 * * *'
+    # 目標は日本時間 毎日20:00。GitHub Actions の定期実行は混雑すると数時間遅れることがあるため
+    # （以前は 20:00 指定が深夜0時半ごろに実行されていた）、18時台から何度か起動する。
+    # 早く起動した回は 20:00 まで待ってから投稿し、投稿枠（19:30〜翌19:30）で投稿済みなら
+    # 以降の回は何もしない（二重投稿防止）。深夜・早朝（23:30〜7:00）の回は投稿しない。
+    # 分は混雑しやすい「0分」を避けている。
+    - cron: '7 9 * * *'     # 18:07 JST（20:00 まで待つ）
+    - cron: '37 9 * * *'    # 18:37 JST（20:00 まで待つ）
+    - cron: '3 10 * * *'    # 19:03 JST（20:00 まで待つ）
+    - cron: '31 10 * * *'   # 19:31 JST（20:00 まで待つ）
+    - cron: '52 10 * * *'   # 19:52 JST（20:00 まで待つ）
+    - cron: '13 11 * * *'   # 20:13 JST（補完）
+    - cron: '47 11 * * *'   # 20:47 JST（補完）
+    - cron: '33 12 * * *'   # 21:33 JST（補完）
+    - cron: '23 13 * * *'   # 22:23 JST（補完）
 
   # 手動テスト用（Actionsタブから実行できます）
   workflow_dispatch:
@@ -45,7 +55,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 180   # 早く起動した回が 20:00 まで待つ時間を含む
 
     # ★自動投稿の安全スイッチ★
     # 準備ができるまで、毎日の自動実行は動きません。
@@ -63,10 +73,26 @@ jobs:
         with:
           python-version: '3.12'
 
+      # 定期実行：早く起動した回は 20:00 まで待つ → 投稿枠で投稿済みか確認する
+      - name: 20:00 まで待つ（早く起動したとき）
+        id: clock
+        if: ${{ github.event_name == 'schedule' }}
+        timeout-minutes: 160
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python scripts/mamc_wait_until_post_time.py
+
+      - name: この投稿枠で投稿済みか確認
+        id: status
+        if: ${{ github.event_name == 'schedule' && steps.clock.outputs.late != 'true' }}
+        run: python scripts/mamc_post_to_x.py --status
+
       - name: 必要なライブラリをインストール
+        if: ${{ steps.status.outputs.done != 'true' && steps.clock.outputs.late != 'true' }}
         run: pip install tweepy anthropic requests requests-oauthlib Pillow
 
       - name: 設定を点検
+        if: ${{ steps.status.outputs.done != 'true' && steps.clock.outputs.late != 'true' }}
         env:
           MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
           MAMC_X_API_KEY: ${{ secrets.MAMC_X_API_KEY }}
@@ -87,7 +113,7 @@ jobs:
         run: python scripts/mamc_post_to_x.py --verify-auth
 
       - name: X（@MAMC_JP）へ投稿
-        if: ${{ inputs.verify_auth != true }}
+        if: ${{ inputs.verify_auth != true && steps.status.outputs.done != 'true' && steps.clock.outputs.late != 'true' }}
         env:
           # BUYMAショップURL（リポジトリ変数）。未設定なら投稿せず停止します。
           MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
@@ -115,7 +141,7 @@ jobs:
 
       - name: 投稿履歴を保存
         # 定期実行（schedule）では inputs が無いため、必ず履歴を保存する
-        if: ${{ github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true && inputs.samples == '') }}
+        if: ${{ always() && steps.status.outputs.done != 'true' && steps.clock.outputs.late != 'true' && (github.event_name == 'schedule' || (inputs.dry_run != true && inputs.verify_auth != true && inputs.samples == '')) }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
