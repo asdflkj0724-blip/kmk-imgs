@@ -103,13 +103,59 @@ jobs:
         if: ${{ github.event_name == 'schedule' }}
         run: python scripts/mamc_post_to_instagram.py --status
 
+      # apt はミラーの不調で応答が止まることがあるため、通信・ロック待ちにタイムアウトを付け、
+      # 1回ごとの時間も区切って最大3回までやり直す。すでに入っているもの（ffmpeg・フォント）は入れ直さない。
       - name: 必要なライブラリをインストール
         if: ${{ steps.status.outputs.done != 'true' }}
+        timeout-minutes: 15
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk > /dev/null
+          APT_OPTS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+                    -o DPkg::Lock::Timeout=120 -o Dpkg::Use-Pty=0)
+          need=()
+          encoders=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)   # grep -q と pipefail の組み合わせを避ける
+          if command -v ffprobe >/dev/null && [[ "$encoders" == *" libx264 "* ]]; then
+            echo "ffmpeg はインストール済みです: $(ffmpeg -version | head -n1)"
+          else
+            need+=(ffmpeg)
+          fi
+          if [ -e /usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc ] || [ -e /usr/share/fonts/noto-cjk/NotoSerifCJK-Bold.ttc ]; then
+            echo "日本語フォント（Noto Serif CJK）はインストール済みです"
+          else
+            need+=(fonts-noto-cjk)
+          fi
+          if [ ${#need[@]} -gt 0 ]; then
+            echo "apt でインストールします: ${need[*]}"
+            ok=false
+            for i in 1 2 3; do
+              echo "::group::apt 試行 $i/3"
+              # 1回目は、手元のパッケージ一覧のまま入れてみる（止まりやすい update を省ける）
+              if [ "$i" -gt 1 ] || ! sudo -E timeout 300 apt-get install -y -q --no-install-recommends "${APT_OPTS[@]}" "${need[@]}"; then
+                sudo -E timeout 240 apt-get update -q "${APT_OPTS[@]}" \
+                  && sudo -E timeout 420 apt-get install -y -q --no-install-recommends "${APT_OPTS[@]}" "${need[@]}" \
+                  && ok=true
+              else
+                ok=true
+              fi
+              echo "::endgroup::"
+              if [ "$ok" = true ] || [ "$i" -eq 3 ]; then break; fi
+              echo "::warning::apt に失敗しました（試行 $i/3）。$((i * 15)) 秒後にやり直します"
+              sleep $((i * 15))
+            done
+            if [ "$ok" != true ]; then
+              echo "::error::ffmpeg・日本語フォントをインストールできませんでした（3回失敗）"
+              exit 1
+            fi
+          fi
           # requests: Meta API / Pillow・numpy: 動画の作成 / anthropic: 新しく文章を作るとき（任意）
-          pip install requests Pillow numpy anthropic
+          timeout 300 pip install --progress-bar off --retries 3 --timeout 60 requests Pillow numpy anthropic
+
+      # 本番投稿の前に、動画づくりに必要なもの（ffmpeg の H.264・AAC、明朝体フォント、ライブラリ）を確かめる
+      - name: 必要なものがそろっているか確認
+        if: ${{ steps.status.outputs.done != 'true' && inputs.verify_auth != true }}
+        timeout-minutes: 3
+        run: python scripts/mamc_check_deps.py
 
       - name: トークンと権限を確認（投稿しません）
         if: ${{ inputs.verify_auth == true }}
