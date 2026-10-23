@@ -1,0 +1,203 @@
+# MAMC の Facebook ページ 自動投稿ワークフロー。
+# Instagram と同じ11秒のリール動画（BGM・キャッチコピー入り）を、毎日20:00（日本時間）に1本投稿します。
+# Instagram（mamc-instagram-post.yml）・X とは別のワークフロー・安全スイッチ・投稿履歴（mamc_facebook_history.json）なので、
+# ここで失敗しても、ほかの SNS の投稿には影響しません。
+name: MAMC Facebook Auto Post
+
+on:
+  schedule:
+    # 投稿枠 = 毎日 19:30 〜 翌日 19:30（日本時間）。1枠につき1回だけ投稿します。
+    # 19:40 に起動 → 動画を作って 20:00 まで待ってから投稿。予備の起動は、未投稿のときだけ投稿します。
+    - cron: '40 10 * * *'   # 19:40 JST（本番）
+    - cron: '20 11 * * *'   # 20:20 JST（予備）
+    - cron: '20 12 * * *'   # 21:20 JST（予備）
+    - cron: '20 14 * * *'   # 23:20 JST（予備）
+    - cron: '20 21 * * *'   # 06:20 JST（予備）
+    - cron: '20 6 * * *'    # 15:20 JST（予備）
+
+  # PR を作ったとき・更新したときは、テスト（dry-run）だけを自動で行う（投稿は絶対にしない）
+  pull_request:
+    paths:
+      - 'scripts/mamc_post_to_social.py'
+      - 'scripts/mamc_reel_formats.py'
+      - 'scripts/mamc_caption.py'
+      - 'scripts/mamc_wait_for_x.py'
+      - 'scripts/mamc_check_deps.py'
+      - '.github/workflows/mamc-facebook-post.yml'
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'テスト実行（実際には投稿しない・動画はダウンロードして確認できます）'
+        type: boolean
+        default: true
+      verify_auth:
+        description: 'トークンと権限の確認だけを行う（投稿しない）'
+        type: boolean
+        default: false
+      force_post:
+        description: '本番投稿のとき、今日すでに投稿済みでも投稿する（直前30分以内の投稿があれば中止）'
+        type: boolean
+        default: false
+      template:
+        description: '動画の種類（auto = 計画にしたがって選ぶ / compare / detail / ad）'
+        type: choice
+        options: [auto, compare, detail, ad]
+        default: auto
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mamc-facebook-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75    # X の投稿を待つ時間（最大40分）を含む
+
+    # ★自動投稿の安全スイッチ★ Settings > Secrets and variables > Actions > Variables で
+    # MAMC_FB_POSTING_ENABLED = true を追加すると、毎日の自動投稿が始まります（手動のテストは設定なしで実行できます）
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || vars.MAMC_FB_POSTING_ENABLED == 'true' }}
+
+    env:
+      IS_REAL_POST: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true && inputs.verify_auth != true) }}
+
+    steps:
+      # 本番投稿・定期実行は main の最新を使う。テスト実行（手動の dry-run・PR）は、そのブランチのコードを使う
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)) && github.event.repository.default_branch || github.ref }}
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: この投稿枠で投稿済みか確認
+        id: status
+        if: ${{ github.event_name == 'schedule' }}
+        run: python scripts/mamc_post_to_social.py --platform facebook --status
+
+      # apt（Ubuntu のミラー）は混雑すると非常に遅く、ffmpeg（88個・124MB）を入れ切れないことがあるため使わない。
+      #   ・日本語フォント: リポジトリに同梱（fonts/NotoSerifCJK-Bold.ttc。apt の fonts-noto-cjk と同じファイル）
+      #   ・ffmpeg / ffprobe: すでにあればそれを使い、無ければ PyPI の静的ビルド（ffmpeg-binaries）を
+      #     ハッシュを確かめてから使う。PyPI からも取れないときだけ、時間の上限付きで apt を使う
+      - name: 必要なライブラリをインストール
+        if: ${{ steps.status.outputs.done != 'true' }}
+        timeout-minutes: 12
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          FFMPEG_WHEEL: ffmpeg-binaries==1.1.0
+          FFMPEG_WHEEL_SHA256: b8a6d67f5895a8a105e25746db3bb3a4d6b76629cde22814f9866fd9af76a399
+        run: |
+          have_ffmpeg() {
+            local enc
+            enc=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)   # grep -q と pipefail の組み合わせを避ける
+            command -v ffprobe >/dev/null && [[ "$enc" == *" libx264 "* ]] && [[ "$enc" == *" aac "* ]]
+          }
+          if have_ffmpeg; then
+            echo "ランナーにある ffmpeg を使います: $(command -v ffmpeg)"
+          else
+            echo "::group::ffmpeg（静的ビルド）を PyPI から取得"
+            BIN="$RUNNER_TEMP/ffmpeg-bin"
+            mkdir -p "$BIN" "$RUNNER_TEMP/ffmpeg-dl"
+            got=false
+            for i in 1 2 3; do
+              if timeout 180 pip download --no-deps --progress-bar off --timeout 60 -d "$RUNNER_TEMP/ffmpeg-dl" "$FFMPEG_WHEEL"; then
+                got=true; break
+              fi
+              echo "::warning::PyPI からの取得に失敗しました（$i/3）"; sleep $((i * 10))
+            done
+            if [ "$got" = true ]; then
+              wheel=$(ls "$RUNNER_TEMP"/ffmpeg-dl/ffmpeg_binaries-*.whl)
+              echo "$FFMPEG_WHEEL_SHA256  $wheel" | sha256sum -c -
+              unzip -q -o -j "$wheel" 'ffmpeg/binaries/ffmpeg' 'ffmpeg/binaries/ffprobe' -d "$BIN"
+              chmod +x "$BIN/ffmpeg" "$BIN/ffprobe"
+              export PATH="$BIN:$PATH"
+              echo "$BIN" >> "$GITHUB_PATH"      # 以降の手順でもこの ffmpeg を使う
+            fi
+            echo "::endgroup::"
+          fi
+          if ! have_ffmpeg; then
+            echo "::warning::PyPI から ffmpeg を用意できなかったため、apt で入れます（時間の上限付き）"
+            APT_OPTS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=120 -o Dpkg::Use-Pty=0)
+            sudo -E timeout 120 apt-get update -q "${APT_OPTS[@]}" || true
+            sudo -E timeout 420 apt-get install -y -q --no-install-recommends "${APT_OPTS[@]}" ffmpeg || true
+          fi
+          if ! have_ffmpeg; then
+            echo "::error::ffmpeg を用意できませんでした（PyPI・apt とも失敗）"
+            exit 1
+          fi
+          echo "ffmpeg: $(command -v ffmpeg) / $(ffmpeg -version | head -n1)"
+          timeout 300 pip install --progress-bar off --retries 3 --timeout 60 requests Pillow numpy anthropic
+
+      # 本番投稿の前に、動画づくりに必要なもの（ffmpeg の H.264・AAC、明朝体フォント、ライブラリ）を確かめる
+      - name: 必要なものがそろっているか確認
+        if: ${{ steps.status.outputs.done != 'true' }}
+        timeout-minutes: 3
+        run: python scripts/mamc_check_deps.py
+
+      # 3つの SNS で同じ商品を紹介するため、定期実行では今日の X の投稿（20:00）を待ってから
+      # その商品をミラーする。X の自動投稿が有効なときだけ待ち、期限（20:20）を過ぎたら独立して投稿する
+      - name: 今日の X の投稿を待つ（同じ商品で投稿するため）
+        if: ${{ github.event_name == 'schedule' && vars.MAMC_POSTING_ENABLED == 'true' && steps.status.outputs.done != 'true' }}
+        timeout-minutes: 45
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python scripts/mamc_wait_for_x.py --deadline 20:20
+
+      - name: Facebook ページへ投稿
+        if: ${{ steps.status.outputs.done != 'true' }}
+        env:
+          MAMC_FB_PAGE_ID: ${{ secrets.MAMC_FB_PAGE_ID }}
+          MAMC_FB_PAGE_ACCESS_TOKEN: ${{ secrets.MAMC_FB_PAGE_ACCESS_TOKEN }}
+          MAMC_IG_ACCESS_TOKEN: ${{ secrets.MAMC_IG_ACCESS_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAMC_BUYMA_URL: ${{ vars.MAMC_BUYMA_URL }}
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run == true }}
+          VERIFY_AUTH: ${{ github.event_name != 'pull_request' && inputs.verify_auth == true }}
+          FORCE_POST: ${{ inputs.force_post }}
+          TEMPLATE: ${{ inputs.template || 'auto' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          ARGS=(--platform facebook --template "$TEMPLATE" --video-out "$RUNNER_TEMP/mamc_facebook.mp4")
+          if [ "$EVENT" = "pull_request" ]; then
+            # PR のテストでは、トークンの確認も行う（未登録・失敗でも dry-run は続ける）
+            python scripts/mamc_post_to_social.py --platform facebook --verify-auth || true
+          fi
+          if [ "$VERIFY_AUTH" = "true" ]; then ARGS+=(--verify-auth)
+          elif [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          if [ "$EVENT" = "schedule" ]; then ARGS+=(--scheduled); fi
+          if [ "$FORCE_POST" = "true" ]; then ARGS+=(--force-post); fi
+          python scripts/mamc_post_to_social.py "${ARGS[@]}"
+
+      - name: 作成した動画を保存（Actions の画面からダウンロードできます）
+        if: ${{ always() && inputs.verify_auth != true && steps.status.outputs.done != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamc-facebook-${{ github.run_id }}
+          path: ${{ runner.temp }}/mamc_facebook.mp4
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: 投稿履歴・失敗ログを保存
+        if: ${{ always() && env.IS_REAL_POST == 'true' && steps.status.outputs.done != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mamc_facebook_history.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "履歴に変更はありません"
+            exit 0
+          fi
+          git commit -m "MAMC Facebook投稿履歴を更新"
+          for i in 1 2 3 4; do
+            if git push origin HEAD; then exit 0; fi
+            echo "push に失敗しました。少し待って再試行します..."
+            sleep $((2 ** i))
+            git pull --rebase origin "${{ github.event.repository.default_branch }}" || true
+          done
+          git push origin HEAD
