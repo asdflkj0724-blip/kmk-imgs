@@ -1001,6 +1001,31 @@ def show_post(post: dict, label: str = "") -> None:
 # --------------------------------------------------------------------------
 # メイン
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# 1日1回の投稿枠（二重投稿の防止）
+# --------------------------------------------------------------------------
+SLOT_START = timedelta(hours=19, minutes=30)   # 投稿枠 = 毎日 19:30 〜 翌日 19:30（日本時間）
+
+
+def slot_of(dt: datetime):
+    """その時刻が属する投稿枠の日付。例: 10/24 00:40 → 10/23 の枠。"""
+    return (dt.astimezone(JST) - SLOT_START).date()
+
+
+def posted_in_slot(history: dict, slot) -> dict | None:
+    """履歴に、この投稿枠の投稿があればそれを返す。"""
+    for entry in reversed(history.get("posts", [])):
+        if entry.get("slot") == slot.isoformat():
+            return entry
+        try:
+            dt = datetime.fromisoformat(entry.get("date", ""))
+        except ValueError:
+            continue
+        if entry.get("tweet_id") and slot_of(dt if dt.tzinfo else dt.replace(tzinfo=JST)) == slot:
+            return entry
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=f"MAMC を X（@{EXPECTED_USERNAME}）へ画像付きで投稿します。")
@@ -1014,6 +1039,10 @@ def main() -> int:
     parser.add_argument("--no-image", action="store_true", help="画像なしで投稿する")
     parser.add_argument("--samples", type=int, metavar="N",
                         help="投稿せずに N パターンの投稿内容を表示する（確認用）")
+    parser.add_argument("--status", action="store_true",
+                        help="今の投稿枠で投稿済みかを表示する（GitHub Actions の出力 done=true/false）")
+    parser.add_argument("--force-post", action="store_true",
+                        help="今の投稿枠で投稿済みでも投稿する（手動のときだけ）")
     args = parser.parse_args()
 
     if args.verify_auth:
@@ -1023,6 +1052,17 @@ def main() -> int:
     products = load_products()
     history = load_history()
     pool = image_pool()
+    slot = slot_of(now)
+    done = posted_in_slot(history, slot)
+
+    if args.status:
+        print(f"[情報] 現在の投稿枠: {slot} 19:30 〜 翌日 19:30（日本時間） / この枠の投稿: "
+              + (f"済み https://x.com/{EXPECTED_USERNAME}/status/{done.get('tweet_id')}" if done else "まだ"))
+        output = os.environ.get("GITHUB_OUTPUT")
+        if output:
+            with open(output, "a", encoding="utf-8") as fh:
+                fh.write(f"done={'true' if done else 'false'}\n")
+        return 0
 
     if args.check:
         url = os.environ.get("MAMC_BUYMA_URL", "").strip()
@@ -1051,6 +1091,12 @@ def main() -> int:
             for p in problems:
                 print("  - " + p)
         return 0 if not problems else 1
+
+    real_post = not args.dry_run and args.samples is None
+    if real_post and done and not args.force_post:
+        print(f"[情報] この投稿枠（{slot}）は投稿済みのため、二重投稿を防ぐため中止します: "
+              f"https://x.com/{EXPECTED_USERNAME}/status/{done.get('tweet_id')}")
+        return 0
 
     shop_url = get_shop_url(
         allow_placeholder=args.dry_run or args.samples is not None)
@@ -1109,7 +1155,8 @@ def main() -> int:
     print(f"投稿しました: https://x.com/{EXPECTED_USERNAME}/status/{tweet_id}")
 
     history["posts"].append({
-        "date": now.isoformat(timespec="seconds"),
+        "date": datetime.now(JST).isoformat(timespec="seconds"),   # 実際に投稿した時刻
+        "slot": slot.isoformat(),
         "id": product["id"],
         "name": product.get("name", ""),
         "combo": post["combo"],
