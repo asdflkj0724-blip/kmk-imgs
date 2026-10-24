@@ -133,6 +133,71 @@
       ],
       "ig_media_id": "18119243141050351",
       "permalink": "https://www.instagram.com/reel/De0hl1ujgNs/"
+    },
+    {
+      "date": "2026-10-24T20:21:49+09:00",
+      "slot": "2026-10-24",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2113634604695347366",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "ボリューム袖のブラウスに、肩を見せるオフショルダー。\nクラシカルに崩して遊ぶ、MAMCの秋。",
+      "text": "ボリューム袖のブラウスに、肩を見せるオフショルダー。\nクラシカルに崩して遊ぶ、MAMCの秋。",
+      "image": "imageye___-_imgi_7_O1CN01WMoMRVZbnSG2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_7_O1CN01WMoMRVZbnSG2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "ダウンロード (69).png",
+        "imageye___-_imgi_4_O1CN01WZE6xQpEOVK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_74_O1CN01rDU0Jof8AnK2vHAO_!!4611686018427380178-0-item_pic.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#オフショルダートップス",
+        "#ハーフパンツコーデ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "きちんと、\n少しだけ崩す"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "きちんと、\n少しだけ崩す",
+          "color": "ink",
+          "bad": 0.005,
+          "worst_char": 0.049,
+          "on_face": false,
+          "on_product": 0.617
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.11,
+          "worst_char": 0.193,
+          "on_face": false,
+          "on_product": 0.958
+        }
+      ],
+      "ig_media_id": "18000572541032520",
+      "permalink": "https://www.instagram.com/reel/De4A1p1DgN4/"
     }
   ],
   "errors": []
