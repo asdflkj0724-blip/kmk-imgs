@@ -198,6 +198,72 @@
       ],
       "ig_media_id": "18000572541032520",
       "permalink": "https://www.instagram.com/reel/De4A1p1DgN4/"
+    },
+    {
+      "date": "2026-10-25T20:48:09+09:00",
+      "slot": "2026-10-25",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2113982809144516741",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "レースアップのスウェットに、ペプラムシャツ。\nボルドーを差して、ひねりを楽しむMAMCの秋。",
+      "text": "レースアップのスウェットに、ペプラムシャツ。\nボルドーを差して、ひねりを楽しむMAMCの秋。",
+      "image": "imageye___-_imgi_4_O1CN01ll58iGnobCB2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01ll58iGnobCB2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01aW9CDMwg9mF2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01U7gk3RjM7HE2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#スウェットコーデ",
+        "#ボルドーコーデ",
+        "#レースアップ",
+        "#白シャツコーデ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "ウエストに、\nひと結びの遊び"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "ウエストに、\nひと結びの遊び",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.003,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.093,
+          "worst_char": 0.218,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18120017743760117",
+      "permalink": "https://www.instagram.com/reel/De6oo6Nii6u/"
     }
   ],
   "errors": []
