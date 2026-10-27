@@ -374,6 +374,73 @@
       ],
       "ig_media_id": "18115783793607898",
       "permalink": "https://www.instagram.com/reel/De9YJ4XDxlr/"
+    },
+    {
+      "date": "2026-10-27T21:28:48+09:00",
+      "slot": "2026-10-27",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "b4|6",
+      "body": "ブラウンのロングスカートに、カーディガンを重ねて。\nレトロに揺れる、MAMCの秋の装い。",
+      "text": "ブラウンのロングスカートに、カーディガンを重ねて。\nレトロに揺れる、MAMCの秋の装い。",
+      "image": "imageye___-_imgi_4_O1CN01oadPS1eRLNJ2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01oadPS1eRLNJ2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01mHzSJaSiiOB2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01xCLH2sbgWPD2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01Bp6LDqDmfLL2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ロングスカートコーデ",
+        "#カーディガンコーデ",
+        "#ハーフパンツコーデ",
+        "#チェックスカート"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "揺れる裾に、\n秋をのせて"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "揺れる裾に、\n秋をのせて",
+          "color": "white",
+          "bad": 0.006,
+          "worst_char": 0.032,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.053,
+          "worst_char": 0.086,
+          "on_face": false,
+          "on_product": 0.985
+        }
+      ],
+      "ig_media_id": "18079603727405008",
+      "permalink": "https://www.instagram.com/reel/De_233fiuQ0/"
     }
   ],
   "errors": []
