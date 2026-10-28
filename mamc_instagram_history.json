@@ -441,6 +441,114 @@
       ],
       "ig_media_id": "18079603727405008",
       "permalink": "https://www.instagram.com/reel/De_233fiuQ0/"
+    },
+    {
+      "date": "2026-10-28T20:21:46+09:00",
+      "slot": "2026-10-28",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "ボウタイのタートルに、太めのベルトをひとつ。\nバルーン裾のデニムで、甘さに個性を足すMAMCの秋。",
+      "text": "ボウタイのタートルに、太めのベルトをひとつ。\nバルーン裾のデニムで、甘さに個性を足すMAMCの秋。",
+      "image": "imageye___-_imgi_4_O1CN01aBYge5tA6iK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01aBYge5tA6iK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN017j0t3agR7zF2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#バルーンパンツ",
+        "#デニムコーデ"
+      ],
+      "variant": {
+        "template": "compare",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "甘めと辛め、\nどっちを着る？"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "甘めと辛め、\nどっちを着る？",
+          "color": "white",
+          "bad": 0.023,
+          "worst_char": 0.153,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.006,
+          "worst_char": 0.017,
+          "on_face": false,
+          "on_product": 0.995
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.009
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.039,
+          "worst_char": 0.039,
+          "on_face": false,
+          "on_product": 0.055
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "cta",
+          "text": "A派？B派？\nコメントで\n教えてね",
+          "color": "white",
+          "bad": 0.02,
+          "worst_char": 0.086,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18119825183052821",
+      "permalink": "https://www.instagram.com/reel/DfCUAirmj3v/"
     }
   ],
   "errors": []
