@@ -172,6 +172,16 @@
       "image": "images/brand/school2.png",
       "text": "子どもは、人類の希望であり、約束です。\n―― マリア・モンテッソーリ\n#輝く未来教育",
       "source": "quote"
+    },
+    {
+      "date": "2026-10-28",
+      "theme": "失敗を恐れず挑戦すること",
+      "author": null,
+      "quote": null,
+      "quote_source": null,
+      "image": "images/brand/school7.png",
+      "text": "転んだ回数は、挑戦した回数。\nうまくできなかった話を聞けた朝は、\nその子が今日も前に進んだ証拠です。\n#輝く未来教育",
+      "source": "ai"
     }
   ],
   "fallback_index": 0
