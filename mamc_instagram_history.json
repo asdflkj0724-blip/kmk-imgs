@@ -549,6 +549,72 @@
       ],
       "ig_media_id": "18119825183052821",
       "permalink": "https://www.instagram.com/reel/DfCUAirmj3v/"
+    },
+    {
+      "date": "2026-10-29T20:21:50+09:00",
+      "slot": "2026-10-29",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "ピンストライプのシャツをウエストで結んで、裾からレースをのぞかせて。\n甘さと抜け感を重ねる、MAMCの秋。",
+      "text": "ピンストライプのシャツをウエストで結んで、裾からレースをのぞかせて。\n甘さと抜け感を重ねる、MAMCの秋。",
+      "image": "imageye___-_imgi_5_O1CN01i1VnsXs8EGE2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01cvkRculTITH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01i1VnsXs8EGE2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01KxE47yhuu4J2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01cxyAlkClJQB2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#シャツコーデ",
+        "#ショートパンツコーデ",
+        "#ストライプシャツ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "cut",
+        "hook_id": "ai",
+        "hook_text": "裾からのぞく、\nレースの秘密"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "裾からのぞく、\nレースの秘密",
+          "color": "white",
+          "bad": 0.034,
+          "worst_char": 0.143,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.032,
+          "worst_char": 0.056,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "17921436390240008",
+      "permalink": "https://www.instagram.com/reel/DfE4zy6IXFJ/"
     }
   ],
   "errors": []
