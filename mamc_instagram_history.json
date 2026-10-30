@@ -615,6 +615,116 @@
       ],
       "ig_media_id": "17921436390240008",
       "permalink": "https://www.instagram.com/reel/DfE4zy6IXFJ/"
+    },
+    {
+      "date": "2026-10-30T20:22:37+09:00",
+      "slot": "2026-10-30",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "b14|15",
+      "body": "チェックのシャツに、ニットをひと巻き。\n重ねて崩して、私らしく遊ぶMAMCの秋。",
+      "text": "チェックのシャツに、ニットをひと巻き。\n重ねて崩して、私らしく遊ぶMAMCの秋。",
+      "image": "imageye___-_imgi_4_O1CN01KxE47yhuu4J2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_6_O1CN01uNzjdPDSdTC2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01KxE47yhuu4J2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#チェックシャツ",
+        "#レイヤードコーデ",
+        "#ニットコーデ",
+        "#ストールコーデ"
+      ],
+      "variant": {
+        "template": "compare",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "ゆるく重ねる？\nきれいに巻く？"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "ゆるく重ねる？\nきれいに巻く？",
+          "color": "ink",
+          "bad": 0.057,
+          "worst_char": 0.206,
+          "on_face": false,
+          "on_product": 0.681
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.109,
+          "worst_char": 0.179,
+          "on_face": false,
+          "on_product": 0.906
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "cta",
+          "text": "A派？B派？\nコメントで\n教えてね",
+          "color": "ink",
+          "bad": 0.015,
+          "worst_char": 0.071,
+          "on_face": false,
+          "on_product": 0.309
+        }
+      ],
+      "ig_media_id": "17995084557056897",
+      "permalink": "https://www.instagram.com/reel/DfHdscvkWZo/"
     }
   ],
   "errors": []
