@@ -790,6 +790,116 @@
       ],
       "ig_media_id": "18132582268793824",
       "permalink": "https://www.instagram.com/reel/DfKCZP2inAp/"
+    },
+    {
+      "date": "2026-11-01T20:21:58+09:00",
+      "slot": "2026-11-01",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "グレーのワイドパンツに、肩をずらしたシャツを。\nゆるく落ちるラインで遊ぶ、MAMCの秋。",
+      "text": "グレーのワイドパンツに、肩をずらしたシャツを。\nゆるく落ちるラインで遊ぶ、MAMCの秋。",
+      "image": "imageye___-_imgi_12_O1CN014wVJjptoChK2vH2e_!!2206542070226.jpg",
+      "images": [
+        "imageye___-_imgi_51_O1CN01FxEaDXoxZaK2vHAO_!!4611686018427380178-0-item_pic.jpg",
+        "imageye___-_imgi_12_O1CN014wVJjptoChK2vH2e_!!2206542070226.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ワイドパンツコーデ",
+        "#グレーコーデ",
+        "#オフショルダー",
+        "#ショールカラー"
+      ],
+      "variant": {
+        "template": "compare",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "肩を落とす？\nきちんと巻く？"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "肩を落とす？\nきちんと巻く？",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.005,
+          "on_face": false,
+          "on_product": 0.782
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.001,
+          "worst_char": 0.003,
+          "on_face": false,
+          "on_product": 0.999
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.008,
+          "worst_char": 0.008,
+          "on_face": false,
+          "on_product": 0.067
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.089
+        },
+        {
+          "kind": "cta",
+          "text": "A派？B派？\nコメントで\n教えてね",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.002,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18110819792194211",
+      "permalink": "https://www.instagram.com/reel/DfMnOHmDTew/"
     }
   ],
   "errors": []
