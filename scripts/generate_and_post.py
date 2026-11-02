@@ -38,16 +38,21 @@ THEMES = [
     "失敗を恐れず挑戦すること",
 ]
 GUIDE_CATEGORY = "学校別対策ガイド"
-BRAND_TAG = "#輝く未来教育"  # 全投稿に必須のハッシュタグ
+REQUIRED_TAGS = ["#輝く未来教育", "#小学校受験"]  # 全投稿に必須のハッシュタグ
+EXTRA_TAGS = [  # フォロワー獲得用。毎回2個をローテーションで追加
+    "#子育て", "#育児", "#幼児教育", "#知育", "#子育てママ",
+    "#ワーママ", "#お受験", "#子どものいる暮らし", "#男の子ママ", "#女の子ママ",
+]
 QUOTE_SOURCE = "quote"  # 名言投稿の履歴上の種別
 HISTORY_DAYS = 90  # 重複防止に参照する履歴の日数
+QUOTE_REUSE_DAYS = 30  # 同じ名言を再利用しない日数(収録数が増えたら延ばせる)
 IMAGE_FOLDERS = ["brand"]  # 普段の投稿に使う画像フォルダ
 IMAGE_FOLDERS_PRODUCT = ["brand", "school-guide"]  # 週1回の商品URL付きの日
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # Xの上限は280(全角=2、URL=23換算)。読みやすさのため実際はもっと短く作る
 MAX_WEIGHTED_LEN = 276
-# 生成時の目標(全角約110文字相当。URL・ハッシュタグ・締めの一行を含む)
-TARGET_WEIGHTED_LEN = 232
+# 生成時の目標(本文+ハッシュタグ4個+締めの一行を含めた全体)
+TARGET_WEIGHTED_LEN = 272
 URL_RE = re.compile(r"https?://\S+")
 
 
@@ -136,31 +141,44 @@ def load_quotes() -> list:
     return quotes
 
 
+def build_tag_line(history: dict) -> str:
+    """必須タグ2個+フォロワー獲得用タグ2個(直近2投稿と重複しないようローテーション)"""
+    recent_text = " ".join(p.get("text") or "" for p in history["posts"][-2:])
+    fresh = [t for t in EXTRA_TAGS if t not in recent_text] or EXTRA_TAGS
+    return " ".join(REQUIRED_TAGS + random.sample(fresh, min(2, len(fresh))))
+
+
 def is_quote_day(history: dict, quotes: list) -> bool:
-    """長期的に約30%が名言になるように決める(連続はしない)"""
+    """約半数が名言になるように決める(名言の連続はしない=ほぼ交互)"""
     if not quotes:
         return False
     recent = history["posts"][-10:]
     if recent and recent[-1].get("source") == QUOTE_SOURCE:
         return False
-    if sum(1 for p in recent if p.get("source") == QUOTE_SOURCE) >= 3:
+    if sum(1 for p in recent if p.get("source") == QUOTE_SOURCE) >= 5:
         return False
-    return random.random() < 0.45
+    return random.random() < 0.9
 
 
-def choose_quote(history: dict, quotes: list, footer: str):
-    """履歴(90日)にまだ出ていない名言から選ぶ。なければ None(オリジナルに切替)"""
-    used = {p.get("quote") for p in history["posts"] if p.get("quote")}
+def choose_quote(history: dict, quotes: list, tag_line: str, footer: str):
+    """直近30日に出ていない名言から選ぶ。なければ None(オリジナルに切替)"""
+    cutoff = (datetime.now(JST) - timedelta(days=QUOTE_REUSE_DAYS)).strftime("%Y-%m-%d")
+    used = {
+        p.get("quote")
+        for p in history["posts"]
+        if p.get("quote") and (p.get("date") or "9999") >= cutoff
+    }
     candidates = [q for q in quotes if q["名言"] not in used]
     random.shuffle(candidates)
     for q in candidates:
-        if x_weighted_len(build_quote_body(q) + "\n" + footer) <= MAX_WEIGHTED_LEN:
+        full = build_quote_body(q) + "\n" + tag_line + ("\n" + footer if footer else "")
+        if x_weighted_len(full) <= MAX_WEIGHTED_LEN:
             return q
     return None
 
 
 def build_quote_body(quote: dict) -> str:
-    return f"{quote['名言']}\n―― {quote['著者']}\n{BRAND_TAG}"
+    return f"{quote['名言']}\n―― {quote['著者']}"
 
 
 def choose_theme(history: dict) -> str:
@@ -206,13 +224,13 @@ def build_user_prompt(now, theme, history) -> str:
     return "\n".join(lines)
 
 
-def generate_with_ai(now, theme, history, footer: str) -> str:
+def generate_with_ai(now, theme, history, tag_line: str, footer: str) -> str:
     import anthropic
 
     client = anthropic.Anthropic()
     system = (ROOT / "prompt.txt").read_text(encoding="utf-8")
     messages = [{"role": "user", "content": build_user_prompt(now, theme, history)}]
-    footer_len = x_weighted_len("\n" + footer) if footer else 0
+    extra_len = x_weighted_len("\n" + tag_line + ("\n" + footer if footer else ""))
     for attempt in range(3):
         response = client.messages.create(
             model="claude-opus-5",
@@ -224,13 +242,13 @@ def generate_with_ai(now, theme, history, footer: str) -> str:
             raise RuntimeError("AIが投稿文の生成を拒否しました")
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         text = text.strip('"「」\'')
-        if text and BRAND_TAG not in text:
-            text += f"\n{BRAND_TAG}"
-        if text and x_weighted_len(text) + footer_len <= TARGET_WEIGHTED_LEN:
+        # ハッシュタグはシステムが付けるので、AIが書いてしまった分は取り除く
+        text = re.sub(r"[ 　]*#\S+", "", text).strip()
+        if text and x_weighted_len(text) + extra_len <= TARGET_WEIGHTED_LEN:
             return text
         messages.append({"role": "assistant", "content": text})
         messages.append(
-            {"role": "user", "content": "長すぎます。同じ内容をもっと短く、本文を全角70文字以内で書き直してください。本文のみを出力してください。"}
+            {"role": "user", "content": "長すぎます。同じ内容をもっと短く、本文を全角60文字以内で書き直してください。本文のみを出力してください。"}
         )
     raise RuntimeError("文字数内の投稿文を生成できませんでした")
 
@@ -291,8 +309,9 @@ def main() -> None:
     else:
         footer = ""
 
+    tag_line = build_tag_line(history)
     quotes = load_quotes()
-    quote = choose_quote(history, quotes, footer) if is_quote_day(history, quotes) else None
+    quote = choose_quote(history, quotes, tag_line, footer) if is_quote_day(history, quotes) else None
 
     theme = None
     source = QUOTE_SOURCE if quote else "ai"
@@ -303,19 +322,16 @@ def main() -> None:
         theme = choose_theme(history)
         print(f"今日の投稿: オリジナル(テーマ: {theme})")
         try:
-            body = generate_with_ai(now, theme, history, footer)
+            body = generate_with_ai(now, theme, history, tag_line, footer)
         except Exception as e:
             print(f"AI生成に失敗したため fallback.txt から投稿します: {e}", file=sys.stderr)
             source = "fallback"
             theme = "予備投稿"
             body = fallback_original(history)
 
-    if BRAND_TAG not in body and x_weighted_len(f"{body}\n{BRAND_TAG}") <= MAX_WEIGHTED_LEN:
-        body += f"\n{BRAND_TAG}"
-
-    text = body
-    if footer and x_weighted_len(body + "\n" + footer) <= MAX_WEIGHTED_LEN:
-        text = body + "\n" + footer
+    text = body + "\n" + tag_line
+    if footer and x_weighted_len(text + "\n" + footer) <= MAX_WEIGHTED_LEN:
+        text = text + "\n" + footer
 
     image_path = choose_image(history, IMAGE_FOLDERS_PRODUCT if footer else IMAGE_FOLDERS)
     print("---- 投稿文 ----")
