@@ -46,7 +46,7 @@ BUY_TEXT = "ご購入はBUYMAのMAMCショップへ"   # 二重投稿の確認�
 THREADS_BASE = "https://graph.threads.net/v1.0"
 THREADS_TEXT_LIMIT = 500
 MEDIA_RELEASE_TAG = "mamc-threads-media"       # Threads に渡す動画の一時置き場（GitHub のリリース）
-THREADS_CTA = {"compare": "A派？B派？返信で教えてね"}
+THREADS_CTA: dict[str, str] = {}   # 「A派？B派？」のような問いかけは入れない
 
 PLATFORMS = {
     "facebook": {"label": "Facebook ページ", "history": ROOT / "mamc_facebook_history.json"},
