@@ -7,7 +7,7 @@
 ## 1. Supabase（データベースとログイン）
 
 1. https://supabase.com でプロジェクトを作る（地域は東京）
-2. SQL Editor に `web/supabase/migrations/0001_init.sql` を貼って実行する
+2. SQL Editor に `web/supabase/migrations/` の SQL を番号順（0001 → 0002）に貼って実行する
 3. Settings → API の値を環境変数に入れる
    - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`
 4. Authentication → URL Configuration
@@ -27,9 +27,9 @@
 
 ## 3. Stripe（月額課金）
 
-1. 商品を3つ（ライト・スタンダード・プロ）作り、それぞれ「月額」と「年額」の価格を作る（円、税込）
-   - ライト 1,980円／19,800円、スタンダード 2,980円／29,800円、プロ 4,980円／49,800円
-2. 6つの価格 ID を `STRIPE_PRICE_LIGHT_MONTHLY` などに入れる
+1. 商品を4つ（ミニ・ライト・スタンダード・プロ）作り、それぞれ「月額」と「年額」の価格を作る（円、税込）
+   - ミニ 980円／9,800円、ライト 1,980円／19,800円、スタンダード 2,980円／29,800円、プロ 4,980円／49,800円
+2. 8つの価格 ID を `STRIPE_PRICE_MINI_MONTHLY` などに入れる
 3. 開発者 → Webhook で送り先を追加
    - URL：`https://example.com/api/stripe/webhook`
    - イベント：`checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted`、`invoice.paid`

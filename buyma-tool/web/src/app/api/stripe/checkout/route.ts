@@ -2,12 +2,12 @@
 import { z } from 'zod';
 import { getRequestUser } from '@/lib/auth';
 import { getProfile } from '@/lib/account';
-import { stripePriceId } from '@/lib/plans';
+import { PAID_PLAN_IDS, stripePriceId } from '@/lib/plans';
 import { stripe } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/http';
 
-const Body = z.object({ plan: z.enum(['light', 'standard', 'pro']), interval: z.enum(['month', 'year']) });
+const Body = z.object({ plan: z.enum(PAID_PLAN_IDS as [string, ...string[]]).transform((p) => p as (typeof PAID_PLAN_IDS)[number]), interval: z.enum(['month', 'year']) });
 
 export async function POST(req: Request) {
   const user = await getRequestUser(req);

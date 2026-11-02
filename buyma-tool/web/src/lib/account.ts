@@ -1,7 +1,7 @@
 /** サーバー側：ユーザーのプラン・使った回数・設定・為替をまとめて読む */
 import { supabaseAdmin } from './supabase/admin';
 import { checkAllowance, jstMonthStart, type Allowance } from './usage';
-import { isPaidPlan, PLANS } from './plans';
+import { isPaidPlan, PLANS, USD_JPY } from './plans';
 import { mergeSettings, type PricingSettings } from './pricing';
 import { chooseRate, type FxChoice } from './fx';
 
@@ -36,12 +36,17 @@ export async function getAllowance(profile: Profile, now = new Date()): Promise<
     .eq('user_id', profile.id)
     .eq('kind', 'generate');
   if (paid) q = q.gte('created_at', jstMonthStart(now));
-  const { count, error } = await q;
-  if (error) throw new Error('使用回数を読めませんでした');
+  // AI の費用（件数の作成とスクショ読み取りの両方）。赤字を防ぐ安全装置に使う
+  let cq = supabaseAdmin().from('usage_events').select('cost_usd').eq('user_id', profile.id).limit(10000);
+  if (paid) cq = cq.gte('created_at', jstMonthStart(now));
+  const [{ count, error }, costs] = await Promise.all([q, cq]);
+  if (error || costs.error) throw new Error('使用回数を読めませんでした');
+  const aiCostJpy = (costs.data ?? []).reduce((sum, r) => sum + Number(r.cost_usd || 0), 0) * USD_JPY;
   return checkAllowance(
     { plan: profile.plan, subscriptionStatus: profile.subscription_status, trialEndsAt: profile.trial_ends_at },
     count ?? 0,
-    now
+    now,
+    aiCostJpy
   );
 }
 

@@ -143,23 +143,12 @@ export default function Home() {
             <p className="section-lead">
               出品件数に合わせて選べる段階制。月額{yen(minPrice)}円から、年払いなら2か月分お得です。
             </p>
+            <div className="notice" style={{ marginBottom: 16 }}>
+              <strong>まずは無料：</strong>
+              {TRIAL_DAYS}日間 または {TRIAL_LIMIT}件まで、すべての機能を試せます（カード登録なし）。{' '}
+              <Link href="/login?mode=signup">無料で始める</Link>
+            </div>
             <div className="price-grid">
-              <div className="price-card">
-                <h3>無料お試し</h3>
-                <div className="price-amount">
-                  0<small>円</small>
-                </div>
-                <p className="small muted">
-                  {TRIAL_DAYS}日間 または {TRIAL_LIMIT}件まで
-                </p>
-                <ul>
-                  <li>すべての機能を試せます</li>
-                  <li>カード登録なし</li>
-                </ul>
-                <Link href="/login?mode=signup" className="btn btn-ghost">
-                  無料で始める
-                </Link>
-              </div>
               {Object.values(PLANS).map((p) => (
                 <div key={p.id} className={`price-card${p.highlight ? ' highlight' : ''}`}>
                   {p.highlight && <span className="price-tag">おすすめ</span>}

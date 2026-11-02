@@ -1,7 +1,7 @@
 /**
  * 使える回数の判定。AI の費用が赤字にならないよう、プランごとに上限を付ける。
  */
-import { PLANS, TRIAL_LIMIT, isPaidPlan } from './plans';
+import { AI_COST_GUARD_RATE, PLANS, TRIAL_AI_COST_CAP_JPY, TRIAL_LIMIT, isPaidPlan } from './plans';
 
 export interface AccountState {
   plan: string; // 'trial' | 'light' | ...
@@ -29,8 +29,12 @@ const ACTIVE = new Set(['active', 'trialing']);
 
 /**
  * @param usedThisPeriod 有料プラン：今月の件数。お試し：これまでの合計件数
+ * @param aiCostJpy 同じ期間に使った AI の費用（円）。赤字を防ぐ安全装置に使う
  */
-export function checkAllowance(account: AccountState, usedThisPeriod: number, now = new Date()): Allowance {
+export const COST_GUARD_REASON =
+  '今月の AI の利用量が多くなったため、今月はここまでとさせてください（スクショ読み取りを多く使った場合などに起こります）。来月1日に戻ります。';
+
+export function checkAllowance(account: AccountState, usedThisPeriod: number, now = new Date(), aiCostJpy = 0): Allowance {
   const periodStart = jstMonthStart(now);
   const base = (limit: number, extra: Partial<Allowance> = {}): Allowance => {
     const remaining = Math.max(0, limit - usedThisPeriod);
@@ -38,8 +42,13 @@ export function checkAllowance(account: AccountState, usedThisPeriod: number, no
   };
 
   if (isPaidPlan(account.plan) && account.subscriptionStatus && ACTIVE.has(account.subscriptionStatus)) {
-    const a = base(PLANS[account.plan].monthlyLimit);
+    const plan = PLANS[account.plan];
+    const a = base(plan.monthlyLimit);
     if (!a.allowed) a.reason = '今月の上限に達しました。来月まで待つか、上のプランに変更してください。';
+    else if (aiCostJpy >= plan.monthlyPriceJpy * AI_COST_GUARD_RATE) {
+      a.allowed = false;
+      a.reason = COST_GUARD_REASON;
+    }
     return a;
   }
 
@@ -54,5 +63,9 @@ export function checkAllowance(account: AccountState, usedThisPeriod: number, no
   }
   const a = base(TRIAL_LIMIT, { periodStart: '1970-01-01T00:00:00.000Z' });
   if (!a.allowed) a.reason = `無料お試しの${TRIAL_LIMIT}件を使い切りました。プランを選んで続けてください。`;
+  else if (aiCostJpy >= TRIAL_AI_COST_CAP_JPY) {
+    a.allowed = false;
+    a.reason = '無料お試しで使える AI の量を超えました。プランを選んで続けてください。';
+  }
   return a;
 }

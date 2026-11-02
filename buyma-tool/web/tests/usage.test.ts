@@ -31,3 +31,25 @@ describe('checkAllowance', () => {
     expect(jstMonthStart(new Date('2026-11-30T14:30:00Z'))).toBe('2026-10-31T15:00:00.000Z');
   });
 });
+
+describe('赤字を防ぐ安全装置', () => {
+  it('AI費用が月額の9割を超えたら、件数が残っていても止める', () => {
+    const mini = { plan: 'mini', subscriptionStatus: 'active', trialEndsAt: null };
+    expect(checkAllowance(mini, 5, now, 881).allowed).toBe(true); // 980円 × 0.9 = 882円
+    const a = checkAllowance(mini, 5, now, 882);
+    expect(a.allowed).toBe(false);
+    expect(a.reason).toMatch(/AI の利用量/);
+  });
+  it('お試しは AI 費用200円まで', () => {
+    const t = { plan: 'trial', subscriptionStatus: null, trialEndsAt: '2026-11-20T00:00:00Z' };
+    expect(checkAllowance(t, 1, now, 199).allowed).toBe(true);
+    expect(checkAllowance(t, 1, now, 200).allowed).toBe(false);
+  });
+  it('見込みの1.5倍の費用（1件4.35円）でも、上限件数までは止まらない', async () => {
+    const { PLANS } = await import('@/lib/plans');
+    for (const p of Object.values(PLANS)) {
+      const cost = (p.monthlyLimit - 1) * 4.35;
+      expect(checkAllowance({ plan: p.id, subscriptionStatus: 'active', trialEndsAt: null }, p.monthlyLimit - 1, now, cost).allowed).toBe(true);
+    }
+  });
+});
