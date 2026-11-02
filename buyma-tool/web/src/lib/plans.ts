@@ -22,9 +22,10 @@ export const REFERRAL_TRIAL_DAYS = 30;
 
 /**
  * 赤字を防ぐ安全装置：1人の1か月の AI 費用が、月額料金のこの割合を超えたら、その月は止める。
- * 9割なら、Stripe の手数料（約3.6%）を引いても赤字にならない。普通の使い方では届かない。
+ * 0.65 なら、AI 費用と Stripe の手数料（約3.6%）を引いても、月額の約3割は必ず利益として残る。
+ * 見込みの費用（1件約3円）の1.1倍までなら、どのプランも件数の上限まで止まらない。
  */
-export const AI_COST_GUARD_RATE = 0.9;
+export const AI_COST_GUARD_RATE = 0.65;
 /** 無料お試しで使える AI 費用の上限（円） */
 export const TRIAL_AI_COST_CAP_JPY = 200;
 /** AI の費用（ドル）を円にするときのレート。少し円安ぎみに見ておく */

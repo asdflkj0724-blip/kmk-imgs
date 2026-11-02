@@ -33,10 +33,10 @@ describe('checkAllowance', () => {
 });
 
 describe('赤字を防ぐ安全装置', () => {
-  it('AI費用が月額の9割を超えたら、件数が残っていても止める', () => {
+  it('AI費用が月額の65%を超えたら、件数が残っていても止める', () => {
     const mini = { plan: 'mini', subscriptionStatus: 'active', trialEndsAt: null };
-    expect(checkAllowance(mini, 5, now, 881).allowed).toBe(true); // 980円 × 0.9 = 882円
-    const a = checkAllowance(mini, 5, now, 882);
+    expect(checkAllowance(mini, 5, now, 636).allowed).toBe(true); // 980円 × 0.65 = 637円
+    const a = checkAllowance(mini, 5, now, 637);
     expect(a.allowed).toBe(false);
     expect(a.reason).toMatch(/AI の利用量/);
   });
@@ -45,11 +45,20 @@ describe('赤字を防ぐ安全装置', () => {
     expect(checkAllowance(t, 1, now, 199).allowed).toBe(true);
     expect(checkAllowance(t, 1, now, 200).allowed).toBe(false);
   });
-  it('見込みの1.5倍の費用（1件4.35円）でも、上限件数までは止まらない', async () => {
+  it('見込みの1.1倍の費用（1件3.2円）なら、上限件数までは止まらない', async () => {
     const { PLANS } = await import('@/lib/plans');
     for (const p of Object.values(PLANS)) {
-      const cost = (p.monthlyLimit - 1) * 4.35;
+      const cost = (p.monthlyLimit - 1) * 3.2;
       expect(checkAllowance({ plan: p.id, subscriptionStatus: 'active', trialEndsAt: null }, p.monthlyLimit - 1, now, cost).allowed).toBe(true);
     }
   });
+});
+
+it('安全装置があれば、どのプランでも月額の3割以上が利益として残る', async () => {
+  const { PLANS, AI_COST_GUARD_RATE } = await import('@/lib/plans');
+  for (const p of Object.values(PLANS)) {
+    const worstAiCost = p.monthlyPriceJpy * AI_COST_GUARD_RATE + 4.5; // 止まる直前に1件ぶん超える
+    const profit = p.monthlyPriceJpy - worstAiCost - p.monthlyPriceJpy * 0.036;
+    expect(profit / p.monthlyPriceJpy).toBeGreaterThan(0.29);
+  }
 });
