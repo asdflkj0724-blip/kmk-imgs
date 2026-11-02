@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>BUYMA出品支援</h1>
+  <button id="extract">この商品の情報を取る</button>
+  <p id="status"></p>
+  <section id="result" hidden>
+    <h2 id="title"></h2>
+    <p id="price"></p>
+    <ul id="warnings"></ul>
+    <h3>SKU</h3><div id="skus"></div>
+    <h3>仕様</h3><table id="specs"></table>
+    <h3>画像 <span id="imgcount"></span></h3><div id="images"></div>
+    <div class="actions">
+      <button id="copy">JSONをコピー</button>
+      <button id="save">JSONを保存</button>
+    </div>
+  </section>
+  <script src="popup.js"></script>
+</body>
+</html>

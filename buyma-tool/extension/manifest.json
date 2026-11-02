@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "BUYMA出品支援（開発版）",
+  "version": "0.1.0",
+  "description": "タオバオ／天猫の商品ページから、BUYMA出品に使う情報を取り出します。",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://item.taobao.com/*",
+    "https://detail.tmall.com/*",
+    "https://detail.tmall.hk/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://item.taobao.com/item.htm*",
+        "https://detail.tmall.com/item.htm*",
+        "https://detail.tmall.hk/hk/item.htm*"
+      ],
+      "js": ["src/extractor.js", "src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "この商品の情報を取る",
+    "default_popup": "popup.html"
+  }
+}
