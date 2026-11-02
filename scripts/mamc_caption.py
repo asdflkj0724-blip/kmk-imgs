@@ -46,14 +46,16 @@ HOOK_MIN, HOOK_MAX = 4, 16        # 動画の冒頭に出すキャッチコピ�
 HOOK_LINE_MAX = 9                 # キャッチコピー1行の文字数（スマホで大きく読めるように）
 # 動画の種類ごとの、キャッチコピーの方向性と例
 HOOK_GUIDE = {
-    "compare": ("2つのコーデのどちらが好きか、見る人に問いかける一言",
-                ["着るならどっち？", "AとBなら、どっち？", "あなたはどっち派？"]),
+    "compare": ("2つのコーデを見比べたくなる一言。どちらが好きか（どっち？・〇〇派？）は問いかけない",
+                ["2つの着こなし、見比べて", "甘めも、クールにも", "その日の気分で着こなして"]),
     "detail": ("デザインやシルエットに目を向けさせる一言",
                ["このシルエット、好き。", "シンプルなのに目を引く", "大人っぽく着こなすなら"]),
     "ad": ("海外ブランド広告のようなキャッチコピー",
            ["今日の主役はこの一着", "そのコーデ、どこの？", "人と被らないかわいさ"]),
 }
 DECO_MAX = 2
+# 「どっち派？」「A派？B派？」のように、どちらが好きかを問いかける言葉（使わない）
+AB_QUESTION = re.compile(r"どっち(?!も)|どちら(?!も)|[AＡBＢ]\s*派|派\s*[？?]")
 # SNS ごとの紹介文の長さと書き方（Instagram は従来どおり）
 PLATFORMS = {
     "instagram": {"name": "Instagram", "text": (TEXT_MIN, TEXT_MAX), "newlines": 1,
@@ -127,6 +129,8 @@ def check_text(text: str, product: dict, recent_texts: list[str],
     banned = [w for w in xbase.BANNED_WORDS if w in text]
     if banned:
         problems.append(f"使ってはいけない表現が含まれています: {banned}")
+    if AB_QUESTION.search(text):
+        problems.append("「どっち派？」のように、どちらが好きかを問いかける言葉は使わないでください")
     if BRAND_VARIANTS.search(text):
         problems.append("ブランド名は必ず「MAMC」と表記してください")
     if xbase.body_fingerprint(text) in {xbase.body_fingerprint(t) for t in recent_texts}:
@@ -162,6 +166,8 @@ def check_hook(hook: str, product: dict, recent_hooks: list[str]) -> list[str]:
         problems.append("キャッチコピーに日本語以外の文字が混ざっています")
     if xbase.find_unverifiable_claims(hook, product) or any(w in hook for w in xbase.BANNED_WORDS):
         problems.append("キャッチコピーに使えない表現・確認できない情報があります")
+    if AB_QUESTION.search(hook):
+        problems.append("キャッチコピーで、どちらが好きか（どっち？・〇〇派？）を問いかけないでください")
     if re.search(r"[MmＭ][AaＡ][MmＭ][CcＣ]", hook):
         problems.append("キャッチコピーにブランド名は入れません")
     if hook.replace("\n", "") in {h.replace("\n", "") for h in recent_hooks}:
@@ -257,6 +263,7 @@ def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags
         "- 素材・価格・サイズ・在庫・送料・割引・機能・原産国は、商品情報に無い限り絶対に書かない",
         "- 「韓国ファッション」「韓国風」などの表現は使わない（MAMC は韓国ファッション専門店ではない）",
         f"- 絵文字は使わないか、1個まで。ハッシュタグや URL は紹介文に入れない。改行は{conf['newlines']}回まで",
+        "- 「どっち派？」「A派？B派？」のように、どちらが好きかを見る人に問いかける言葉は使わない",
         "",
         "=== ハッシュタグのルール ===",
         "- #MAMC 以外のタグ候補を6〜8個、商品との関係が強い順に",
