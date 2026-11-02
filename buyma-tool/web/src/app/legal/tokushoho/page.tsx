@@ -26,7 +26,7 @@ export default function TokushohoPage() {
             {p.name}：月額{yen(p.monthlyPriceJpy)}円／年額{yen(p.yearlyPriceJpy)}円（税込・月{yen(p.monthlyLimit)}件まで）
           </div>
         ))}
-        <div>月2,000件を超えるご利用は個別にお見積もりします。</div>
+        <div>月1,000件を超えるご利用は個別にお見積もりします。</div>
       </>,
     ],
     ['商品代金以外の必要料金', 'インターネット接続にかかる通信料はお客様のご負担です。'],

@@ -14,7 +14,7 @@ export default function ContactPage() {
       <main className="prose">
         <h1>お問い合わせ</h1>
         <p>
-          ご質問・ご要望・月2,000件を超えるご利用のご相談などは、こちらからお送りください。先に<Link href="/faq">よくある質問</Link>もご覧ください。
+          ご質問・ご要望・月1,000件を超えるご利用のご相談などは、こちらからお送りください。先に<Link href="/faq">よくある質問</Link>もご覧ください。
         </p>
         <ContactForm />
       </main>

@@ -43,8 +43,8 @@ export const PLANS: Record<Exclude<PlanId, 'trial'>, Plan> = {
     name: 'プロ',
     monthlyPriceJpy: 4980,
     yearlyPriceJpy: 49800,
-    monthlyLimit: 2000,
-    features: ['月2,000件まで', 'スタンダードの機能すべて', '在庫・価格チェック（準備中）', '1件あたり約2.5円'],
+    monthlyLimit: 1000,
+    features: ['月1,000件まで', 'スタンダードの機能すべて', '在庫・価格チェック（準備中）', '1件あたり約5円'],
   },
 };
 

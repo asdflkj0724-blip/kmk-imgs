@@ -88,7 +88,7 @@ const groups: { title: string; items: { q: string; a: React.ReactNode }[] }[] = 
             {Object.values(PLANS)
               .map((p) => `${p.name}：月${yen(p.monthlyLimit)}件`)
               .join('、')}
-            です。上限は毎月1日（日本時間）に戻ります。月2,000件を超える場合は<Link href="/contact">個別にご相談</Link>ください。
+            です。上限は毎月1日（日本時間）に戻ります。月1,000件を超える場合は<Link href="/contact">個別にご相談</Link>ください。
           </>
         ),
       },

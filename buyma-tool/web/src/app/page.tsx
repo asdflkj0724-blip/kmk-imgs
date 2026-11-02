@@ -183,7 +183,7 @@ export default function Home() {
               ))}
             </div>
             <p className="small muted" style={{ marginTop: 16 }}>
-              月2,000件を超える場合は、<Link href="/contact">お問い合わせ</Link>から個別にご相談ください。価格はすべて税込です。
+              月1,000件を超える場合は、<Link href="/contact">お問い合わせ</Link>から個別にご相談ください。価格はすべて税込です。
             </p>
             <div className="notice" style={{ marginTop: 16 }}>
               <strong>紹介制度：</strong>お友だちを紹介すると、紹介した人もされた人も1か月無料になります。

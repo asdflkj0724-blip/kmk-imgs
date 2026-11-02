@@ -46,7 +46,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           ))}
         </div>
       )}
-      <p className="muted small">月2,000件を超えて使いたい場合は、お問い合わせから個別にご相談ください。解約は「お支払いの管理」からいつでもできます。</p>
+      <p className="muted small">月1,000件を超えて使いたい場合は、お問い合わせから個別にご相談ください。解約は「お支払いの管理」からいつでもできます。</p>
     </>
   );
 }
