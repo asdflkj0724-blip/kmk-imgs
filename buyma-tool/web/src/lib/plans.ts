@@ -1,0 +1,70 @@
+/**
+ * 料金プラン（指示書 §5 のたたき台）。金額・件数はここだけ直せば全体に反映される。
+ */
+export type PlanId = 'trial' | 'light' | 'standard' | 'pro';
+export type BillingInterval = 'month' | 'year';
+
+export interface Plan {
+  id: PlanId;
+  name: string;
+  monthlyPriceJpy: number;
+  /** 年払いは2か月分お得＝月額×10 */
+  yearlyPriceJpy: number;
+  monthlyLimit: number;
+  features: string[];
+  highlight?: boolean;
+}
+
+export const TRIAL_DAYS = 7;
+export const TRIAL_LIMIT = 10;
+/** 紹介で来た人のお試し日数（1か月無料） */
+export const REFERRAL_TRIAL_DAYS = 30;
+
+export const PLANS: Record<Exclude<PlanId, 'trial'>, Plan> = {
+  light: {
+    id: 'light',
+    name: 'ライト',
+    monthlyPriceJpy: 1980,
+    yearlyPriceJpy: 19800,
+    monthlyLimit: 100,
+    features: ['月100件まで', 'タイトル・説明文の自動作成', '価格の自動計算', 'BUYMAへの自動入力・CSV・画像ZIP'],
+  },
+  standard: {
+    id: 'standard',
+    name: 'スタンダード',
+    monthlyPriceJpy: 2980,
+    yearlyPriceJpy: 29800,
+    monthlyLimit: 500,
+    features: ['月500件まで', 'ライトの機能すべて', '1件あたり約6円'],
+    highlight: true,
+  },
+  pro: {
+    id: 'pro',
+    name: 'プロ',
+    monthlyPriceJpy: 4980,
+    yearlyPriceJpy: 49800,
+    monthlyLimit: 2000,
+    features: ['月2,000件まで', 'スタンダードの機能すべて', '在庫・価格チェック（準備中）', '1件あたり約2.5円'],
+  },
+};
+
+export const PAID_PLAN_IDS = Object.keys(PLANS) as Exclude<PlanId, 'trial'>[];
+
+export function isPaidPlan(id: string): id is Exclude<PlanId, 'trial'> {
+  return (PAID_PLAN_IDS as string[]).includes(id);
+}
+
+/** Stripe の価格 ID（環境変数）とプランの対応 */
+export function stripePriceId(plan: Exclude<PlanId, 'trial'>, interval: BillingInterval): string | undefined {
+  const key = `STRIPE_PRICE_${plan.toUpperCase()}_${interval === 'year' ? 'YEARLY' : 'MONTHLY'}`;
+  return process.env[key] || undefined;
+}
+
+export function planFromStripePrice(priceId: string): { plan: Exclude<PlanId, 'trial'>; interval: BillingInterval } | null {
+  for (const plan of PAID_PLAN_IDS) {
+    for (const interval of ['month', 'year'] as const) {
+      if (stripePriceId(plan, interval) === priceId) return { plan, interval };
+    }
+  }
+  return null;
+}

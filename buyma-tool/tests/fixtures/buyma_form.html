@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>出品 - BUYMA（テスト用の見本）</title></head><body>
+<form id="f" onsubmit="return false">
+  <dl class="form-row"><dt class="label">ブランド名 <span>必須</span></dt><dd><input type="text" name="brand" id="brand"></dd></dl>
+  <dl class="form-row"><dt class="label">商品名 <span>必須</span></dt><dd><input type="text" name="xx_a" id="t"></dd></dl>
+  <div class="row"><label for="c">商品コメント</label><textarea id="c" name="yy_b"></textarea></div>
+  <table><tr><th>参考価格</th><td><input type="text" id="ref" name="ref"></td></tr>
+  <tr><th>価格 ※</th><td><input type="text" id="p" name="zz_c"></td></tr></table>
+  <input type="hidden" name="token" value="x">
+  <button type="button" id="publish" onclick="window.__clicked.push('publish')">出品する</button>
+  <button type="button" id="draft2" onclick="window.__clicked.push('draftpublish')">下書き保存して公開</button>
+  <button type="button" id="draft" onclick="window.__clicked.push('draft')">下書き保存</button>
+</form>
+<script>
+  window.__clicked = [];
+  window.__events = [];
+  document.addEventListener('input', (e) => window.__events.push('input:' + e.target.id), true);
+  document.addEventListener('change', (e) => window.__events.push('change:' + e.target.id), true);
+  // React のように value の setter を差し替えた入力欄でも反映されるか確かめる
+  const t = document.getElementById('t');
+  Object.defineProperty(t, 'value', {
+    get() { return HTMLInputElement.prototype.__lookupGetter__('value').call(this); },
+    set(v) { window.__events.push('instance-setter'); HTMLInputElement.prototype.__lookupSetter__('value').call(this, v); },
+  });
+</script>
+</body></html>

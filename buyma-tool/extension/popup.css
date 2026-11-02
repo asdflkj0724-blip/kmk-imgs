@@ -1,14 +1,27 @@
-body { width: 380px; margin: 0; padding: 12px; font: 13px/1.5 system-ui, sans-serif; color: #222; }
-h1 { font-size: 15px; margin: 0 0 8px; }
+body { width: 400px; margin: 0; padding: 12px; font: 13px/1.5 system-ui, sans-serif; color: #222; background: #fff; }
+header { display: flex; justify-content: space-between; align-items: baseline; }
+h1 { font-size: 15px; margin: 0 0 4px; }
 h2 { font-size: 14px; margin: 12px 0 4px; }
 h3 { font-size: 12px; margin: 12px 0 4px; color: #666; }
-button { padding: 6px 10px; border: 1px solid #c33; background: #c33; color: #fff; border-radius: 4px; cursor: pointer; }
-.actions button { background: #fff; color: #c33; }
+label { display: block; font-size: 12px; font-weight: 600; margin: 8px 0 2px; }
+input[type=text], input[type=number], textarea, select { width: 100%; box-sizing: border-box; padding: 5px; font: inherit; border: 1px solid #ccc; border-radius: 4px; }
+button { padding: 6px 10px; border: 1px solid #c33; background: #c33; color: #fff; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+button:disabled { opacity: .5; cursor: default; }
+button.ghost, .actions button.ghost { background: #fff; color: #c33; }
+.small { font-size: 12px; }
+.muted { color: #666; }
 #status { color: #666; min-height: 1em; }
 #warnings { color: #b45309; padding-left: 18px; margin: 4px 0; }
+#issues { padding-left: 18px; margin: 6px 0; }
+.lv-error { color: #b42318; }
+.lv-warning { color: #b45309; }
+.over { color: #b42318; font-weight: 700; }
 .sku { margin-bottom: 4px; }
 .chip { display: inline-block; border: 1px solid #ddd; border-radius: 3px; padding: 0 4px; margin: 2px; }
 .chip.off { color: #aaa; text-decoration: line-through; }
-#specs td { border-bottom: 1px solid #eee; padding: 2px 4px; vertical-align: top; }
+#specs td, #breakdown td { border-bottom: 1px solid #eee; padding: 2px 4px; vertical-align: top; }
+#breakdown td:last-child { text-align: right; }
 #images img { width: 56px; height: 56px; object-fit: cover; margin: 2px; border: 1px solid #eee; }
-.actions { margin-top: 12px; display: flex; gap: 8px; }
+.actions { margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+#queueBox { border-top: 1px solid #eee; margin-top: 12px; }
+#queueLog { padding-left: 16px; max-height: 120px; overflow-y: auto; }
