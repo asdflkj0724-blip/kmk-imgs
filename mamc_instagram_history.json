@@ -964,6 +964,73 @@
       ],
       "ig_media_id": "18117877151035601",
       "permalink": "https://www.instagram.com/reel/DfPL-6fIHs4/"
+    },
+    {
+      "date": "2026-11-03T20:21:28+09:00",
+      "slot": "2026-11-03",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2117381838406561886",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "大きな襟のニットに、裾広がりのデニム。\n色をまとって、少しだけ大胆に揺れるMAMCの秋。",
+      "text": "大きな襟のニットに、裾広がりのデニム。\n色をまとって、少しだけ大胆に揺れるMAMCの秋。",
+      "image": "imageye___-_imgi_5_O1CN01yYAVaEyHJ0G2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_5_O1CN01yYAVaEyHJ0G2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01vzhdOAzTSCD2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01eC6VeOx2DqJ2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01i8FIUigQ0zF2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ニットコーデ",
+        "#フレアデニム",
+        "#デニムコーデ",
+        "#カーディガンコーデ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "cut",
+        "hook_id": "ai",
+        "hook_text": "襟ひとつで、\n今日が変わる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "襟ひとつで、\n今日が変わる",
+          "color": "ink",
+          "bad": 0.01,
+          "worst_char": 0.064,
+          "on_face": false,
+          "on_product": 0.187
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.053,
+          "worst_char": 0.135,
+          "on_face": false,
+          "on_product": 0.998
+        }
+      ],
+      "ig_media_id": "18095769086676147",
+      "permalink": "https://www.instagram.com/reel/DfRwv0LlUQu/"
     }
   ],
   "errors": []
