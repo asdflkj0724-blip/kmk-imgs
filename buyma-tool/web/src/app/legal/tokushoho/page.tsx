@@ -3,6 +3,7 @@ import '../../marketing.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { PLANS, TRIAL_DAYS, TRIAL_LIMIT } from '@/lib/plans';
+import { SITE } from '@/site.config';
 import { SERVICE_NAME } from '@/lib/brand';
 
 export const metadata: Metadata = { title: '特定商取引法に基づく表記' };
@@ -12,11 +13,11 @@ const yen = (n: number) => n.toLocaleString('ja-JP');
 export default function TokushohoPage() {
   const env = (v: string | undefined, label: string) => v || `（${label}：準備中）`;
   const rows: [string, React.ReactNode][] = [
-    ['販売事業者', env(process.env.NEXT_PUBLIC_SELLER_NAME, '販売事業者名')],
-    ['運営責任者', env(process.env.NEXT_PUBLIC_SELLER_MANAGER, '運営責任者')],
-    ['所在地', env(process.env.NEXT_PUBLIC_SELLER_ADDRESS, '所在地')],
-    ['電話番号', env(process.env.NEXT_PUBLIC_SELLER_PHONE, '電話番号')],
-    ['メールアドレス', env(process.env.NEXT_PUBLIC_SELLER_EMAIL, 'メールアドレス')],
+    ['販売事業者', env(SITE.seller.name, '販売事業者名')],
+    ['運営責任者', env(SITE.seller.manager, '運営責任者')],
+    ['所在地', env(SITE.seller.address, '所在地')],
+    ['電話番号', env(SITE.seller.phone, '電話番号')],
+    ['メールアドレス', env(SITE.seller.email, 'メールアドレス')],
     ['サービス名', SERVICE_NAME],
     [
       '販売価格',
@@ -26,7 +27,7 @@ export default function TokushohoPage() {
             {p.name}：月額{yen(p.monthlyPriceJpy)}円／年額{yen(p.yearlyPriceJpy)}円（税込・月{yen(p.monthlyLimit)}件まで）
           </div>
         ))}
-        <div>月1,000件を超えるご利用は個別にお見積もりします。</div>
+        <div>月{SITE.customAbove.toLocaleString('ja-JP')}件を超えるご利用は個別にお見積もりします。</div>
       </>,
     ],
     ['商品代金以外の必要料金', 'インターネット接続にかかる通信料はお客様のご負担です。'],

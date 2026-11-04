@@ -108,7 +108,11 @@ export function LoginForm(props: { initialMode: Mode; next?: string; refCode?: s
         {mode === 'signup' ? (
           <>すでに登録済みの方は <a href="#" onClick={(e) => { e.preventDefault(); setMode('login'); }}>ログイン</a></>
         ) : (
-          <>はじめての方は <a href="#" onClick={(e) => { e.preventDefault(); setMode('signup'); }}>無料で登録</a></>
+          <>
+            はじめての方は <a href="#" onClick={(e) => { e.preventDefault(); setMode('signup'); }}>無料で登録</a>
+            <br />
+            <a href="/login/reset">パスワードを忘れた・まだ決めていない</a>
+          </>
         )}
       </p>
       {mode === 'signup' && (

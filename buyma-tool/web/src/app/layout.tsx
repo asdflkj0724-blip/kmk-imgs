@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { CATCHCOPY, SERVICE_NAME } from '@/lib/brand';
+import { SITE } from '@/site.config';
 
 export const metadata: Metadata = {
   title: { default: `${SERVICE_NAME}｜${CATCHCOPY}`, template: `%s｜${SERVICE_NAME}` },
-  description: 'タオバオや海外通販サイトの商品ページでボタンを1回押すだけで、BUYMA用の日本語タイトル・説明文・販売価格ができあがる出品支援ツール。',
+  description: SITE.description,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

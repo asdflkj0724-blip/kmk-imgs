@@ -4,6 +4,7 @@ import '../../marketing.css';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { SERVICE_NAME } from '@/lib/brand';
+import { SITE } from '@/site.config';
 
 export const metadata: Metadata = { title: 'プライバシーポリシー' };
 
@@ -65,7 +66,7 @@ export default function PrivacyPage() {
 
         <h2>8. お問い合わせ窓口</h2>
         <p>
-          {process.env.NEXT_PUBLIC_SELLER_NAME || '（販売事業者名）'}／{process.env.NEXT_PUBLIC_SELLER_EMAIL || '（メールアドレス）'}
+          {SITE.seller.name || '（販売事業者名）'}／{SITE.seller.email || '（メールアドレス）'}
         </p>
 
         <h2>9. このポリシーの変更</h2>

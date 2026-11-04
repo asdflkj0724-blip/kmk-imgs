@@ -24,11 +24,12 @@ export async function POST(req: Request) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const s = event.data.object;
-        const userId = s.client_reference_id;
         const cust = customerId(s.customer);
+        // ログインせずに申し込んだ人は、Stripe に入れたメールアドレスでアカウントを用意する
+        const userId = s.client_reference_id || (await userIdForEmail(s.customer_details?.email));
         if (userId && cust) await db.from('profiles').update({ stripe_customer_id: cust }).eq('id', userId);
         if (typeof s.subscription === 'string') {
-          await applySubscription(await stripe().subscriptions.retrieve(s.subscription));
+          await applySubscription(await stripe().subscriptions.retrieve(s.subscription), userId);
         }
         break;
       }
@@ -50,11 +51,23 @@ export async function POST(req: Request) {
   return Response.json({ received: true });
 }
 
-async function applySubscription(sub: Stripe.Subscription) {
+/** メールアドレスのアカウントを探し、なければ作る（パスワードは本人が「パスワードを設定」で決める） */
+async function userIdForEmail(raw: string | null | undefined): Promise<string | null> {
+  const email = (raw || '').trim().toLowerCase();
+  if (!email) return null;
+  const db = supabaseAdmin();
+  const { data: found } = await db.from('profiles').select('id').ilike('email', email).limit(1).maybeSingle();
+  if (found) return found.id;
+  const { data, error } = await db.auth.admin.createUser({ email, email_confirm: true });
+  if (error || !data.user) throw new Error(`アカウントを作れませんでした: ${error?.message}`);
+  return data.user.id;
+}
+
+async function applySubscription(sub: Stripe.Subscription, knownUserId?: string | null) {
   const db = supabaseAdmin();
   const update = subscriptionToProfile(sub);
   const cust = customerId(sub.customer);
-  const userId = sub.metadata?.user_id;
+  const userId = knownUserId || sub.metadata?.user_id;
   const q = db.from('profiles').update({ ...update, stripe_customer_id: cust });
   const { error } = userId ? await q.eq('id', userId) : await q.eq('stripe_customer_id', cust);
   if (error) throw new Error(error.message);

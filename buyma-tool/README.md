@@ -36,7 +36,7 @@ buyma-tool/
 
 ```bash
 cd buyma-tool && npm test            # 拡張機能（23件）
-cd buyma-tool/web && npm test        # サーバー側（46件）
+cd buyma-tool/web && npm test        # サーバー側（50件）
 cd buyma-tool/web && npx next build  # 本番用に組み立てられるか
 ```
 

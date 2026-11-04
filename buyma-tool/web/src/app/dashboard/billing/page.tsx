@@ -2,6 +2,7 @@ import { requireSession } from '../session';
 import { getAllowance, planName } from '@/lib/account';
 import { PLANS, TRIAL_LIMIT } from '@/lib/plans';
 import { BillingButtons } from './BillingButtons';
+import { SITE } from '@/site.config';
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { profile } = await requireSession();
@@ -46,7 +47,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           ))}
         </div>
       )}
-      <p className="muted small">月1,000件を超えて使いたい場合は、お問い合わせから個別にご相談ください。解約は「お支払いの管理」からいつでもできます。</p>
+      <p className="muted small">月{SITE.customAbove.toLocaleString('ja-JP')}件を超えて使いたい場合は、お問い合わせから個別にご相談ください。解約は「お支払いの管理」からいつでもできます。</p>
     </>
   );
 }

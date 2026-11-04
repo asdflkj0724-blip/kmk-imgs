@@ -5,6 +5,7 @@ import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { PLANS, TRIAL_DAYS, TRIAL_LIMIT } from '@/lib/plans';
 import { SERVICE_NAME } from '@/lib/brand';
+import { SITE } from '@/site.config';
 
 export const metadata: Metadata = { title: 'よくある質問' };
 
@@ -92,7 +93,7 @@ const groups: { title: string; items: { q: string; a: React.ReactNode }[] }[] = 
             {Object.values(PLANS)
               .map((p) => `${p.name}：月${yen(p.monthlyLimit)}件`)
               .join('、')}
-            です。上限は毎月1日（日本時間）に戻ります。月1,000件を超える場合は<Link href="/contact">個別にご相談</Link>ください。
+            です。上限は毎月1日（日本時間）に戻ります。月{SITE.customAbove.toLocaleString('ja-JP')}件を超える場合は<Link href="/contact">個別にご相談</Link>ください。
           </>
         ),
       },

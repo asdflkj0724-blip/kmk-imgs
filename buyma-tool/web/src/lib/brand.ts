@@ -1,3 +1,5 @@
-/** サービス名（仮）。決まったらここだけ直す */
-export const SERVICE_NAME = 'カイツケ';
-export const CATCHCOPY = 'タオバオからBUYMAへ、出品1件3分';
+/** サービス名とキャッチコピー。実際の値は src/site.config.ts で決める */
+import { SITE } from '../site.config';
+
+export const SERVICE_NAME = SITE.name;
+export const CATCHCOPY = SITE.catchcopy;

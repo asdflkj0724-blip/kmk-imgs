@@ -11,11 +11,30 @@ const Body = z.object({ plan: z.enum(PAID_PLAN_IDS as [string, ...string[]]).tra
 
 export async function POST(req: Request) {
   const user = await getRequestUser(req);
-  if (!user) return Response.json({ error: 'ログインしてください' }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'プランの指定が正しくありません' }, { status: 400 });
   const price = stripePriceId(parsed.data.plan, parsed.data.interval);
   if (!price) return Response.json({ error: 'このプランの価格がまだ設定されていません' }, { status: 500 });
+
+  // ホームページから、ログインせずに申し込む場合：Stripe の画面でメールアドレスを入れてもらい、
+  // 支払いが終わったら、そのメールアドレスでアカウントを作る（webhook で処理）
+  if (!user) {
+    const session = await stripe().checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price, quantity: 1 }],
+      allow_promotion_codes: true,
+      metadata: { guest: '1', plan: parsed.data.plan },
+      subscription_data: { metadata: { guest: '1' } },
+      consent_collection: { terms_of_service: 'required' },
+      custom_text: {
+        terms_of_service_acceptance: { message: `[利用規約](${siteUrl()}/legal/terms) に同意します。` },
+      },
+      success_url: `${siteUrl()}/thanks?purchase=1`,
+      cancel_url: `${siteUrl()}/#pricing`,
+      locale: 'ja',
+    });
+    return Response.json({ url: session.url });
+  }
 
   const profile = await getProfile(user.id);
   if (profile.stripe_subscription_id && ['active', 'trialing', 'past_due'].includes(profile.subscription_status || '')) {

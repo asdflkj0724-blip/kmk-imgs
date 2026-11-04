@@ -7,7 +7,7 @@
 ## 1. Supabase（データベースとログイン）
 
 1. https://supabase.com でプロジェクトを作る（地域は東京）
-2. SQL Editor に `web/supabase/migrations/` の SQL を番号順（0001 → 0002 → 0003）に貼って実行する
+2. SQL Editor に `web/supabase/migrations/` の SQL を番号順（0001 → 0002 → 0003 → 0004 → 0005）に貼って実行する
 3. Settings → API の値を環境変数に入れる
    - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`
 4. Authentication → URL Configuration
@@ -37,7 +37,13 @@
 4. 設定 → Billing → カスタマーポータル：プランの変更（4つのプランの価格を選べるように）・解約・カード変更をオンにする
    - 解約は「**請求期間の終了時にキャンセル**」を選ぶ。こうすると、解約しても支払った期間の終わりまで使え、その日が来たら自動で止まる（開発指示書 4-2「解約後の扱い」）
    - 支払いに失敗した場合は、その時点で止まる（カードを更新すればすぐ使えるようになる）
-5. まずはテストモードで全部試し、問題なければ本番モードのキーに入れ替える
+5. 設定 → ビジネス → 公開情報 に「利用規約の URL」（`https://example.com/legal/terms`）を入れる
+   （ホームページから申し込むとき、Stripe の画面で利用規約への同意を求めるため。入れないと申し込み画面が開かない）
+6. まずはテストモードで全部試し、問題なければ本番モードのキーに入れ替える
+
+ホームページの「申し込む」ボタンは、ログインしていなくても Stripe の申込ページへ進めます。
+支払いが終わると、Stripe に入れたメールアドレスでアカウントが自動で作られます。申し込んだ人は、
+お礼のページ（`/thanks`）の「パスワードを決める」から、最初のパスワードを決めて使い始めます。
 
 無料お試しは Stripe ではなくこのアプリが管理しています（登録から7日間 または 10件、カード不要）。
 お試し中に申し込んだ場合は、お試しの終わる日まで請求が始まりません。
@@ -61,7 +67,21 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://example.com/api/cron/fx
 4. 一般に配るときは Chrome ウェブストアに出す。出したあとの拡張 ID を `NEXT_PUBLIC_EXTENSION_ID` に入れる
    （ストアの審査では、プライバシーポリシーの URL と、読み取るサイトの説明が必要）
 
-## 6. 特定商取引法の表記
+## 6. ホームページの名前・料金・連絡先
+
+`web/src/site.config.ts` の1か所にまとめています（サービス名・キャッチコピー・料金・連絡先・公開のしかた）。
+
+- `launchMode: 'waitlist'`：ツールの完成前。メール登録が主役（登録されたメールは Supabase の `leads` に `source = 'waitlist'` で入る）
+- `launchMode: 'open'`：ツールの公開後。ボタンから無料お試しのアカウント登録へ進む
+- 料金を変えたら、Stripe の価格も同じ金額で作り直す
+
+登録されたメールの一覧は、Supabase の SQL Editor で見られます：
+
+```sql
+select email, created_at from leads where source = 'waitlist' order by created_at desc;
+```
+
+## 7. 特定商取引法の表記
 
 `NEXT_PUBLIC_SELLER_*` に販売事業者名・所在地・電話番号・メール・運営責任者を入れる。
 入れるまでは「準備中」と表示されるので、公開前に必ず入れること。
