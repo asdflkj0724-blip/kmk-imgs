@@ -60,3 +60,12 @@ test('設定の値は安全な範囲に直す', () => {
   assert.equal(s.mode, 'fill');
   assert.equal(s.jpegQuality, 0.9);
 });
+
+test('解約した人には新しいトークンが出ないので、ログアウトして理由を見せる', async () => {
+  const storage = memoryStorage({ auth: { accessToken: 'a', refreshToken: 'r', expiresAt: NOW / 1000 + 10 } });
+  const fetch = async (url) =>
+    url.endsWith('/api/ext/refresh') ? res(402, { error: 'プランのお申し込みをお願いします。' }) : res(200, {});
+  const api = createApi({ storage, fetch, now: () => NOW });
+  await assert.rejects(api.me(), (e) => e.status === 402 && e.message === 'プランのお申し込みをお願いします。');
+  assert.equal(storage.m.get('auth'), undefined);
+});

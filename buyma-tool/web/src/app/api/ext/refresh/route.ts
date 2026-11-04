@@ -2,6 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { json, preflight } from '@/lib/http';
+import { accountActive, getProfile } from '@/lib/account';
+import { INACTIVE_REASON } from '@/lib/usage';
 
 export const OPTIONS = preflight;
 
@@ -12,7 +14,12 @@ export async function POST(req: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: parsed.data.refreshToken });
-  if (error || !data.session) return json(req, { error: 'もう一度ログインしてください' }, 401);
+  if (error || !data.session || !data.user) return json(req, { error: 'もう一度ログインしてください' }, 401);
+  // 解約・支払い停止・お試し終了の人には、新しいトークンを出さない（自然に使えなくなる）
+  if (!accountActive(await getProfile(data.user.id))) {
+    // 新しいリフレッシュトークンは渡さないので、拡張機能はもう延長できない
+    return json(req, { error: INACTIVE_REASON }, 402);
+  }
   return json(req, {
     accessToken: data.session.access_token,
     refreshToken: data.session.refresh_token,

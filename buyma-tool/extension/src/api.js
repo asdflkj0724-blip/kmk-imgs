@@ -99,6 +99,11 @@
         throw new ApiError('サーバーにつながりませんでした。設定画面のサーバーURLを確認してください。', 0);
       }
       const body = await res.json().catch(() => null);
+      if (res.status === 402) {
+        // 解約・支払い停止・お試し終了：サーバーが新しいトークンを出さないので、ログアウトして理由を見せる
+        await logout();
+        throw new ApiError((body && body.error) || messageFor(402), 402, body);
+      }
       if (!res.ok || !body || !body.accessToken) {
         if (res.status === 401 || res.status === 400) await logout();
         throw new ApiError(messageFor(401), 401, body);

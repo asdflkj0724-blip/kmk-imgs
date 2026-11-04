@@ -34,7 +34,9 @@
    - URL：`https://example.com/api/stripe/webhook`
    - イベント：`checkout.session.completed`、`customer.subscription.created`、`customer.subscription.updated`、`customer.subscription.deleted`、`invoice.paid`
    - 表示された署名の秘密を `STRIPE_WEBHOOK_SECRET` に入れる
-4. 設定 → Billing → カスタマーポータル：プランの変更（3つの価格を選べるように）・解約・カード変更をオンにする
+4. 設定 → Billing → カスタマーポータル：プランの変更（4つのプランの価格を選べるように）・解約・カード変更をオンにする
+   - 解約は「**請求期間の終了時にキャンセル**」を選ぶ。こうすると、解約しても支払った期間の終わりまで使え、その日が来たら自動で止まる（開発指示書 4-2「解約後の扱い」）
+   - 支払いに失敗した場合は、その時点で止まる（カードを更新すればすぐ使えるようになる）
 5. まずはテストモードで全部試し、問題なければ本番モードのキーに入れ替える
 
 無料お試しは Stripe ではなくこのアプリが管理しています（登録から7日間 または 10件、カード不要）。
