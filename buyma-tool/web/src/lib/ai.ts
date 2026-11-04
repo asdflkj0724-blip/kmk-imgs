@@ -121,7 +121,7 @@ export async function generateListing(
     messages: [{ role: 'user', content }],
   });
   if (res.stop_reason === 'refusal') throw new AiRefusalError('この商品の文章は作れませんでした');
-  if (!res.parsed_output) throw new Error(`AI の出力を読み取れませんでした（${res.stop_reason}）`);
+  if (!res.parsed_output) throw new Error(`うまく作れませんでした。もう一度お試しください（${res.stop_reason}）`);
   const generated = { ...res.parsed_output, title: fitTitle(res.parsed_output.title) };
   return { generated, usage: readUsage(res.usage), model: res.model };
 }
@@ -162,7 +162,7 @@ export async function readScreenshot(
     ],
   });
   if (res.stop_reason === 'refusal') throw new AiRefusalError('画像を読み取れませんでした');
-  if (!res.parsed_output) throw new Error(`AI の出力を読み取れませんでした（${res.stop_reason}）`);
+  if (!res.parsed_output) throw new Error(`うまく作れませんでした。もう一度お試しください（${res.stop_reason}）`);
   return { result: res.parsed_output, usage: readUsage(res.usage), model: res.model };
 }
 
@@ -257,7 +257,7 @@ export async function extractFromPage(
     messages: [{ role: 'user', content }],
   });
   if (res.stop_reason === 'refusal') throw new AiRefusalError('このページは読み取れませんでした');
-  if (!res.parsed_output) throw new Error(`AI の出力を読み取れませんでした（${res.stop_reason}）`);
+  if (!res.parsed_output) throw new Error(`うまく作れませんでした。もう一度お試しください（${res.stop_reason}）`);
   return { result: res.parsed_output, usage: readUsage(res.usage), model: res.model };
 }
 

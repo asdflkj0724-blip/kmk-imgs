@@ -38,7 +38,7 @@ describe('赤字を防ぐ安全装置', () => {
     expect(checkAllowance(mini, 5, now, 636).allowed).toBe(true); // 980円 × 0.65 = 637円
     const a = checkAllowance(mini, 5, now, 637);
     expect(a.allowed).toBe(false);
-    expect(a.reason).toMatch(/AI の利用量/);
+    expect(a.reason).toMatch(/処理の量/);
   });
   it('お試しは AI 費用200円まで', () => {
     const t = { plan: 'trial', subscriptionStatus: null, trialEndsAt: '2026-11-20T00:00:00Z' };

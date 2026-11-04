@@ -8,7 +8,7 @@ export default async function TemplatesPage() {
   return (
     <>
       <h1>テンプレート</h1>
-      <p className="muted small">AI が作った説明文の後ろに、そのまま付ける文章です。配送日数・関税・注意事項などを入れておきます。</p>
+      <p className="muted small">自動で作った説明文の後ろに、そのまま付ける文章です。配送日数・関税・注意事項などを入れておきます。</p>
       <TemplatesEditor userId={profile.id} initial={(data ?? []) as Template[]} />
     </>
   );

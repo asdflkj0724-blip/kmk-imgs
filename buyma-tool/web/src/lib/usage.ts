@@ -43,7 +43,7 @@ export const INACTIVE_REASON = 'このアカウントでは使えません。プ
  * @param aiCostJpy 同じ期間に使った AI の費用（円）。赤字を防ぐ安全装置に使う
  */
 export const COST_GUARD_REASON =
-  '今月の AI の利用量が多くなったため、今月はここまでとさせてください（スクショ読み取りを多く使った場合などに起こります）。来月1日に戻ります。';
+  '今月の処理の量が多くなったため、今月はここまでとさせてください（スクショ読み取りを多く使った場合などに起こります）。来月1日に戻ります。';
 
 export function checkAllowance(account: AccountState, usedThisPeriod: number, now = new Date(), aiCostJpy = 0): Allowance {
   const periodStart = jstMonthStart(now);
@@ -76,7 +76,7 @@ export function checkAllowance(account: AccountState, usedThisPeriod: number, no
   if (!a.allowed) a.reason = `無料お試しの${TRIAL_LIMIT}件を使い切りました。プランを選んで続けてください。`;
   else if (aiCostJpy >= TRIAL_AI_COST_CAP_JPY) {
     a.allowed = false;
-    a.reason = '無料お試しで使える AI の量を超えました。プランを選んで続けてください。';
+    a.reason = '無料お試しで使える処理の量を超えました。プランを選んで続けてください。';
   }
   return a;
 }

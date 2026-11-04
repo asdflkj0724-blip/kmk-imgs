@@ -19,7 +19,7 @@ export default async function ConnectPage() {
       <h1>拡張機能とつなぐ</h1>
       {active ? (
         <>
-          <p>Chrome 拡張から、このアカウントで AI の文章作成などを使えるようにします。</p>
+          <p>Chrome 拡張から、このアカウントで出品データの作成などを使えるようにします。</p>
           <ConnectExtension extensionId={process.env.NEXT_PUBLIC_EXTENSION_ID || ''} apiBase={siteUrl()} />
         </>
       ) : (

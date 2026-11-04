@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     if (e instanceof Anthropic.RateLimitError) return json(req, { error: '混み合っています。少し待ってからもう一度お試しください' }, 503);
     if (e instanceof Anthropic.APIError) {
       console.error('Claude API error', e.status, e.message);
-      return json(req, { error: 'AI の呼び出しに失敗しました。時間をおいてお試しください' }, 502);
+      return json(req, { error: 'うまく作れませんでした。時間をおいてお試しください' }, 502);
     }
     throw e;
   }

@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     if (e instanceof AiRefusalError) return json(req, { error: e.message }, 422);
-    if (e instanceof Anthropic.APIError) return json(req, { error: 'AI の呼び出しに失敗しました' }, 502);
+    if (e instanceof Anthropic.APIError) return json(req, { error: 'うまく処理できませんでした。時間をおいてお試しください' }, 502);
     throw e;
   }
 }

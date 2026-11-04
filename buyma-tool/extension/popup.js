@@ -218,7 +218,7 @@ function renderListing(l) {
   const items = [
     ...(l.priceError ? [el('li', { className: 'lv-warning' }, '【価格】' + l.priceError)] : []),
     ...(l.issues || []).map((i) => el('li', { className: 'lv-' + i.level }, (i.level === 'error' ? '【要修正】' : '【注意】') + i.message)),
-    ...(l.cautions || []).map((c) => el('li', { className: 'lv-warning' }, '【AIより】' + c)),
+    ...(l.cautions || []).map((c) => el('li', { className: 'lv-warning' }, '【確認してください】' + c)),
   ];
   $('issues').replaceChildren(...items);
 }
@@ -270,7 +270,7 @@ async function extract() {
     if (read.siteProduct && read.siteProduct.complete) {
       chosen = read.siteProduct; // タオバオ・天猫で全部取れた：AI を使わない
     } else {
-      setStatus('AIがページから商品情報を探しています…（10〜20秒ほど）');
+      setStatus('ページから商品情報を探しています…（10〜20秒ほど）');
       const { product: fromAi } = await api.extract(read.page);
       chosen = PF.chooseProduct(read.siteProduct, fromAi);
     }
@@ -321,7 +321,7 @@ async function generate() {
   if (!requireActive()) return;
   product = PF.ensureItemId(PF.productFromForm(readForm(), product), BuymaPageReader.shortHash);
   if (!product.title) return setStatus('商品名を入れてください');
-  setStatus('AIで出品データを作っています…（10〜30秒ほど）');
+  setStatus('出品データを作っています…（10〜30秒ほど）');
   $('generate').disabled = true;
   try {
     const res = await api.generate(product, $('template').value, $('instruction').value.trim());
