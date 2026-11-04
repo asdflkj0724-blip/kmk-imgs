@@ -5,7 +5,7 @@
 
 export const SITE = {
   /** サービス名（仮） */
-  name: 'BUYMA出品アシストPro',
+  name: 'ウレルコトバ',
   /** キャッチコピー（1行目・2行目） */
   catchcopy: '中国・海外の商品を、そのまま出して売れる日本語に。',
   subcopy: 'BUYMAへの出品がラクになる',
