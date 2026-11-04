@@ -31,9 +31,21 @@ function PrimaryCta({ compact = false }: { compact?: boolean }) {
   );
 }
 
+/** 検索エンジン向けの、サービスの説明 */
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE.name,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Chrome',
+  description: SITE.description,
+  offers: Object.values(PLANS).map((p) => ({ '@type': 'Offer', name: p.name, price: p.monthlyPriceJpy, priceCurrency: 'JPY' })),
+};
+
 export default function Home() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <SiteHeader />
       <main>
         {/* 1. トップ */}

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { CATCHCOPY, SERVICE_NAME } from '@/lib/brand';
+import { SERVICE_NAME } from '@/lib/brand';
 import { SITE } from '@/site.config';
 
 export const metadata: Metadata = {
-  title: { default: `${SERVICE_NAME}｜${CATCHCOPY}`, template: `%s｜${SERVICE_NAME}` },
+  title: { default: `${SERVICE_NAME}｜${SITE.seoTitle}`, template: `%s｜${SERVICE_NAME}` },
+  keywords: [...SITE.keywords],
+  openGraph: { title: `${SERVICE_NAME}｜${SITE.seoTitle}`, description: SITE.description, type: 'website', locale: 'ja_JP', siteName: SERVICE_NAME },
   description: SITE.description,
 };
 
