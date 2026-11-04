@@ -3,7 +3,7 @@ import { supabaseAdmin } from './supabase/admin';
 import { checkAllowance, isAccountActive, jstMonthStart, type Allowance } from './usage';
 import { isPaidPlan, PLANS, USD_JPY } from './plans';
 import { mergeSettings, type PricingSettings } from './pricing';
-import { chooseRate, type FxChoice } from './fx';
+import { chooseRate, type Currency, type FxChoice, type FxQuote } from './fx';
 
 export interface Profile {
   id: string;
@@ -17,6 +17,8 @@ export interface Profile {
   current_period_end: string | null;
   pricing_settings: Partial<PricingSettings> | null;
   fixed_fx_rate: number | null;
+  fixed_fx_rates: Record<string, number> | null;
+  shipping_method: string | null;
   writing_tone: 'polite' | 'casual' | null;
   referral_code: string;
   referred_by: string | null;
@@ -59,18 +61,40 @@ export function planName(profile: Profile): string {
   return isPaidPlan(profile.plan) ? PLANS[profile.plan].name : '無料お試し';
 }
 
-export async function latestFx(): Promise<{ rate: number; date: string; source: string } | null> {
+/** その通貨の、いちばん新しい自動レート（1単位＝何円） */
+export async function latestFx(currency: Currency = 'CNY'): Promise<FxQuote | null> {
   const { data } = await supabaseAdmin()
     .from('fx_rates')
-    .select('date, cny_jpy, source')
+    .select('date, cny_jpy, source, currency')
+    .eq('currency', currency)
     .order('date', { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ? { rate: Number(data.cny_jpy), date: data.date, source: data.source } : null;
+  return data ? { currency, rate: Number(data.cny_jpy), date: data.date, source: data.source } : null;
 }
 
-export async function fxFor(profile: Profile): Promise<FxChoice | null> {
-  return chooseRate(profile.fixed_fx_rate ? Number(profile.fixed_fx_rate) : null, await latestFx());
+/** すべての通貨の、いちばん新しい自動レート */
+export async function latestFxAll(): Promise<Record<string, FxQuote>> {
+  const { data } = await supabaseAdmin()
+    .from('fx_rates')
+    .select('date, cny_jpy, source, currency')
+    .order('date', { ascending: false })
+    .limit(100);
+  const out: Record<string, FxQuote> = {};
+  for (const r of data ?? []) {
+    if (!out[r.currency]) out[r.currency] = { currency: r.currency, rate: Number(r.cny_jpy), date: r.date, source: r.source };
+  }
+  return out;
+}
+
+export function fixedRatesOf(profile: Profile): Record<string, number> {
+  const rates: Record<string, number> = { ...(profile.fixed_fx_rates ?? {}) };
+  if (!rates.CNY && profile.fixed_fx_rate) rates.CNY = Number(profile.fixed_fx_rate);
+  return rates;
+}
+
+export async function fxFor(profile: Profile, currency: Currency = 'CNY'): Promise<FxChoice | null> {
+  return chooseRate(currency, fixedRatesOf(profile), currency === 'JPY' ? null : await latestFx(currency));
 }
 
 export function settingsFor(profile: Profile): PricingSettings {

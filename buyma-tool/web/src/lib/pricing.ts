@@ -10,6 +10,7 @@ export interface PricingSettings {
   /** 為替の上乗せ（カード手数料などの分）。0.03 = 3% */
   fxMarkupRate: number;
   /** 仕入れ先の国内送料（人民元） */
+  /** 仕入れ先の国内送料（仕入れ値と同じ通貨。名前は人民元だけだったころの名残） */
   domesticShippingCny: number;
   /** 代行業者の手数料率。0.05 = 5% */
   agentFeeRate: number;

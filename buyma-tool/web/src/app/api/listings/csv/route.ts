@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   let q = supabaseAdmin()
     .from('listings')
-    .select('id, title_ja, description_ja, price_jpy, cost_cny, fx_rate, source_url, item_id, colors, sizes, image_urls, status, created_at')
+    .select('id, title_ja, description_ja, price_jpy, cost_cny, cost_currency, fx_rate, source_url, item_id, colors, sizes, image_urls, status, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(2000);

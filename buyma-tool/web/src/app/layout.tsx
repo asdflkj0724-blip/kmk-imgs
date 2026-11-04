@@ -4,7 +4,7 @@ import { CATCHCOPY, SERVICE_NAME } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: { default: `${SERVICE_NAME}｜${CATCHCOPY}`, template: `%s｜${SERVICE_NAME}` },
-  description: 'タオバオのページでボタンを1回押すだけで、BUYMA用の日本語タイトル・説明文・販売価格ができあがる出品支援ツール。',
+  description: 'タオバオや海外通販サイトの商品ページでボタンを1回押すだけで、BUYMA用の日本語タイトル・説明文・販売価格ができあがる出品支援ツール。',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

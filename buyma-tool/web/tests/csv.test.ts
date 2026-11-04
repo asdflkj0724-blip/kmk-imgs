@@ -17,7 +17,7 @@ describe('csv', () => {
       {
         id: 'x', title_ja: 'コート', description_ja: '説明', price_jpy: 9800, cost_cny: 199, fx_rate: 21.5,
         source_url: 'https://item.taobao.com/item.htm?id=1', item_id: '1', colors: ['キャメル', 'ブラック'], sizes: ['S'],
-        image_count: 2, status: 'queued', created_at: '2026-11-02T00:00:00Z',
+        image_count: 2, status: 'listed', created_at: '2026-11-02T00:00:00Z',
       },
     ]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
@@ -25,7 +25,7 @@ describe('csv', () => {
     expect(lines[0].startsWith('商品名,商品コメント,販売価格（円）')).toBe(true);
     expect(lines[1]).toContain('キャメル/ブラック');
     expect(lines[1]).toContain('taobao_1_01.jpg;taobao_1_02.jpg');
-    expect(lines[1]).toContain('出品待ち');
+    expect(lines[1]).toContain('出品済み');
   });
   it('画像の名前は拡張機能の ZIP と同じ', () => {
     expect(imageFileNames('123', 3)).toEqual(['taobao_123_01.jpg', 'taobao_123_02.jpg', 'taobao_123_03.jpg']);

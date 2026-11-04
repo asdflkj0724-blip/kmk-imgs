@@ -13,7 +13,7 @@ export default function SiteFooter() {
           <Link href="/guide">無料ガイド</Link>
           <Link href="/blog">ブログ</Link>
         </nav>
-        <p className="small muted">本サービスはBUYMA・タオバオ・天猫の公式ツールではありません。</p>
+        <p className="small muted">本サービスはBUYMA・タオバオ・天猫その他の通販サイトの公式ツールではありません。</p>
         <p className="small muted">© {new Date().getFullYear()} {SERVICE_NAME}</p>
       </div>
     </footer>

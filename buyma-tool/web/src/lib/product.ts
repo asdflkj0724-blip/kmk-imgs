@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 export const ProductSchema = z.object({
-  source: z.string().max(20).default('unknown'),
+  source: z.string().max(100).default('unknown'),
   itemId: z.string().max(40).default(''),
   url: z.string().max(2000).default(''),
   title: z.string().max(500).default(''),

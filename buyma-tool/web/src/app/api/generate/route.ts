@@ -12,6 +12,7 @@ import { calculatePrice } from '@/lib/pricing';
 import { checkListing } from '@/lib/listingRules';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { CURRENCY_LABELS, normalizeCurrency } from '@/lib/fx';
 
 export const OPTIONS = preflight;
 export const maxDuration = 60;
@@ -20,7 +21,7 @@ const Body = z.object({
   product: ProductSchema,
   templateId: z.string().uuid().optional(),
   instruction: z.string().max(1000).optional(),
-  /** 価格を手で決めたいとき（人民元） */
+  /** 価格を手で決めたいとき（商品と同じ通貨） */
   costCny: z.number().positive().optional(),
 });
 
@@ -57,19 +58,24 @@ export async function POST(req: Request) {
   const g = result.generated;
   const description = composeDescription(g, template?.body ?? '');
 
-  // 価格：手で入れた値 → 商品の最低価格 の順に使う
+  // 価格：手で入れた値 → 商品の最低価格 の順に使う。通貨は商品ページの通貨
   const cny = costCny ?? product.price?.min ?? null;
-  const fx = await fxFor(profile);
+  const currency = normalizeCurrency(product.price?.currency || 'CNY');
+  const fx = currency ? await fxFor(profile, currency) : null;
   let breakdown = null;
   let priceError: string | null = null;
-  if (cny && fx) {
+  if (!currency) {
+    priceError = `通貨（${product.price?.currency ?? '不明'}）に対応していません。価格を確認・修正してください`;
+  } else if (cny && fx) {
     try {
       breakdown = calculatePrice(cny, fx.rate, settingsFor(profile));
     } catch (e) {
       priceError = (e as Error).message;
     }
   } else {
-    priceError = !fx ? '為替レートがまだありません。設定で固定レートを入れてください' : '仕入れ値がわかりません';
+    priceError = !fx
+      ? `${CURRENCY_LABELS[currency]}の為替レートがまだありません。設定で固定レートを入れてください`
+      : '仕入れ値がわかりません';
   }
 
   const issues = checkListing({ title: g.title, description, sourceText: sourceText(product) });
@@ -92,6 +98,9 @@ export async function POST(req: Request) {
       image_urls: product.images,
       price_jpy: breakdown?.salePriceJpy ?? null,
       cost_cny: cny,
+      cost_currency: currency ?? 'CNY',
+      brand: g.brand || null,
+      category: g.category || null,
       fx_rate: fx?.rate ?? null,
       price_breakdown: breakdown,
       issues,
@@ -124,6 +133,10 @@ export async function POST(req: Request) {
       issues,
       cautions: g.cautions,
       category: g.category,
+      brand: g.brand,
+      material: g.material,
+      shippingMethod: profile.shipping_method ?? '',
+      currency,
     },
     allowance: { ...allowance, used: allowance.used + 1, remaining: Math.max(0, allowance.remaining - 1) },
   });

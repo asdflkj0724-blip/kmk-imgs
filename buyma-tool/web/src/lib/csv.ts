@@ -7,6 +7,7 @@ export interface ListingRow {
   description_ja: string | null;
   price_jpy: number | null;
   cost_cny: number | null;
+  cost_currency?: string | null;
   fx_rate: number | null;
   source_url: string | null;
   item_id: string | null;
@@ -24,19 +25,18 @@ export const CSV_COLUMNS: { key: string; label: string; get: (r: ListingRow) => 
   { key: 'colors', label: '色', get: (r) => r.colors.join('/') },
   { key: 'sizes', label: 'サイズ', get: (r) => r.sizes.join('/') },
   { key: 'images', label: '画像ファイル', get: (r) => imageFileNames(r.item_id || r.id, r.image_count).join(';') },
-  { key: 'cost', label: '仕入れ値（元）', get: (r) => r.cost_cny },
+  { key: 'cost', label: '仕入れ値', get: (r) => r.cost_cny },
+  { key: 'currency', label: '通貨', get: (r) => r.cost_currency ?? 'CNY' },
   { key: 'fx', label: '為替レート', get: (r) => r.fx_rate },
   { key: 'url', label: '仕入れ先URL', get: (r) => r.source_url },
   { key: 'status', label: '状態', get: (r) => STATUS_LABELS[r.status] || r.status },
   { key: 'created', label: '作成日', get: (r) => r.created_at.slice(0, 10) },
 ];
 
+/** BUYMA への登録はユーザー本人が行う（半自動）ので、状態は「下書き」と「出品済み」だけ */
 export const STATUS_LABELS: Record<string, string> = {
   draft: '下書き',
-  queued: '出品待ち',
-  filled: 'BUYMAに入力済み',
   listed: '出品済み',
-  failed: '失敗',
 };
 
 /** 拡張機能の画像 ZIP と同じ名前の付け方（taobao_123_01.jpg） */

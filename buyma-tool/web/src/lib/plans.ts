@@ -38,7 +38,7 @@ export const PLANS: Record<Exclude<PlanId, 'trial'>, Plan> = {
     monthlyPriceJpy: 980,
     yearlyPriceJpy: 9800,
     monthlyLimit: 30,
-    features: ['月30件まで', 'タイトル・説明文の自動作成', '価格の自動計算', 'BUYMAへの自動入力・CSV・画像ZIP'],
+    features: ['月30件まで', 'タイトル・説明文の自動作成', '価格の自動計算', 'BUYMA出品用データ（項目ごとにコピー）・CSV・画像ZIP'],
   },
   light: {
     id: 'light',

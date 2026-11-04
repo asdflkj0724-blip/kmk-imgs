@@ -8,7 +8,7 @@ export const OPTIONS = preflight;
 
 const Patch = z
   .object({
-    status: z.enum(['draft', 'queued', 'filled', 'listed', 'failed']).optional(),
+    status: z.enum(['draft', 'listed']).optional(),
     statusNote: z.string().max(1000).nullable().optional(),
     buymaUrl: z.string().url().max(500).nullable().optional(),
     title: z.string().max(200).optional(),
