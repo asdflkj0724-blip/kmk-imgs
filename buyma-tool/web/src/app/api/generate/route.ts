@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
   let result;
   try {
-    result = await generateListing(product, instruction);
+    result = await generateListing(product, instruction, undefined, profile.writing_tone === 'casual' ? 'casual' : 'polite');
   } catch (e) {
     if (e instanceof AiRefusalError) return json(req, { error: e.message }, 422);
     if (e instanceof Anthropic.RateLimitError) return json(req, { error: '混み合っています。少し待ってからもう一度お試しください' }, 503);

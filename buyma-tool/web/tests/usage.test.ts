@@ -45,10 +45,10 @@ describe('赤字を防ぐ安全装置', () => {
     expect(checkAllowance(t, 1, now, 199).allowed).toBe(true);
     expect(checkAllowance(t, 1, now, 200).allowed).toBe(false);
   });
-  it('見込みの1.1倍の費用（1件3.2円）なら、上限件数までは止まらない', async () => {
+  it('見込みの1.3倍の費用（1件3.7円）なら、上限件数までは止まらない', async () => {
     const { PLANS } = await import('@/lib/plans');
     for (const p of Object.values(PLANS)) {
-      const cost = (p.monthlyLimit - 1) * 3.2;
+      const cost = (p.monthlyLimit - 1) * 3.7;
       expect(checkAllowance({ plan: p.id, subscriptionStatus: 'active', trialEndsAt: null }, p.monthlyLimit - 1, now, cost).allowed).toBe(true);
     }
   });

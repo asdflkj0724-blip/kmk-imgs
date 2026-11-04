@@ -16,7 +16,8 @@ const generated: Generated = {
   title: 'ダブルフェイス ウール ロングコート ' + 'あ'.repeat(100),
   description: '柔らかいウールのコートです。',
   colors: [{ original: '驼色', ja: 'キャメル' }],
-  sizes: [],
+  sizes: [{ original: '均码', ja: 'フリーサイズ' }],
+  sizeNote: '着丈 約110cm',
   material: 'ウール90%',
   category: 'レディース > アウター > コート',
   cautions: [],
@@ -46,6 +47,16 @@ describe('generateListing', () => {
     expect(r.usage.input_tokens).toBe(900);
   });
 
+  it('言い回し（ていねい・カジュアル）を指示に入れる', async () => {
+    const ok = { stop_reason: 'end_turn', parsed_output: generated, model: 'm', usage: { input_tokens: 1, output_tokens: 1 } };
+    const a = fakeClient(ok);
+    await generateListing(product, '', a.client, 'casual');
+    expect(a.parse.mock.calls[0][0].messages[0].content).toContain('言い回し：カジュアル');
+    const b = fakeClient(ok);
+    await generateListing(product, '', b.client);
+    expect(b.parse.mock.calls[0][0].messages[0].content).toContain('言い回し：ていねい');
+  });
+
   it('断られたら AiRefusalError', async () => {
     const { client } = fakeClient({ stop_reason: 'refusal', parsed_output: null, model: 'x', usage: { input_tokens: 1, output_tokens: 0 } });
     await expect(generateListing(product, '', client)).rejects.toBeInstanceOf(AiRefusalError);
@@ -53,8 +64,10 @@ describe('generateListing', () => {
 });
 
 describe('composeDescription', () => {
-  it('本文・色・素材・テンプレートの順につなぐ', () => {
+  it('売れている出品の型（商品について→カラー→サイズ→素材→お届け）の順につなぐ', () => {
     const d = composeDescription(generated, '【お届け】2〜3週間');
-    expect(d).toBe('柔らかいウールのコートです。\n\n【カラー】\nキャメル\n\n【素材】\nウール90%\n\n【お届け】2〜3週間');
+    expect(d).toBe(
+      '【商品について】\n柔らかいウールのコートです。\n\n【カラー】\nキャメル\n\n【サイズ】\nフリーサイズ\n着丈 約110cm\n\n【素材】\nウール90%\n\n【お届け】2〜3週間'
+    );
   });
 });

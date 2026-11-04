@@ -25,7 +25,9 @@ export function SettingsForm(props: {
   initial: PricingSettings;
   fixedFx: number | null;
   dailyFx: { rate: number; date: string } | null;
+  tone: 'polite' | 'casual';
 }) {
+  const [tone, setTone] = useState<'polite' | 'casual'>(props.tone);
   const [s, setS] = useState<PricingSettings>(props.initial);
   const [fixed, setFixed] = useState<string>(props.fixedFx ? String(props.fixedFx) : '');
   const [sample, setSample] = useState('199');
@@ -47,7 +49,7 @@ export function SettingsForm(props: {
     if (fixedNum !== null && !(fixedNum > 5 && fixedNum < 100)) return setMsg('固定レートは 1元＝○円 の数字で入れてください（例：21.5）');
     const { error } = await supabaseBrowser()
       .from('profiles')
-      .update({ pricing_settings: s, fixed_fx_rate: fixedNum })
+      .update({ pricing_settings: s, fixed_fx_rate: fixedNum, writing_tone: tone })
       .eq('id', props.userId);
     setMsg(error ? '保存できませんでした' : '保存しました');
   }
@@ -55,6 +57,12 @@ export function SettingsForm(props: {
   return (
     <div className="grid grid-2">
       <div className="card">
+        <label htmlFor="tone">説明文の言い回し</label>
+        <select id="tone" value={tone} onChange={(e) => setTone(e.target.value as 'polite' | 'casual')}>
+          <option value="polite">ていねい（落ち着いた、品のある書き方）</option>
+          <option value="casual">カジュアル（親しみやすく、軽やかな書き方）</option>
+        </select>
+        <p className="hint">お店の雰囲気に合わせて選べます。どちらも「です・ます」で書きます。</p>
         <label>利益の付け方</label>
         <select value={s.profitMode} onChange={(e) => setS({ ...s, profitMode: e.target.value as PricingSettings['profitMode'] })}>
           <option value="margin">売値に対する利益率（売値の○%が利益）</option>

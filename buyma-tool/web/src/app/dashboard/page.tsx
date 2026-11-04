@@ -62,7 +62,7 @@ export default async function DashboardHome() {
           <Link href="/dashboard/templates">説明文のテンプレートを確認する</Link>（今 {templates.count ?? 0} 件）
         </li>
         <li>
-          <Link href="/dashboard/settings">送料・手数料・利益率を自分の値にする</Link>
+          <Link href="/dashboard/settings">説明文の言い回しと、送料・手数料・利益率を決める</Link>
         </li>
         <li>タオバオの商品ページで拡張のボタンを押す</li>
       </ol>

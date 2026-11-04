@@ -35,8 +35,8 @@ buyma-tool/
 ### テストをまとめて実行
 
 ```bash
-cd buyma-tool && npm test            # 拡張機能（15件）
-cd buyma-tool/web && npm test        # サーバー側（39件）
+cd buyma-tool && npm test            # 拡張機能（16件）
+cd buyma-tool/web && npm test        # サーバー側（40件）
 cd buyma-tool/web && npx next build  # 本番用に組み立てられるか
 ```
 

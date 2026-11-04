@@ -10,7 +10,7 @@ const NAV = [
   { href: '/dashboard', label: 'ホーム' },
   { href: '/dashboard/listings', label: '出品履歴' },
   { href: '/dashboard/templates', label: 'テンプレート' },
-  { href: '/dashboard/settings', label: '価格の設定' },
+  { href: '/dashboard/settings', label: '設定' },
   { href: '/dashboard/billing', label: 'プラン・お支払い' },
 ];
 

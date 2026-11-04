@@ -22,7 +22,8 @@ export function anthropic(): Anthropic {
 
 export const GeneratedSchema = z.object({
   title: z.string().describe(`BUYMA の商品名。日本語で${TITLE_MAX}文字以内`),
-  description: z.string().describe('商品の説明（素材・特徴・サイズ感など）。日本語。配送や注意事項は書かない'),
+  description: z.string().describe('【商品について】の本文（デザイン・特徴・着こなしや使う場面）。日本語。色・サイズ・素材の一覧や、配送・注意事項は書かない'),
+  sizeNote: z.string().describe('サイズ感や寸法（着丈・幅など、仕入れ元にある範囲で）。なければ空文字'),
   colors: z.array(z.object({ original: z.string(), ja: z.string() })).describe('色の選択肢の日本語訳'),
   sizes: z.array(z.object({ original: z.string(), ja: z.string() })).describe('サイズの選択肢（日本語の表記に直したもの）'),
   material: z.string().describe('素材（わからなければ空文字）'),
@@ -35,13 +36,16 @@ const SYSTEM = `あなたは BUYMA（日本の海外通販サイト）のパー�
 海外の通販サイト（主にタオバオ・天猫）の商品情報をもとに、日本の買い物客に伝わる商品名と説明文を作ります。
 
 商品名のルール：
-- ${TITLE_MAX}文字以内の自然な日本語。検索されやすい言葉（アイテム名、素材、特徴）を入れる
+- ${TITLE_MAX}文字以内の自然な日本語
+- BUYMA で検索されやすいキーワードを、大事な順に入れる：アイテム名（例：ロングコート、ショルダーバッグ）→ 素材・特徴（例：ウール、ダブルフェイス、本革）→ 雰囲気・季節（例：きれいめ、秋冬）→ 色
+- キーワードをただ並べるのではなく、読んで意味が通る商品名にする。同じ意味の言葉を2回入れない（例：「コート アウター」）
 - 仕入れ元の情報に書かれていないことは書かない
 - ブランド名は、仕入れ元にはっきり正規品と書かれている場合以外は入れない。「同款」「大牌」は「〇〇風」の意味なのでブランド名に置き換えない
 - 「最安」「激安」「送料無料」「即納」「100%」などの誇大な言葉、記号の連打は使わない
 
-説明文のルール：
-- 2〜6段落、合計600字程度まで。素材、デザインの特徴、サイズ感、使う場面を、仕入れ元の情報の範囲で書く
+説明文のルール（売れている出品の型に合わせる）：
+- 説明文は「【商品について】→【カラー】→【サイズ】→【素材】→【お届け目安】」の順に組み立てる。あなたが書くのは【商品について】の本文（description）と、色・サイズ・素材の中身（colors / sizes / sizeNote / material）だけ。見出しはこちらで付ける
+- 【商品について】は2〜4段落、合計400字程度まで。デザインの特徴、着こなしや使う場面、どんな人に向いているかを、仕入れ元の情報の範囲で書く
 - 配送日数・関税・返品などの注意事項は書かない（出品者のテンプレートが後ろに付くため）
 - 色とサイズは日本の通販で使われる表記にする（例：驼色→キャメル、均码→フリーサイズ）
 
@@ -56,6 +60,13 @@ const SYSTEM = `あなたは BUYMA（日本の海外通販サイト）のパー�
 
 偽物を思わせる言葉（高仿、复刻、原单、1:1 など）や、ブランドのロゴ・デザインの写しと思われる場合は、cautions に必ず書く。
 入力は中国語のほか、英語・韓国語・イタリア語・フランス語などのこともある。どの言語でも日本語で出力する。`;
+
+export type Tone = 'polite' | 'casual';
+
+const TONE_TEXT: Record<Tone, string> = {
+  polite: '言い回し：ていねい。落ち着いた、品のある「です・ます」で書く（例：「上品な印象に仕上げてくれます」「長くお使いいただけます」）',
+  casual: '言い回し：カジュアル。「です・ます」は保ったまま、親しみやすく軽やかに書く（例：「さらっと羽織れるのがうれしいポイントです」）。くだけすぎた言葉や若者言葉は使わない',
+};
 
 function productPrompt(p: Product): string {
   const lines = [
@@ -85,8 +96,17 @@ function readUsage(u: { input_tokens: number; output_tokens: number; cache_read_
   };
 }
 
-export async function generateListing(product: Product, extraInstruction = '', client = anthropic()): Promise<GenerateResult> {
-  const content = productPrompt(product) + (extraInstruction ? `\n\n出品者からの追加の指示:\n${extraInstruction.slice(0, 1000)}` : '');
+export async function generateListing(
+  product: Product,
+  extraInstruction = '',
+  client = anthropic(),
+  tone: Tone = 'polite'
+): Promise<GenerateResult> {
+  // 言い回しは毎回変わりうるので、system ではなくこちらに入れる（system を固定してキャッシュを効かせるため）
+  const content =
+    productPrompt(product) +
+    `\n\n${TONE_TEXT[tone] ?? TONE_TEXT.polite}` +
+    (extraInstruction ? `\n\n出品者からの追加の指示:\n${extraInstruction.slice(0, 1000)}` : '');
   const res = await client.beta.messages.parse({
     model: MODEL,
     max_tokens: 16000,
@@ -145,9 +165,10 @@ export async function readScreenshot(
 
 /** 説明文の完成形：AI の本文＋色・サイズ＋出品者のテンプレート */
 export function composeDescription(g: Generated, templateBody: string): string {
-  const parts = [g.description.trim()];
+  const parts = ['【商品について】\n' + g.description.trim()];
   if (g.colors.length) parts.push('【カラー】\n' + g.colors.map((c) => c.ja).join(' / '));
-  if (g.sizes.length) parts.push('【サイズ】\n' + g.sizes.map((s) => s.ja).join(' / '));
+  const sizeLines = [g.sizes.map((s) => s.ja).join(' / '), g.sizeNote.trim()].filter(Boolean);
+  if (sizeLines.length) parts.push('【サイズ】\n' + sizeLines.join('\n'));
   if (g.material) parts.push('【素材】\n' + g.material);
   if (templateBody.trim()) parts.push(templateBody.trim());
   return parts.join('\n\n');

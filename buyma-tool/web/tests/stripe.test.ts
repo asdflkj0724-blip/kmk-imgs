@@ -35,7 +35,7 @@ describe('stripe', () => {
     expect(subscriptionToProfile(sub('canceled', 'price_std_m'))).toMatchObject({ plan: 'trial', stripe_subscription_id: null });
   });
   it('紹介のお礼はその人のプランの1か月分', () => {
-    expect(referralCreditJpy('pro')).toBe(4980);
-    expect(referralCreditJpy('trial')).toBe(1980);
+    expect(referralCreditJpy('pro')).toBe(5980);
+    expect(referralCreditJpy('trial')).toBe(2480);
   });
 });

@@ -17,6 +17,7 @@ export interface Profile {
   current_period_end: string | null;
   pricing_settings: Partial<PricingSettings> | null;
   fixed_fx_rate: number | null;
+  writing_tone: 'polite' | 'casual' | null;
   referral_code: string;
   referred_by: string | null;
   referral_rewarded: boolean;
