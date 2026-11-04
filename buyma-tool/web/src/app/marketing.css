@@ -83,3 +83,5 @@
   .prose h2 { page-break-after: avoid; }
   a { color: #000; }
 }
+
+.feature-main { border-color: var(--accent); background: var(--accent-soft); }

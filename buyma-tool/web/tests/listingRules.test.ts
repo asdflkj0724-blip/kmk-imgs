@@ -32,3 +32,19 @@ describe('checkListing', () => {
     expect(checkListing({ title: 'ウール ロングコート キャメル', description: '柔らかい手触りです。' })).toEqual([]);
   });
 });
+
+describe('中国語の文字のチェック', () => {
+  it('簡体字が残っていたら知らせる', () => {
+    const issues = checkListing({ title: 'ウールコート 均码', description: '颜色はキャメルです。' });
+    expect(issues.some((i) => i.field === 'title' && i.message.includes('码'))).toBe(true);
+    expect(issues.some((i) => i.field === 'description' && i.message.includes('颜'))).toBe(true);
+  });
+  it('日本語でも使う漢字では知らせない', () => {
+    expect(checkListing({ title: '本革 ショルダーバッグ 黒', description: '柔らかい牛革を使ったバッグです。色はブラックです。' })).toEqual([]);
+  });
+});
+
+it('番号・時刻・服装・定款のような日本語の漢字は知らせない', async () => {
+  const { findSimplifiedChinese } = await import('@/lib/listingRules');
+  expect(findSimplifiedChinese('品番号 時刻 服装 定款 個数')).toEqual([]);
+});

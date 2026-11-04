@@ -58,6 +58,14 @@ function findWords(text: string, words: string[]): string[] {
   return words.filter((w) => lower.includes(w.toLowerCase()));
 }
 
+/** 日本語にはない、中国語（簡体字）でよく使う文字 */
+const SIMPLIFIED_ONLY = '码颜这们么时发东车长门问开关买卖级货质类价优纯线纹领袜裤衬织绒针轻显宽简设计说际专业红爱览鲜';
+
+/** 簡体字が残っていないか調べる。見つかった文字を返す */
+export function findSimplifiedChinese(text: string): string[] {
+  return Array.from(new Set(Array.from(text).filter((c) => SIMPLIFIED_ONLY.includes(c))));
+}
+
 export function checkListing(input: { title: string; description: string; sourceText?: string }): Issue[] {
   const issues: Issue[] = [];
   const { title, description, sourceText = '' } = input;
@@ -76,6 +84,18 @@ export function checkListing(input: { title: string; description: string; source
     }
     for (const w of findWords(text, WARNING_WORDS)) {
       issues.push({ level: 'warning', field, word: w, message: `「${w}」は誇大表現や規約違反と取られることがあります` });
+    }
+  }
+
+  for (const [field, text] of [['title', title], ['description', description]] as const) {
+    const zh = findSimplifiedChinese(text);
+    if (zh.length) {
+      issues.push({
+        level: 'warning',
+        field,
+        word: zh.join(''),
+        message: `中国語の文字（${zh.join('・')}）が残っています。日本語に直してください`,
+      });
     }
   }
 

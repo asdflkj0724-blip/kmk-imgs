@@ -28,6 +28,17 @@ export function jstMonthStart(now = new Date()): string {
 const ACTIVE = new Set(['active', 'trialing']);
 
 /**
+ * このアカウントでツールを使えるか（お金を払っている、または無料お試しの期間中）。
+ * 月の件数の上限とは別。上限に達していても、払っている人は画像 ZIP などは使える。
+ */
+export function isAccountActive(account: AccountState, now = new Date()): boolean {
+  if (isPaidPlan(account.plan) && !!account.subscriptionStatus && ACTIVE.has(account.subscriptionStatus)) return true;
+  return account.plan === 'trial' && !!account.trialEndsAt && new Date(account.trialEndsAt) > now;
+}
+
+export const INACTIVE_REASON = 'このアカウントでは使えません。プランのお申し込み（またはお支払い方法の更新）をお願いします。';
+
+/**
  * @param usedThisPeriod 有料プラン：今月の件数。お試し：これまでの合計件数
  * @param aiCostJpy 同じ期間に使った AI の費用（円）。赤字を防ぐ安全装置に使う
  */

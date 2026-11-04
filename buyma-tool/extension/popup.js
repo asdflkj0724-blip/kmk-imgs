@@ -35,10 +35,21 @@ async function loadState() {
 }
 
 // ---- ログイン状態 ----
+// サーバーで「使えるアカウント」と確認できたときだけ true（お金を払っている、または無料お試し中）
+let accountActive = false;
+let inactiveMessage = 'ご利用には登録が必要です（無料お試しあり）。右上の「設定」から「ログインして連携する」を押してください。';
+
+function requireActive() {
+  if (accountActive) return true;
+  setStatus(inactiveMessage);
+  return false;
+}
+
 async function loadAccount() {
+  accountActive = false;
   const auth = await api.getAuth();
   if (!auth) {
-    $('account').textContent = 'ログインしていません（設定からログインして連携すると、AIで出品データを作れます）';
+    $('account').textContent = 'ログインしていません。右上の「設定」から「ログインして連携する」を押すと使えるようになります（無料お試しあり）。';
     $('generate').disabled = true;
     return;
   }
@@ -46,6 +57,8 @@ async function loadAccount() {
     const me = await api.me();
     const a = me.allowance || {};
     if (me.titleMax > 0) TITLE_MAX = me.titleMax;
+    accountActive = me.active === true;
+    if (!accountActive) inactiveMessage = me.inactiveReason || inactiveMessage;
     $('account').textContent = `${me.email}｜${me.planName || me.plan}｜残り ${a.remaining ?? '-'} / ${a.limit ?? '-'} 件` + (a.reason ? `（${a.reason}）` : '');
     $('generate').disabled = a.allowed === false;
     const sel = $('template');
@@ -146,6 +159,7 @@ function listingEdits() {
 
 // ---- 操作 ----
 async function extract() {
+  if (!requireActive()) return;
   setStatus('読み取り中…');
   try {
     const res = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PRODUCT' });
@@ -222,6 +236,7 @@ async function patchListing(extra, doneText) {
 }
 
 async function downloadZip() {
+  if (!requireActive()) return;
   if (!product || !product.images.length) return setStatus('画像がありません');
   const s = await api.getSettings();
   $('zip').disabled = true;

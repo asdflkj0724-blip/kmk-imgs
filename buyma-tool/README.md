@@ -36,7 +36,7 @@ buyma-tool/
 
 ```bash
 cd buyma-tool && npm test            # 拡張機能（15件）
-cd buyma-tool/web && npm test        # サーバー側（33件）
+cd buyma-tool/web && npm test        # サーバー側（39件）
 cd buyma-tool/web && npx next build  # 本番用に組み立てられるか
 ```
 
@@ -83,6 +83,12 @@ tests/
 
 拡張は、設定画面で保存したサーバーのURLからのログイン情報だけを受け取ります（ほかのサイトからは受け取りません）。
 **本番のドメインが決まったら**、`manifest.json` の `externally_connectable.matches` と `host_permissions` にそのドメインを足してください。
+
+### 使える人の制限（購入した人だけ）
+
+- 商品情報の読み取り・AI の文章作成・画像 ZIP・BUYMA への自動入力は、ログインして、**お金を払っている人か無料お試し中の人だけ**が使えます
+- 判定はサーバー（`web/src/lib/usage.ts` の `isAccountActive`）が毎回行います。解約・支払い停止・お試し終了になると、その時点で使えなくなります
+- 費用がかかる部分（AI・価格計算・履歴・自動入力の出品データ）はサーバーにあるので、拡張機能だけをコピーしても使えません
 
 ### BUYMAへの自動入力の注意（必ず読む）
 

@@ -64,6 +64,9 @@ function log(q, text) {
 async function startQueue() {
   const q0 = await getQueue();
   if (q0.running) return q0;
+  // 使えるアカウントか、サーバーで確かめてから始める（だめなら api.listings も 402 で止まる）
+  const me = await api.me();
+  if (me.active !== true) throw new Error(me.inactiveReason || 'このアカウントでは使えません');
   const { listings } = await api.listings('queued', 50);
   const q = { running: true, items: listings || [], index: 0, tabId: null, phase: 'idle', log: [], done: 0, failed: 0 };
   log(q, `${q.items.length}件を順番に入力します`);

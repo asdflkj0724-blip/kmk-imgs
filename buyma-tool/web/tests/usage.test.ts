@@ -62,3 +62,18 @@ it('安全装置があれば、どのプランでも月額の3割以上が利益
     expect(profit / p.monthlyPriceJpy).toBeGreaterThan(0.29);
   }
 });
+
+describe('使えるアカウントか（購入した人・お試し中の人だけ）', async () => {
+  const { isAccountActive } = await import('@/lib/usage');
+  it('お金を払っている人は使える', () => {
+    expect(isAccountActive({ plan: 'light', subscriptionStatus: 'active', trialEndsAt: null }, now)).toBe(true);
+  });
+  it('お試し期間中は使える、終わったら使えない', () => {
+    expect(isAccountActive({ plan: 'trial', subscriptionStatus: null, trialEndsAt: '2026-11-20T00:00:00Z' }, now)).toBe(true);
+    expect(isAccountActive({ plan: 'trial', subscriptionStatus: null, trialEndsAt: '2026-11-01T00:00:00Z' }, now)).toBe(false);
+  });
+  it('支払いが止まった・解約した人は使えない', () => {
+    expect(isAccountActive({ plan: 'pro', subscriptionStatus: 'past_due', trialEndsAt: null }, now)).toBe(false);
+    expect(isAccountActive({ plan: 'trial', subscriptionStatus: 'canceled', trialEndsAt: '2026-11-01T00:00:00Z' }, now)).toBe(false);
+  });
+});

@@ -1,6 +1,7 @@
 import { getRequestUser } from '@/lib/auth';
 import { json, preflight } from '@/lib/http';
-import { fxFor, getAllowance, getProfile, planName } from '@/lib/account';
+import { accountActive, fxFor, getAllowance, getProfile, planName } from '@/lib/account';
+import { INACTIVE_REASON } from '@/lib/usage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { TITLE_MAX } from '@/lib/listingRules';
 
@@ -19,6 +20,8 @@ export async function GET(req: Request) {
     email: profile.email,
     plan: profile.plan,
     planName: planName(profile),
+    active: accountActive(profile),
+    inactiveReason: accountActive(profile) ? null : INACTIVE_REASON,
     allowance,
     templates: templates.data ?? [],
     fx,

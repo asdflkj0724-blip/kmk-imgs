@@ -1,6 +1,6 @@
 /** サーバー側：ユーザーのプラン・使った回数・設定・為替をまとめて読む */
 import { supabaseAdmin } from './supabase/admin';
-import { checkAllowance, jstMonthStart, type Allowance } from './usage';
+import { checkAllowance, isAccountActive, jstMonthStart, type Allowance } from './usage';
 import { isPaidPlan, PLANS, USD_JPY } from './plans';
 import { mergeSettings, type PricingSettings } from './pricing';
 import { chooseRate, type FxChoice } from './fx';
@@ -48,6 +48,10 @@ export async function getAllowance(profile: Profile, now = new Date()): Promise<
     now,
     aiCostJpy
   );
+}
+
+export function accountActive(profile: Profile, now = new Date()): boolean {
+  return isAccountActive({ plan: profile.plan, subscriptionStatus: profile.subscription_status, trialEndsAt: profile.trial_ends_at }, now);
 }
 
 export function planName(profile: Profile): string {
