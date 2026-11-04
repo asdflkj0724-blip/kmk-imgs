@@ -1,42 +1,23 @@
 {
   "manifest_version": 3,
   "name": "BUYMA出品支援（開発版）",
-  "version": "0.2.0",
-  "description": "タオバオ／天猫の商品ページから、BUYMA出品に使う情報・日本語の出品データ・画像ZIPを作ります。",
-  "permissions": ["storage", "activeTab", "downloads", "tabs", "alarms"],
+  "version": "0.3.0",
+  "description": "通販サイトの商品ページから、BUYMAの出品画面にそのまま貼れる日本語の出品データと画像ZIPを作ります。BUYMAへの登録はご自身で行います。",
+  "permissions": ["storage", "activeTab", "scripting", "downloads"],
   "host_permissions": [
-    "https://item.taobao.com/*",
-    "https://detail.tmall.com/*",
-    "https://detail.tmall.hk/*",
+    "http://localhost:3000/*",
+    "https://*.vercel.app/*",
     "https://*.alicdn.com/*",
     "https://*.taobaocdn.com/*",
-    "https://*.tbcdn.cn/*",
-    "https://www.buyma.com/*",
-    "http://localhost:3000/*",
-    "https://*.vercel.app/*"
+    "https://*.tbcdn.cn/*"
   ],
+  "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "background.js"
   },
   "externally_connectable": {
     "matches": ["https://*.vercel.app/*", "http://localhost:3000/*"]
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://item.taobao.com/item.htm*",
-        "https://detail.tmall.com/item.htm*",
-        "https://detail.tmall.hk/hk/item.htm*"
-      ],
-      "js": ["src/extractor.js", "src/content.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://www.buyma.com/my/sell/*"],
-      "js": ["src/buyma-config.js", "src/buyma-fill.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_title": "この商品の情報を取る",
     "default_popup": "popup.html"

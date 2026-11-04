@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-test('拡張機能を読み込める（バックグラウンドが起動し、各画面が開ける）', async () => {
+test('拡張機能を読み込める（バックグラウンドが起動し、各画面が開け、BUYMA の自動操作が入っていない）', async () => {
   const ext = path.join(__dirname, '../extension');
   const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-profile-'));
   const ctx = await chromium.launchPersistentContext(userDir, {
@@ -28,6 +28,12 @@ test('拡張機能を読み込める（バックグラウンドが起動し、�
       await p.close();
     }
     assert.deepEqual(errors, []);
+    // BUYMA の画面を自動操作する仕組みは入っていない（BUYMA 会員規約 第8条）
+    const manifest = JSON.parse(fs.readFileSync(path.join(ext, 'manifest.json'), 'utf8'));
+    assert.equal(JSON.stringify(manifest).includes('buyma.com'), false);
+    assert.equal(manifest.content_scripts, undefined);
+    assert.ok(manifest.permissions.includes('scripting'));
+    assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
   } finally {
     await ctx.close();
     fs.rmSync(userDir, { recursive: true, force: true });

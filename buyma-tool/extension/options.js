@@ -4,8 +4,6 @@ const $ = (id) => document.getElementById(id);
 async function load() {
   const s = await api.getSettings();
   $('apiBase').value = s.apiBase;
-  $('mode').value = s.mode;
-  $('intervalSec').value = s.intervalSec;
   $('imageMaxPx').value = s.imageMaxPx;
   $('jpegQuality').value = s.jpegQuality;
   const auth = await api.getAuth();
@@ -15,8 +13,6 @@ async function load() {
 async function save() {
   const s = await api.saveSettings({
     apiBase: $('apiBase').value,
-    mode: $('mode').value,
-    intervalSec: $('intervalSec').value,
     imageMaxPx: $('imageMaxPx').value,
     jpegQuality: $('jpegQuality').value,
   });

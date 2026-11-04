@@ -31,11 +31,11 @@ test('期限が近ければ先に更新する', async () => {
   const fetch = async (url, opts) => {
     seen.push(url.replace('http://localhost:3000', ''));
     if (url.endsWith('/api/ext/refresh')) return res(200, { accessToken: 'new', refreshToken: 'r2', expiresAt: NOW / 1000 + 3600 });
-    return res(200, { listings: [] });
+    return res(200, { product: { title: 'x' } });
   };
   const api = createApi({ storage, fetch, now: () => NOW });
-  await api.listings('queued');
-  assert.deepEqual(seen, ['/api/ext/refresh', '/api/listings?status=queued&limit=50']);
+  await api.extract({ url: 'https://shop.example/p/1', pageText: '...' });
+  assert.deepEqual(seen, ['/api/ext/refresh', '/api/extract']);
 });
 
 test('上限に達したときは、サーバーの説明をそのままエラーにする', async () => {
@@ -53,12 +53,13 @@ test('更新もできなければログアウトする', async () => {
   assert.equal(storage.m.get('auth'), undefined);
 });
 
-test('設定の値は安全な範囲に直す', () => {
-  const s = normalizeSettings({ apiBase: 'https://x.vercel.app/', intervalSec: 5, mode: 'auto', jpegQuality: 3 });
+test('設定の値は安全な範囲に直し、使わなくなった設定（自動入力）は捨てる', () => {
+  const s = normalizeSettings({ apiBase: 'https://x.vercel.app/', intervalSec: 5, mode: 'draft', jpegQuality: 3, imageMaxPx: 10 });
   assert.equal(s.apiBase, 'https://x.vercel.app');
-  assert.equal(s.intervalSec, 30);
-  assert.equal(s.mode, 'fill');
   assert.equal(s.jpegQuality, 0.9);
+  assert.equal(s.imageMaxPx, 300);
+  assert.equal('mode' in s, false);
+  assert.equal('intervalSec' in s, false);
 });
 
 test('解約した人には新しいトークンが出ないので、ログアウトして理由を見せる', async () => {

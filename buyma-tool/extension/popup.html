@@ -14,63 +14,62 @@
   <button id="extract">この商品の情報を取る</button>
   <p id="status"></p>
 
-  <section id="result" hidden>
-    <h2 id="title"></h2>
-    <p id="price"></p>
+  <!-- 1. 読み取った内容の確認・修正（AI の抜き出しはたまに間違えるため） -->
+  <section id="confirm" hidden>
+    <h2>読み取った内容を確認してください</h2>
+    <p class="small muted">間違っているところは直してから、下のボタンを押してください。</p>
     <ul id="warnings"></ul>
     <button id="vision" class="ghost" hidden>スクショで補う</button>
-    <details>
-      <summary>取れた情報（SKU・仕様・画像）</summary>
-      <h3>SKU</h3><div id="skus"></div>
-      <h3>仕様</h3><table id="specs"></table>
-      <h3>画像 <span id="imgcount"></span></h3><div id="images"></div>
-    </details>
 
-    <div id="genForm">
-      <label for="template">説明文のテンプレート</label>
-      <select id="template"></select>
-      <label for="instruction">追加の指示（なくてもよい）</label>
-      <textarea id="instruction" rows="2" placeholder="例：通勤向けであることを強調して"></textarea>
-      <button id="generate">AIで出品データを作る</button>
+    <label for="fTitle">商品名（原文のままでOK）</label>
+    <input type="text" id="fTitle">
+    <label>価格</label>
+    <div class="row3">
+      <input type="number" id="fPriceMin" min="0" step="any" placeholder="いちばん安い値段" aria-label="最低価格">
+      <input type="number" id="fPriceMax" min="0" step="any" placeholder="高い値段（あれば）" aria-label="最高価格">
+      <select id="fCurrency" aria-label="通貨"></select>
     </div>
+    <label for="fColors">色（1行に1つ）</label>
+    <textarea id="fColors" rows="3"></textarea>
+    <label for="fSizes">サイズ（1行に1つ）</label>
+    <textarea id="fSizes" rows="3"></textarea>
+    <label for="fSpecs">仕様（1行に「名前: 内容」）</label>
+    <textarea id="fSpecs" rows="4"></textarea>
+    <label>画像（違う画像はチェックを外す）<span id="imgcount" class="small muted"></span></label>
+    <div id="images"></div>
 
-    <section id="listing" hidden>
-      <h3>出品データ</h3>
-      <label for="lTitle">商品名 <span id="titleCount" class="small"></span></label>
-      <input type="text" id="lTitle">
-      <label for="lDesc">商品コメント</label>
-      <textarea id="lDesc" rows="8"></textarea>
-      <label for="lPrice">販売価格（円）</label>
-      <input type="number" id="lPrice" min="1" step="1">
-      <details id="breakdownBox"><summary>価格の内訳</summary><table id="breakdown"></table></details>
-      <p id="category" class="small muted"></p>
-      <ul id="issues"></ul>
-      <div class="actions">
-        <button id="saveListing">保存</button>
-        <button id="queueListing" class="ghost">出品待ちに入れる</button>
-      </div>
-    </section>
+    <label for="template">説明文のテンプレート</label>
+    <select id="template"></select>
+    <label for="instruction">追加の指示（なくてもよい）</label>
+    <textarea id="instruction" rows="2" placeholder="例：通勤向けであることを強調して"></textarea>
+    <button id="generate">この内容でAIに出品データを作ってもらう</button>
+  </section>
 
+  <!-- 2. BUYMA の出品画面に貼る内容（半自動：登録はご自身で） -->
+  <section id="listing" hidden>
+    <h2>BUYMAに貼る内容</h2>
+    <p class="note">BUYMAの出品画面に貼り付けて内容を確認し、最後の『出品する』はご自身で押してください。</p>
+    <div id="fields"></div>
+    <details id="breakdownBox"><summary>価格の内訳</summary><table id="breakdown"></table></details>
+    <ul id="issues"></ul>
     <div class="actions">
-      <button id="zip" class="ghost">画像ZIP</button>
-      <button id="copy" class="ghost">JSONをコピー</button>
-      <button id="save" class="ghost">JSONを保存</button>
+      <button id="copyAll">全部まとめてコピー</button>
+      <button id="saveListing" class="ghost">保存</button>
+      <button id="markListed" class="ghost">BUYMAで出品済みにする</button>
     </div>
   </section>
 
-  <section id="queueBox">
-    <h3>BUYMAへの順番入力</h3>
-    <div class="actions">
-      <button id="queueStart" class="ghost">出品待ちを順番に入力</button>
-      <button id="queueStop" class="ghost" hidden>止める</button>
-    </div>
-    <p id="queueStatus" class="small"></p>
-    <ul id="queueLog" class="small muted"></ul>
-  </section>
+  <div class="actions" id="tools" hidden>
+    <button id="zip" class="ghost">画像ZIP</button>
+    <button id="copy" class="ghost">JSONをコピー</button>
+    <button id="save" class="ghost">JSONを保存</button>
+  </div>
 
   <script src="src/api.js"></script>
   <script src="src/zip.js"></script>
   <script src="src/images.js"></script>
+  <script src="src/page-reader.js"></script>
+  <script src="src/product-form.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

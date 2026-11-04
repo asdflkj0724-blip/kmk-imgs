@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getRequestUser } from '@/lib/auth';
 import { json, preflight } from '@/lib/http';
 import { getAllowance, getProfile } from '@/lib/account';
-import { AiRefusalError, PageSchema, extractFromPage, extractToProduct } from '@/lib/ai';
+import { AiRefusalError, PageSchema, clampPage, extractFromPage, extractToProduct } from '@/lib/ai';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -16,7 +16,9 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const user = await getRequestUser(req);
   if (!user) return json(req, { error: 'ログインしてください' }, 401);
-  const parsed = PageSchema.safeParse(await req.json().catch(() => null));
+  const raw = (await req.json().catch(() => null)) as { page?: unknown } | null;
+  // 拡張機能は { page: {...} } で送る（中身だけでも受け取れるようにしておく）
+  const parsed = PageSchema.safeParse(clampPage(raw && typeof raw === 'object' && 'page' in raw ? raw.page : raw));
   if (!parsed.success) return json(req, { error: 'ページの中身の形が正しくありません' }, 400);
   const page = parsed.data;
   if (!page.pageText.trim() && !page.jsonLd.trim()) return json(req, { error: 'ページの中身が空です' }, 400);

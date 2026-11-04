@@ -104,3 +104,19 @@ describe('どのサイトでも使える読み取り', async () => {
     expect(p.warnings).toContain('商品ページではないようです');
   });
 });
+
+describe('ページの中身の切り詰め', async () => {
+  const { clampPage, PageSchema } = await import('@/lib/ai');
+  it('長すぎる本文や画像URL、http 以外は切り詰めて受け取る', () => {
+    const p = PageSchema.parse(
+      clampPage({
+        url: 'https://x.example/p',
+        pageText: 'あ'.repeat(20000),
+        images: ['https://x.example/' + 'a'.repeat(3000), 'data:image/png;base64,AAA', 'https://x.example/ok.jpg', ...Array(50).fill('https://x.example/b.jpg')],
+      })
+    );
+    expect(p.pageText.length).toBe(15000);
+    expect(p.images[0]).toBe('https://x.example/ok.jpg');
+    expect(p.images.length).toBe(40);
+  });
+});

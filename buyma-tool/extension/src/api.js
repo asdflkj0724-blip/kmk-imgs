@@ -8,12 +8,9 @@
 
   const DEFAULT_SETTINGS = {
     apiBase: 'http://localhost:3000',
-    mode: 'fill', // 'fill' = 入力だけ（保存は自分で押す） / 'draft' = 下書き保存まで自動
-    intervalSec: 60,
     imageMaxPx: 1200,
     jpegQuality: 0.9,
   };
-  const MIN_INTERVAL_SEC = 30;
 
   class ApiError extends Error {
     constructor(message, status, body) {
@@ -34,10 +31,12 @@
   }
 
   function normalizeSettings(s) {
-    const out = Object.assign({}, DEFAULT_SETTINGS, s || {});
-    out.apiBase = String(out.apiBase || DEFAULT_SETTINGS.apiBase).trim().replace(/\/+$/, '');
-    out.mode = out.mode === 'draft' ? 'draft' : 'fill';
-    out.intervalSec = Math.max(MIN_INTERVAL_SEC, Math.round(Number(out.intervalSec) || DEFAULT_SETTINGS.intervalSec));
+    const src = s || {};
+    const out = {
+      apiBase: String(src.apiBase || DEFAULT_SETTINGS.apiBase).trim().replace(/\/+$/, ''),
+      imageMaxPx: src.imageMaxPx,
+      jpegQuality: src.jpegQuality,
+    };
     out.imageMaxPx = Math.min(4000, Math.max(300, Math.round(Number(out.imageMaxPx) || DEFAULT_SETTINGS.imageMaxPx)));
     const q = Number(out.jpegQuality);
     out.jpegQuality = q > 0 && q <= 1 ? q : DEFAULT_SETTINGS.jpegQuality;
@@ -157,14 +156,14 @@
       me: () => request('/api/me'),
       generate: (product, templateId, instruction) =>
         request('/api/generate', { method: 'POST', body: { product, templateId: templateId || undefined, instruction: instruction || undefined } }),
+      // どのサイトでも：ページの中身から AI が商品情報を抜き出す
+      extract: (page) => request('/api/extract', { method: 'POST', body: { page } }),
       vision: (imageBase64, mediaType, url) => request('/api/vision', { method: 'POST', body: { imageBase64, mediaType, url } }),
-      listings: (status, limit) =>
-        request('/api/listings?status=' + encodeURIComponent(status || 'queued') + '&limit=' + (limit || 50)),
       updateListing: (id, patch) => request('/api/listings/' + encodeURIComponent(id), { method: 'PATCH', body: patch }),
     };
   }
 
-  const api = { createApi, ApiError, DEFAULT_SETTINGS, MIN_INTERVAL_SEC, normalizeSettings };
+  const api = { createApi, ApiError, DEFAULT_SETTINGS, normalizeSettings };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaApi = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

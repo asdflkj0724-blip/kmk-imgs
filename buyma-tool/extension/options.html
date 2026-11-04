@@ -25,17 +25,6 @@
     <button id="logout" class="ghost">ログアウト</button>
   </div>
 
-  <h2>BUYMAへの自動入力</h2>
-  <label for="mode">動き方</label>
-  <select id="mode">
-    <option value="fill">入力だけ（保存は自分で押す）</option>
-    <option value="draft">下書き保存まで自動</option>
-  </select>
-  <p class="hint">「下書き保存まで自動」は、BUYMAの規約で許されるか確かめてから使ってください。「出品する」「公開」のボタンは押しません。</p>
-  <label for="intervalSec">1件ごとの間隔（秒）</label>
-  <input type="number" id="intervalSec" min="30" step="5">
-  <p class="hint">BUYMAに負担をかけないよう、30秒以上にしてください。</p>
-
   <h2>画像ZIP</h2>
   <label for="imageMaxPx">長い辺の最大ピクセル</label>
   <input type="number" id="imageMaxPx" min="300" max="4000" step="50">

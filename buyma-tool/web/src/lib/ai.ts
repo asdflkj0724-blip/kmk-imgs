@@ -192,6 +192,25 @@ export const PageSchema = z.object({
 });
 export type PageInput = z.infer<typeof PageSchema>;
 
+/** 受け取ったページの中身を、上限に収まるように切り詰める（長すぎて全体が失敗しないように） */
+export function clampPage(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const r = raw as Record<string, unknown>;
+  const cut = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : v);
+  return {
+    ...r,
+    url: cut(r.url, 2000),
+    title: cut(r.title, 500),
+    metaDescription: cut(r.metaDescription, 2000),
+    ogImage: typeof r.ogImage === 'string' && r.ogImage.length <= 2000 ? r.ogImage : '',
+    jsonLd: cut(r.jsonLd, 20000),
+    pageText: cut(r.pageText, 15000),
+    images: Array.isArray(r.images)
+      ? r.images.filter((u) => typeof u === 'string' && u.length <= 2000 && /^https?:\/\//.test(u)).slice(0, 40)
+      : [],
+  };
+}
+
 export const ExtractSchema = z.object({
   isProductPage: z.boolean().describe('1つの商品を売っているページなら true（一覧・検索結果・ログイン画面などは false）'),
   title: z.string().describe('商品名（ページに書かれている原文のまま）'),
