@@ -1380,6 +1380,72 @@
       ],
       "ig_media_id": "18016073330960646",
       "permalink": "https://www.instagram.com/reel/DfcD6HMD-vN/"
+    },
+    {
+      "date": "2026-11-08T20:21:40+09:00",
+      "slot": "2026-11-08",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "ブラウンのロングスカートに、揺れるフリンジと結ぶニット。\nほどよく甘くて少しボヘミアンな、MAMCの秋。",
+      "text": "ブラウンのロングスカートに、揺れるフリンジと結ぶニット。\nほどよく甘くて少しボヘミアンな、MAMCの秋。",
+      "image": "imageye___-_imgi_5_O1CN01mHzSJaSiiOB2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_5_O1CN01mHzSJaSiiOB2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN017QvYjNm9DYD2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN016OAV0TCu0NI2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01v2B44nLoEwL2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ロングスカートコーデ",
+        "#ブラウンコーデ",
+        "#ボヘミアンコーデ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "cut",
+        "hook_id": "ai",
+        "hook_text": "結んで、揺らして、\n秋の私へ"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "結んで、揺らして、\n秋の私へ",
+          "color": "white",
+          "bad": 0.001,
+          "worst_char": 0.013,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18109263491192041",
+      "permalink": "https://www.instagram.com/reel/DfeouIyE7kP/"
     }
   ],
   "errors": []
