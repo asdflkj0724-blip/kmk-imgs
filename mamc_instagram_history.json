@@ -1446,6 +1446,71 @@
       ],
       "ig_media_id": "18109263491192041",
       "permalink": "https://www.instagram.com/reel/DfeouIyE7kP/"
+    },
+    {
+      "date": "2026-11-09T20:21:59+09:00",
+      "slot": "2026-11-09",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "ふわりと縁どるブラウンのニットに、裾を折り返したパンツ。\nニットベストやケープを重ねて、自分らしく着るMAMCの秋。",
+      "text": "ふわりと縁どるブラウンのニットに、裾を折り返したパンツ。\nニットベストやケープを重ねて、自分らしく着るMAMCの秋。",
+      "image": "imageye___-_imgi_6_O1CN01D8EKpfUeSxG2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01EZJ6AaiHrkK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_6_O1CN01D8EKpfUeSxG2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_35_O1CN01Pv1gUNM0sIG2vHAO_!!4611686018427380178-0-item_pic.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ニットコーデ",
+        "#ニットベストコーデ",
+        "#ブラウンコーデ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "ふちどりひとつで、\n秋の顔になる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "ふちどりひとつで、\n秋の顔になる",
+          "color": "white",
+          "bad": 0.021,
+          "worst_char": 0.097,
+          "on_face": false,
+          "on_product": 0.991
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.057,
+          "worst_char": 0.068,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18377923528242414",
+      "permalink": "https://www.instagram.com/reel/DfhNlCYDp2e/"
     }
   ],
   "errors": []
