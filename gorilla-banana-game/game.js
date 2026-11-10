@@ -30,6 +30,13 @@
   const FRIEND_TIME = 12; // なかまがいてくれる秒数
   const FRIEND_SPEED = GORILLA_SPEED * 0.9;
   const INVINCIBLE_TIME = 20; // スターの無敵タイム（秒）
+  const HEART_FIRST = 12; // 最初のにじいろハートが出るまでの秒数
+  const HEART_INTERVAL = 20; // 次のにじいろハートが出るまでの秒数
+  const INVISIBLE_TIME = 10; // とうめいでいられる秒数（ハチに見つからない）
+  const BIG_BANANA_FIRST = 25; // 最初のでっかいバナナが出るまでの秒数
+  const BIG_BANANA_INTERVAL = 20; // 次のでっかいバナナが出るまでの秒数
+  const BIG_BANANA_LIFE = 4; // でっかいバナナは少しのあいだだけ出る
+  const BIG_BANANA_BONUS = 5; // でっかいバナナでもらえるバナナの数
   const BEE_LIFE = 9; // ハチが追いかけてくる秒数（すぎたら巣に帰る）
   const MARGIN = 40; // フィールドの端からの余白
   // 6ぴきチームになったので、最高記録はチームの合計で新しく記録する
@@ -159,6 +166,17 @@
     star() {
       if (!soundOn || !ensureAudio()) return;
       [784, 988, 1175, 1568, 1175, 1568, 1976].forEach((f, i) => tone(f, i * 0.07, 0.12, 'square', 0.1));
+    },
+    heart() {
+      if (!soundOn || !ensureAudio()) return;
+      // 「ふわわ〜ん」と上がる音
+      tone(400, 0, 0.6, 'sine', 0.18, 1600);
+      tone(800, 0.1, 0.5, 'triangle', 0.1, 2400);
+    },
+    bigBanana() {
+      if (!soundOn || !ensureAudio()) return;
+      [784, 988, 1175, 1319, 1568].forEach((f, i) => tone(f, i * 0.08, 0.14, 'triangle', 0.22));
+      tone(2093, 0.45, 0.3, 'triangle', 0.2);
     },
     pop() {
       if (!soundOn || !ensureAudio()) return;
@@ -331,6 +349,8 @@
   let specials = []; // にじいろリンゴとスター
   let appleTimer = APPLE_FIRST;
   let starTimer = STAR_FIRST;
+  let heartTimer = HEART_FIRST;
+  let bigBananaTimer = BIG_BANANA_FIRST;
   let friend = null; // にじいろリンゴでやってくる、ハチをやっつけてくれるなかま
   // 右下のすみにある、めっちゃでっかいハチの巣（10秒ごとにハチが1ぴき出てくる）
   const BIG_HIVE_SIZE = 2.6; // ふつうの巣の何倍の大きさか
@@ -354,6 +374,7 @@
     hurt: 0, // 毒キノコを食べたときのくらくらアニメーション（秒）
     scale: 1, // 今の大きさ（size に向かってなめらかに変わる）
     invincible: 0, // スターの無敵タイムののこり（秒）
+    invisible: 0, // にじいろハートの、とうめいタイムののこり（秒）
     size: 1, // 毒キノコで小さくなった大きさ
     count: 0, // ミッくんが食べたバナナの数
   };
@@ -541,17 +562,18 @@
   }
 
   // ===== にじいろリンゴとスター =====
+  const SPECIAL_INFO = {
+    apple: { text: 'にじいろリンゴ！', stroke: '#c0392b', life: ITEM_LIFE },
+    star: { text: 'スター！', stroke: '#b8860b', life: ITEM_LIFE },
+    heart: { text: 'にじいろハート！', stroke: '#d6336c', life: ITEM_LIFE },
+    bigbanana: { text: 'でっかいバナナ！', stroke: '#b8860b', life: BIG_BANANA_LIFE },
+  };
+
   function spawnSpecial(kind) {
-    const { x, y } = freeSpot(ITEM_RADIUS, 70);
-    specials.push({ kind, x, y, life: ITEM_LIFE, appear: 0, phase: rand(0, Math.PI * 2) });
-    floatTexts.push({
-      x,
-      y: y - 40,
-      t: 0,
-      text: kind === 'apple' ? 'にじいろリンゴ！' : 'スター！',
-      fill: '#ffffff',
-      stroke: kind === 'apple' ? '#c0392b' : '#b8860b',
-    });
+    const info = SPECIAL_INFO[kind];
+    const { x, y } = freeSpot(kind === 'bigbanana' ? ITEM_RADIUS + 14 : ITEM_RADIUS, 70);
+    specials.push({ kind, x, y, life: info.life, appear: 0, phase: rand(0, Math.PI * 2) });
+    floatTexts.push({ x, y: y - 40, t: 0, text: info.text, fill: '#ffffff', stroke: info.stroke });
   }
 
   function updateSpecials(dt) {
@@ -569,6 +591,20 @@
         spawnSpecial('star');
       }
     }
+    if (!specials.some((it) => it.kind === 'heart')) {
+      heartTimer -= dt;
+      if (heartTimer <= 0) {
+        heartTimer = HEART_INTERVAL;
+        spawnSpecial('heart');
+      }
+    }
+    if (!specials.some((it) => it.kind === 'bigbanana')) {
+      bigBananaTimer -= dt;
+      if (bigBananaTimer <= 0) {
+        bigBananaTimer = BIG_BANANA_INTERVAL;
+        spawnSpecial('bigbanana');
+      }
+    }
     for (let i = specials.length - 1; i >= 0; i--) {
       const it = specials[i];
       it.appear = Math.min(1, it.appear + dt * 3);
@@ -579,13 +615,20 @@
         if (it === target) target = null;
         continue;
       }
-      if (Math.hypot(it.x - gorilla.x, it.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + ITEM_RADIUS - 4) {
+      const itemR = it.kind === 'bigbanana' ? ITEM_RADIUS + 14 : ITEM_RADIUS;
+      if (Math.hypot(it.x - gorilla.x, it.y - gorilla.y) < GORILLA_RADIUS * gorilla.scale + itemR - 4) {
         specials.splice(i, 1);
         if (it === target) target = null;
         sparkle(it.x, it.y, 16);
         if (it.kind === 'apple') {
           sfx.apple();
           callFriend(it.x, it.y);
+        } else if (it.kind === 'heart') {
+          sfx.heart();
+          gorilla.invisible = INVISIBLE_TIME;
+          floatTexts.push({ x: it.x, y: it.y - 24, t: 0, text: 'とうめいに なった！', fill: '#ffffff', stroke: '#d6336c' });
+        } else if (it.kind === 'bigbanana') {
+          getBigBanana(it);
         } else {
           sfx.star();
           gorilla.invincible = INVINCIBLE_TIME;
@@ -594,6 +637,28 @@
         }
       }
     }
+  }
+
+  // でっかいバナナ：バナナが5本とび出して、ぜんぶミッくんのものに
+  function getBigBanana(it) {
+    score += BIG_BANANA_BONUS;
+    gorilla.count += BIG_BANANA_BONUS;
+    gorilla.chomp = 0.6;
+    for (let k = 0; k < BIG_BANANA_BONUS; k++) {
+      const a = (k / BIG_BANANA_BONUS) * Math.PI * 2 - Math.PI / 2;
+      // まわりにパッと広がってから、ミッくんの口にすいこまれる
+      effects.push({
+        x: it.x + Math.cos(a) * 60,
+        y: it.y + Math.sin(a) * 50,
+        angle: rand(-0.6, 0.6),
+        t: -k * 0.08,
+        dur: 0.45,
+        eater: gorilla,
+      });
+    }
+    floatTexts.push({ x: it.x, y: it.y - 30, t: 0, text: `+${BIG_BANANA_BONUS}！`, fill: '#ffe600', stroke: '#c0392b' });
+    sfx.bigBanana();
+    updateHud();
   }
 
   function sparkle(x, y, n) {
@@ -710,10 +775,24 @@
         if (b.leaving >= 1) bees.splice(i, 1);
         continue;
       }
-      // ゴリラに向かってまっすぐ（少しふらふら）飛ぶ
       const dx = gorilla.x - b.x;
       const dy = gorilla.y - 10 - b.y;
       const d = Math.hypot(dx, dy) || 1;
+      if (gorilla.invisible > 0) {
+        // ミッくんが見えないので、きょろきょろ ふらふら飛ぶだけ（させない）
+        if (b.lost === undefined) b.lost = rand(0, Math.PI * 2);
+        b.lost += Math.sin(b.wiggle * 0.3) * dt;
+        b.x += Math.cos(b.lost) * BEE_SPEED * 0.6 * dt;
+        b.y += Math.sin(b.lost) * BEE_SPEED * 0.6 * dt;
+        if (b.x < MARGIN || b.x > W - MARGIN) b.lost = Math.PI - b.lost;
+        if (b.y < MARGIN || b.y > H - MARGIN) b.lost = -b.lost;
+        b.x = Math.max(MARGIN, Math.min(W - MARGIN, b.x));
+        b.y = Math.max(MARGIN, Math.min(H - MARGIN, b.y));
+        b.facing = Math.cos(b.lost) > 0 ? 1 : -1;
+        continue;
+      }
+      b.lost = undefined;
+      // ゴリラに向かってまっすぐ（少しふらふら）飛ぶ
       b.x += (dx / d) * BEE_SPEED * dt + Math.cos(b.wiggle) * 20 * dt;
       b.y += (dy / d) * BEE_SPEED * dt + Math.sin(b.wiggle * 1.3) * 20 * dt;
       if (Math.abs(dx) > 2) b.facing = dx > 0 ? 1 : -1;
@@ -949,6 +1028,9 @@
     specials = [];
     appleTimer = APPLE_FIRST;
     starTimer = STAR_FIRST;
+    heartTimer = HEART_FIRST;
+    bigBananaTimer = BIG_BANANA_FIRST;
+    gorilla.invisible = 0;
     friend = null;
     gorilla.invincible = 0;
     bigHive.timer = BIG_HIVE_INTERVAL;
@@ -1224,7 +1306,10 @@
 
     gorilla.chomp = Math.max(0, gorilla.chomp - dt);
     gorilla.hurt = Math.max(0, gorilla.hurt - dt);
-    if (state === 'playing') gorilla.invincible = Math.max(0, gorilla.invincible - dt);
+    if (state === 'playing') {
+      gorilla.invincible = Math.max(0, gorilla.invincible - dt);
+      gorilla.invisible = Math.max(0, gorilla.invisible - dt);
+    }
     gorilla.scale += (gorilla.size - gorilla.scale) * Math.min(1, dt * 6);
     mushrooms.forEach((m) => {
       m.appear = Math.min(1, m.appear + dt * 4);
@@ -1603,6 +1688,9 @@
 
   function drawBee(b) {
     if (b.delay > 0) return;
+    if (b.lost !== undefined && b.leaving === 0) {
+      outlinedText('？', b.x + 12, b.y - 24, 20, '#ffffff', '#3a2a00');
+    }
     const alpha = 1 - Math.min(1, b.leaving);
     if (alpha <= 0) return;
     const t = performance.now() / 1000;
@@ -1719,6 +1807,60 @@
     ctx.beginPath();
     ctx.ellipse(10, -22, 8, 4, -0.4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHeartItem(it) {
+    const blink = it.life < 2 ? (Math.sin(it.life * 20) > 0 ? 1 : 0.3) : 1;
+    const s = easeOutBack(it.appear) * (1 + Math.sin(it.phase * 1.5) * 0.08); // どきどき
+    ctx.save();
+    ctx.globalAlpha = blink;
+    ctx.translate(it.x, it.y + Math.sin(it.phase) * 4);
+    ctx.scale(s, s);
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 40);
+    glow.addColorStop(0, 'rgba(255,255,255,0.9)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.fill();
+    // にじいろのハート
+    const shift = (it.phase * 40) % 360;
+    const grad = ctx.createLinearGradient(-24, -20, 24, 20);
+    for (let k = 0; k <= 6; k++) grad.addColorStop(k / 6, `hsl(${(shift + k * 60) % 360}, 95%, 62%)`);
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 22);
+    ctx.bezierCurveTo(-30, 2, -24, -24, 0, -10);
+    ctx.bezierCurveTo(24, -24, 30, 2, 0, 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(-10, -8, 4, 6, -0.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBigBanana(it) {
+    // 消える前はチカチカ（でっかいバナナは出ている時間が短い）
+    const blink = it.life < 1.5 ? (Math.sin(it.life * 25) > 0 ? 1 : 0.35) : 1;
+    ctx.save();
+    ctx.globalAlpha = blink;
+    // まわりのキラキラの輪
+    const t = performance.now() / 1000;
+    ctx.translate(it.x, it.y);
+    ctx.fillStyle = 'rgba(255, 240, 120, 0.35)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 52 + Math.sin(t * 8) * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = blink;
+    drawBanana(it.x, it.y + Math.sin(it.phase) * 4, Math.sin(it.phase * 0.7) * 0.15, easeOutBack(it.appear) * 2);
     ctx.restore();
   }
 
@@ -2102,7 +2244,7 @@
 
     // 食べられたバナナ：ゴリラの口に吸い込まれて小さくなる
     effects.forEach((ef) => {
-      const p = ef.t / ef.dur;
+      const p = Math.max(0, ef.t / ef.dur); // 少しおくれて動き出すものは、それまで止まって見える
       const eater = ef.eater || gorilla;
       const mx = eater.x;
       const my = eater.y - 12 * eater.scale;
@@ -2114,7 +2256,12 @@
     mushrooms.forEach(drawMushroom);
 
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
-    specials.forEach((it) => (it.kind === 'apple' ? drawApple(it) : drawStarItem(it)));
+    specials.forEach((it) => {
+      if (it.kind === 'apple') drawApple(it);
+      else if (it.kind === 'heart') drawHeartItem(it);
+      else if (it.kind === 'bigbanana') drawBigBanana(it);
+      else drawStarItem(it);
+    });
     // ミッくんの足もとの黄色い輪（どれがミッくんか すぐわかるように）
     drawPlayerRing();
 
@@ -2125,7 +2272,17 @@
     crowd.forEach((g) => {
       if (g === gorilla) {
         if (gorilla.invincible > 0 && state === 'playing') drawInvincibleAura();
-        drawGorilla(gorilla, PLAYER_LOOK);
+        if (gorilla.invisible > 0) {
+          // すけすけ（終わりかけは、ときどき見えそうになる）
+          const t = performance.now() / 1000;
+          const ending = gorilla.invisible < 2 && Math.sin(t * 20) > 0;
+          ctx.save();
+          ctx.globalAlpha = ending ? 0.7 : 0.3;
+          drawGorilla(gorilla, PLAYER_LOOK);
+          ctx.restore();
+        } else {
+          drawGorilla(gorilla, PLAYER_LOOK);
+        }
       } else if (g === friend) {
         ctx.save();
         ctx.globalAlpha = 1 - Math.min(1, friend.leaving);
@@ -2181,6 +2338,7 @@
     if (state === 'playing') {
       const labels = [];
       if (gorilla.invincible > 0) labels.push(`⭐ むてき あと ${Math.ceil(gorilla.invincible)}びょう`);
+      if (gorilla.invisible > 0) labels.push(`🌈💖 とうめい あと ${Math.ceil(gorilla.invisible)}びょう`);
       if (friend && friend.leaving === 0) labels.push(`🌈 なかま あと ${Math.ceil(friend.time)}びょう`);
       labels.forEach((text, i) => outlinedText(text, W / 2, 28 + i * 34, 26, '#ffffff', '#c0392b'));
     }
@@ -2256,6 +2414,8 @@
     get specials() { return specials.map((it) => ({ kind: it.kind, x: it.x, y: it.y })); },
     get friend() { return friend ? { x: friend.x, y: friend.y, time: friend.time } : null; },
     get invincible() { return gorilla.invincible; },
+    get invisible() { return gorilla.invisible; },
+    spawn(kind) { spawnSpecial(kind); },
     get hitCount() { return hits; },
     releaseBee() { releaseBigHiveBee(); },
     get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
