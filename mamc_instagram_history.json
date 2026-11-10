@@ -1511,6 +1511,115 @@
       ],
       "ig_media_id": "18377923528242414",
       "permalink": "https://www.instagram.com/reel/DfhNlCYDp2e/"
+    },
+    {
+      "date": "2026-11-10T20:21:30+09:00",
+      "slot": "2026-11-10",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2119922843215442091",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "ふわりと肩を包むケープに、結んで着るグリーンのニット。\nレースやフリルをのぞかせて、甘さと遊び心を重ねるMAMCの秋。",
+      "text": "ふわりと肩を包むケープに、結んで着るグリーンのニット。\nレースやフリルをのぞかせて、甘さと遊び心を重ねるMAMCの秋。",
+      "image": "imageye___-_imgi_12_O1CN01DMGAy1h9CYJ2vH2e_!!2206542070226.jpg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01YqrQhFjtTME2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_12_O1CN01DMGAy1h9CYJ2vH2e_!!2206542070226.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ケープコーデ",
+        "#ニットコーデ",
+        "#レイヤードコーデ"
+      ],
+      "variant": {
+        "template": "compare",
+        "duration": 11.0,
+        "transition": "cut",
+        "hook_id": "ai",
+        "hook_text": "肩にふわり、\n腰でひと結び"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "肩にふわり、\n腰でひと結び",
+          "color": "ink",
+          "bad": 0.003,
+          "worst_char": 0.034,
+          "on_face": false,
+          "on_product": 0.607
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.002
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.001
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.001
+        },
+        {
+          "kind": "cta",
+          "text": "お気に入りの\n着こなしを\n見つけてね",
+          "color": "ink",
+          "bad": 0.003,
+          "worst_char": 0.015,
+          "on_face": false,
+          "on_product": 0.495
+        }
+      ],
+      "ig_media_id": "17979168146934876",
+      "permalink": "https://www.instagram.com/reel/DfjyTzrmQO_/"
     }
   ],
   "errors": []
