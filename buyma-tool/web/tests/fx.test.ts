@@ -28,3 +28,29 @@ describe('為替（通貨ごと）', () => {
     expect(isSaneRate('CNY', 0.5)).toBe(false);
   });
 });
+
+describe('為替が古いかどうか', async () => {
+  const { isStale } = await import('@/lib/fxStore');
+  const now = new Date('2026-11-11T05:00:00Z');
+  it('無い・5日より古いときは取り直す', () => {
+    expect(isStale(null, now)).toBe(true);
+    expect(isStale('2026-11-05', now)).toBe(true);
+  });
+  it('週末をはさんだ数日前までは、そのまま使う', () => {
+    expect(isStale('2026-11-10', now)).toBe(false);
+    expect(isStale('2026-11-07', now)).toBe(false);
+  });
+});
+
+it('新しいアドレスがだめなら、古いアドレスで取る', async () => {
+  const { fetchRates } = await import('@/lib/fx');
+  const seen: string[] = [];
+  const fake = (async (url: string) => {
+    seen.push(new URL(url).host);
+    if (url.includes('.dev')) return new Response('down', { status: 503 });
+    return new Response(JSON.stringify({ date: '2026-11-11', rates: { CNY: 0.0465 } }));
+  }) as unknown as typeof fetch;
+  const q = await fetchRates(fake);
+  expect(seen).toEqual(['api.frankfurter.dev', 'api.frankfurter.app']);
+  expect(q[0].currency).toBe('CNY');
+});

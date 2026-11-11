@@ -53,9 +53,21 @@ export interface FxQuote {
 /** 欧州中央銀行の参考レートを配信している無料 API から、まとめて取る */
 export async function fetchRates(fetchImpl: typeof fetch = fetch): Promise<FxQuote[]> {
   const to = AUTO_CURRENCIES.join(',');
-  const res = await fetchImpl(`https://api.frankfurter.app/latest?from=JPY&to=${to}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`為替の取得に失敗しました（${res.status}）`);
-  const body = (await res.json()) as { date?: string; rates?: Record<string, number> };
+  // 新しいアドレス（.dev）を先に使い、だめなら古いアドレス（.app）を使う
+  const urls = [`https://api.frankfurter.dev/v1/latest?from=JPY&to=${to}`, `https://api.frankfurter.app/latest?from=JPY&to=${to}`];
+  let body: { date?: string; rates?: Record<string, number> } | null = null;
+  const errors: string[] = [];
+  for (const url of urls) {
+    try {
+      const res = await fetchImpl(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(String(res.status));
+      body = await res.json();
+      break;
+    } catch (e) {
+      errors.push(`${new URL(url).host}: ${(e as Error).message}`);
+    }
+  }
+  if (!body) throw new Error(`為替の取得に失敗しました（${errors.join(' / ')}）`);
   const date = body.date || new Date().toISOString().slice(0, 10);
   const out: FxQuote[] = [];
   for (const c of AUTO_CURRENCIES) {

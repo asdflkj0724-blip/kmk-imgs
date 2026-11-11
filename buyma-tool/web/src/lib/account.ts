@@ -4,6 +4,7 @@ import { checkAllowance, isAccountActive, jstMonthStart, type Allowance } from '
 import { isPaidPlan, PLANS, USD_JPY } from './plans';
 import { mergeSettings, type PricingSettings } from './pricing';
 import { chooseRate, type Currency, type FxChoice, type FxQuote } from './fx';
+import { isStale, refreshFxRates } from './fxStore';
 
 export interface Profile {
   id: string;
@@ -61,30 +62,41 @@ export function planName(profile: Profile): string {
   return isPaidPlan(profile.plan) ? PLANS[profile.plan].name : '無料お試し';
 }
 
-/** その通貨の、いちばん新しい自動レート（1単位＝何円） */
-export async function latestFx(currency: Currency = 'CNY'): Promise<FxQuote | null> {
-  const { data } = await supabaseAdmin()
-    .from('fx_rates')
-    .select('date, cny_jpy, source, currency')
-    .eq('currency', currency)
-    .order('date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data ? { currency, rate: Number(data.cny_jpy), date: data.date, source: data.source } : null;
-}
-
-/** すべての通貨の、いちばん新しい自動レート */
-export async function latestFxAll(): Promise<Record<string, FxQuote>> {
-  const { data } = await supabaseAdmin()
-    .from('fx_rates')
-    .select('date, cny_jpy, source, currency')
-    .order('date', { ascending: false })
-    .limit(100);
+async function readFx(currency?: Currency) {
+  let q = supabaseAdmin().from('fx_rates').select('date, cny_jpy, source, currency').order('date', { ascending: false }).limit(100);
+  if (currency) q = q.eq('currency', currency);
+  const { data, error } = await q;
+  if (error) console.error('fx read failed', error.message);
   const out: Record<string, FxQuote> = {};
   for (const r of data ?? []) {
     if (!out[r.currency]) out[r.currency] = { currency: r.currency, rate: Number(r.cny_jpy), date: r.date, source: r.source };
   }
   return out;
+}
+
+/** 保存された自動レートが無い・古いときは、その場で取りに行く（毎朝の自動取得が失敗した日でも止まらないように） */
+async function readFxFresh(currency?: Currency): Promise<Record<string, FxQuote>> {
+  const rates = await readFx(currency);
+  const needed = currency ? [rates[currency]] : Object.values(rates);
+  if (needed.length && needed.every((r) => r && !isStale(r.date))) return rates;
+  try {
+    await refreshFxRates();
+    return await readFx(currency);
+  } catch (e) {
+    console.error('fx refresh failed', (e as Error).message);
+    return rates;
+  }
+}
+
+/** その通貨の、いちばん新しい自動レート（1単位＝何円） */
+export async function latestFx(currency: Currency = 'CNY'): Promise<FxQuote | null> {
+  if (currency === 'TWD' || currency === 'JPY') return (await readFx(currency))[currency] ?? null;
+  return (await readFxFresh(currency))[currency] ?? null;
+}
+
+/** すべての通貨の、いちばん新しい自動レート */
+export async function latestFxAll(): Promise<Record<string, FxQuote>> {
+  return readFxFresh();
 }
 
 export function fixedRatesOf(profile: Profile): Record<string, number> {
