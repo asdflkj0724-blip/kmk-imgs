@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""MAMC のリール動画を「企画」ごとに作り分ける（コーデ比較・デザイン紹介・広告風）。
+"""MAMC のリール動画を「企画」ごとに作り分ける（コーデ比較・デザイン紹介・コーデ提案・選び方・コツ）。
+長さは 7秒（A）・11秒（B）・15秒（C）。長い動画ほど、画像ごとの特徴（コツ）を多く出せる。
 
 既存の商品画像だけを使い、追加費用なしで作る。
 写真は「カット（ショット）」と「カメラの動き」の組み合わせで見せる:
@@ -21,6 +22,9 @@
       商品にもなるべく重ねず、写真の余白に置く
     ・文字の色は背景に合わせて選ぶ：白い余白の上は墨色、暗い所は白（海外ブランド広告のような見せ方）
     ・ロゴ「MAMC」は白で、最初のシーンだけ
+    ・画像が切り替わったあと、写真で確かめられる特徴（色・形・重ね方など）を短く出す。
+      人気・ランキング・価格・素材など、確認できないことは出さない（文章は mamc_caption.py で検査）
+    ・最後に、保存・フォローの短い案内を出す（「どっち派？」のような問いかけはしない）
     ・文字は Instagram の画面表示（上のアカウント名・下のキャプションやボタン）を避けた範囲に置く
     ・置いたあと、はみ出し・画面表示との重なり・読みやすさ（全体と1文字ずつ）・顔との重なりを検証し、
       問題があれば投稿しない（呼び出し側が別の写真やキャッチコピーで作り直す）
@@ -47,11 +51,17 @@ K = 2                        # 写真を2倍の解像度で用意し、寄りや
 MAX_UPSCALE = 1.7            # 元画像に対する拡大の上限（これ以上寄ると画質が落ちる）
 MAX_ZOOM = 2.6               # 画面に対する拡大の上限
 
-TEMPLATES = ("compare", "detail", "ad")
-TEMPLATE_LABELS = {"compare": "コーデ比較", "detail": "デザイン紹介", "ad": "広告風"}
-IMAGES_NEEDED = {"compare": 2, "detail": 3, "ad": 4}
+TEMPLATES = ("compare", "detail", "ad", "tips")
+TEMPLATE_LABELS = {"compare": "コーデ比較", "detail": "デザイン紹介", "ad": "コーデ提案", "tips": "選び方・コツ"}
+IMAGES_NEEDED = {"compare": 2, "detail": 3, "ad": 4, "tips": 3}
 BASE_DURATION = 11.0
-DURATIONS = (11.0,)                    # 動画の長さは11秒に統一
+DURATIONS = (7.0, 11.0, 15.0)          # A: 7秒（短い）/ B: 11秒（標準）/ C: 15秒（情報が多い）
+HOOK_MIN_SECONDS = 1.5                 # 冒頭のキャッチコピーは、短い動画でもこの秒数は出す
+# 動画の最後に出す、保存・フォローの案内（押しつけにならない短い言葉）
+END_CTAS = ["保存して\n見返してね", "フォローで\n毎日20時に\n新作コーデ", "気になったら\n保存してね"]
+POINT_SIZE = 54                        # 商品の特徴・コツの文字の大きさ
+POINT_MIN_SECONDS = 1.1                # 特徴・コツを1つ出すのに必要な最短の時間
+TIP_MARKS = "①②③④"
 TRANSITIONS = ("fade", "push", "cut")  # 編集パターン（切り替え方）
 TRANSITION_SECONDS = {"fade": 0.40, "push": 0.35, "cut": 0.0}
 
@@ -62,10 +72,10 @@ WHITE = (255, 255, 255)
 INK = (28, 28, 28)           # 白い余白の上に置く文字の色（墨色）
 CONTRAST_MIN = 100           # 文字と背景の明るさの差がこれ未満の所は「読めない」とみなす
 # 文字のうち背景に溶けてよい割合（全体 / 1文字ぶんのマス目）
-MAX_BAD = {"hook": 0.10, "cta": 0.10, "label": 0.15, "logo": 0.20}
+MAX_BAD = {"hook": 0.10, "cta": 0.10, "label": 0.15, "logo": 0.20, "point": 0.10}
 # 商品（写真の背景以外）に重なる割合へのペナルティ。ロゴは従来どおり洋服の上に置くので 0
-SUBJECT_WEIGHT = {"hook": 300, "cta": 300, "label": 150, "logo": 0}
-MIN_TEXT_SIZE = {"hook": 56, "cta": 48, "label": 90, "logo": 100}
+SUBJECT_WEIGHT = {"hook": 300, "cta": 300, "label": 150, "logo": 0, "point": 300}
+MIN_TEXT_SIZE = {"hook": 56, "cta": 48, "label": 90, "logo": 100, "point": 44}
 MAX_PRODUCT_COVER = 0.5      # キャッチコピーが商品に重なる割合がこれを超えたら、小さくして余白を探す
 # 文字のうち明るい背景にかかってよい割合と、文字の下の背景の平均の明るさの上限
 # （平均150以下 ≒ 白い文字とのコントラスト比 3:1 以上。大きい文字の読みやすさの目安）
@@ -87,6 +97,13 @@ HOOKS = {
         ("d3", "このシルエット、\nずるい"),
         ("d4", "最後の一枚まで\n見てね"),
     ],
+    "tips": [
+        # 保存して見返したくなる「選び方・コツ」。コツの数は動画の長さで変わるので、数字は入れない
+        ("t1", "大人の重ね着、\n迷わないコツ"),
+        ("t2", "保存して\n見返したいコツ"),
+        ("t3", "今日から使える\n着こなしのコツ"),
+        ("t4", "重ね着が\n上手に見えるコツ"),
+    ],
     "ad": [
         ("a1", "人と被らない\nかわいさ"),
         ("a2", "今日の主役は\nこれ"),
@@ -94,7 +111,6 @@ HOOKS = {
         ("a4", "いつもと違う\n私になる"),
     ],
 }
-COMPARE_CTA = "お気に入りの\n着こなしを\n見つけてね"   # 片側の洋服の上に収まるよう、短い行に分ける
 SEASONS = {12: "この冬", 1: "この冬", 2: "この冬", 3: "この春", 4: "この春", 5: "この春",
            6: "この夏", 7: "この夏", 8: "この夏", 9: "この秋", 10: "この秋", 11: "この秋"}
 
@@ -282,7 +298,7 @@ class Shot:
 
 @dataclass
 class Overlay:
-    kind: str                                # hook / logo / label / cta
+    kind: str                                # hook / logo / label / cta / point（特徴・コツ）
     text: str
     t0: float
     t1: float
@@ -390,6 +406,7 @@ class Reel:
         self.stages = stages
         self.shots = shots
         self.overlays = overlays
+        self.unused_points: list[str] = []   # 時間や置き場所が足りず、出せなかった特徴・コツ
 
     def _panel(self, panel: Panel, u: float) -> Image.Image:
         st = self.stages[panel.stage]
@@ -485,7 +502,7 @@ class Reel:
         """
         step = 4
         placed: list[tuple[float, float, tuple[int, int, int, int]]] = []
-        for ov in self.overlays:
+        for ov in list(self.overlays):
             ov.block = make_block(ov)
             times = [ov.t0 + 0.05, (ov.t0 + ov.t1) / 2, max(ov.t0 + 0.05, ov.t1 - 0.1)]
             rgb = [np.asarray(self.base_frame(t), dtype=np.uint8) for t in times]
@@ -544,17 +561,22 @@ class Reel:
             def needs_retry(found) -> bool:
                 if found is None or found[4] > MAX_BAD.get(ov.kind, 0.15) or found[5] > 0.30:
                     return True
-                return ov.kind in ("hook", "cta") and found[6] > MAX_PRODUCT_COVER
+                return ov.kind in ("hook", "cta", "point") and found[6] > MAX_PRODUCT_COVER
 
             size = ov.size
             best = search(ov.block, size)
-            while (ov.kind in ("hook", "cta", "logo") and needs_retry(best)
+            while (ov.kind in ("hook", "cta", "logo", "point") and needs_retry(best)
                    and size * 0.86 >= MIN_TEXT_SIZE.get(ov.kind, 40)):
                 size = int(size * 0.86)
                 smaller = base.logo_block(size) if ov.kind == "logo" else text_block(ov.text, size)
                 found = search(smaller, size)
                 if found is not None and (best is None or found[0] < best[0]):
                     best, ov.block, ov.size = found, smaller, size
+            if ov.kind == "point" and (best is None or best[4] > MAX_BAD["point"] or best[5] > 0.30):
+                # 特徴・コツは「あれば良い」文字。読みやすく置けない場面では出さない（動画は止めない）
+                self.overlays.remove(ov)
+                self.unused_points.append(ov.text)
+                continue
             if best is None:   # 置ける場所が無い（検証で失敗にする）
                 ov.pos = (round(ov.prefer[0] - ov.block.width / 2),
                           round(ov.prefer[1] - ov.block.height / 2))
@@ -612,6 +634,8 @@ class Reel:
                                 f"（{ov.stats['worst_char']:.0%} / 上限 30%）")
             if ov.stats.get("on_face"):
                 problems.append(f"{label} がモデルの顔に重なっています")
+        if self.template == "tips" and not any(ov.kind == "point" for ov in self.overlays):
+            problems.append("選び方・コツの文字を1つも読みやすく置けませんでした")
         hooks = [ov for ov in self.overlays if ov.kind == "hook"]
         if not hooks or hooks[0].t0 > 0.05:
             problems.append("最初の1秒にフックの文字がありません")
@@ -639,6 +663,7 @@ class Reel:
             "duration": self.duration,
             "shots": [{"t0": round(s.t0, 2), "t1": round(s.t1, 2), "transition": s.transition,
                        "stages": [p.stage for p in s.panels]} for s in self.shots],
+            "unused_points": self.unused_points,
             "overlays": [{"kind": o.kind, "text": o.text, "t0": round(o.t0, 2), "t1": round(o.t1, 2),
                           "pos": o.pos, "size": list(o.block.size) if o.block else None, **o.stats}
                          for o in self.overlays],
@@ -661,6 +686,17 @@ def _boundaries(times: list[float], transition: str) -> list[tuple[float, float,
         t0 = times[i] - (td if i > 0 else 0.0)
         out.append((max(0.0, t0), times[i + 1], transition if i > 0 else "cut"))
     return out
+
+
+def hook_end(t: float) -> float:
+    """冒頭のキャッチコピーを消す時刻（短い動画でも読める長さは出す）。"""
+    return max(HOOK_MIN_SECONDS, t)
+
+
+def logo_span(after: float, t0: float, t1: float) -> tuple[float, float]:
+    """ロゴ「MAMC」を出す時間。キャッチコピーのあとに、短い動画でも 0.9秒以上は出す。"""
+    t0 = max(t0, after + 0.1)
+    return t0, max(t1, t0 + 0.9)
 
 
 def build_detail(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay]]:
@@ -687,8 +723,9 @@ def build_detail(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay]
         Shot(b[2][0], b[2][1], [Panel(2, person_rect(s2, p2, "lower", a), full_rect(), FULL)], b[2][2]),
     ]
     overlays = [
-        Overlay("hook", hook, 0.0, 1.6 * f, 84, SAFE, (W / 2, H * 0.36), fade_in=0.0),
-        Overlay("logo", "MAMC", 2.0 * f, times[1] - 0.5, 150, SAFE, (W / 2, H / 2)),
+        Overlay("hook", hook, 0.0, hook_end(1.6 * f), 84, SAFE, (W / 2, H * 0.36), fade_in=0.0),
+        Overlay("logo", "MAMC", *logo_span(hook_end(1.6 * f), 2.0 * f, times[1] - 0.5), 150, SAFE,
+                (W / 2, H / 2)),
     ]
     return shots, overlays
 
@@ -718,8 +755,9 @@ def build_ad(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay]]:
         Shot(b[4][0], b[4][1], [Panel(0, person_rect(s0, p0b, "upper", a), full, FULL)], b[4][2]),
     ]
     overlays = [
-        Overlay("hook", hook, 0.0, 1.3 * f, 84, SAFE, (W / 2, H * 0.36), fade_in=0.0),
-        Overlay("logo", "MAMC", 1.45 * f, times[1] - 0.3, 150, SAFE, (W / 2, H / 2), fade_in=0.2),
+        Overlay("hook", hook, 0.0, hook_end(1.3 * f), 84, SAFE, (W / 2, H * 0.36), fade_in=0.0),
+        Overlay("logo", "MAMC", *logo_span(hook_end(1.3 * f), 1.45 * f, times[1] - 0.3), 150, SAFE,
+                (W / 2, H / 2), fade_in=0.2),
     ]
     return shots, overlays
 
@@ -748,25 +786,84 @@ def build_compare(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay
     left = (SAFE[0], SAFE[1], W // 2 - 10, SAFE[3])
     right = (W // 2 + 10, SAFE[1], SAFE[2], SAFE[3])
     overlays = [
-        Overlay("hook", hook, 0.0, 2.2 * f, 80, SAFE, (W / 2, H * 0.30), fade_in=0.0),
+        Overlay("hook", hook, 0.0, hook_end(2.2 * f), 80, SAFE, (W / 2, H * 0.30), fade_in=0.0),
         # ロゴは分割画面の直後（A を大きく見せる場面の頭）に出す。分割画面では白いロゴが読める場所が少ないため
         Overlay("logo", "MAMC", times[1] + 0.15, times[1] + 1.3, 150, SAFE, (W / 2, H / 2),
                 fade_in=0.2, fade_out=0.2),
-        Overlay("label", "A", 0.35 * f, 2.2 * f, 130, left, (W * 0.25, H * 0.62)),
-        Overlay("label", "B", 0.35 * f, 2.2 * f, 130, right, (W * 0.75, H * 0.62)),
+        Overlay("label", "A", 0.35 * f, hook_end(2.2 * f), 130, left, (W * 0.25, H * 0.62)),
+        Overlay("label", "B", 0.35 * f, hook_end(2.2 * f), 130, right, (W * 0.75, H * 0.62)),
         Overlay("label", "A", times[1] + 1.4, times[2] - 0.4, 130, SAFE, (W / 2, H * 0.62)),
         Overlay("label", "B", times[2] + 0.3, times[3] - 0.4, 130, SAFE, (W / 2, H * 0.62)),
-        Overlay("cta", COMPARE_CTA, times[3] + 0.3, d, 58, SAFE, (W / 2, H * 0.45)),
     ]
     return shots, overlays
 
 
-BUILDERS = {"compare": build_compare, "detail": build_detail, "ad": build_ad}
+def build_tips(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay]]:
+    """選び方・コツ：デザイン紹介と同じ流れで、1枚ごとにコツを1つずつ見せる（コツは layout で入れる）。"""
+    return build_detail(stages, d, transition, hook)
+
+
+BUILDERS = {"compare": build_compare, "detail": build_detail, "ad": build_ad, "tips": build_tips}
+
+
+def point_windows(shots: list[Shot], overlays: list[Overlay], end_at: float) -> list[tuple[float, float, Shot]]:
+    """特徴・コツを出せる時間帯（ショットごと。キャッチコピー・ロゴ・最後の案内と重ならない所）。
+    長いショット（15秒の動画など）は2つに分けて、出せる数を増やす。"""
+    busy = [(o.t0, o.t1) for o in overlays if o.kind in ("hook", "logo")]
+    out = []
+    for shot in shots:
+        w0, w1 = shot.t0 + (0.35 if shot.t0 > 0 else 0.0), min(shot.t1 - 0.15, end_at - 0.1)
+        for b0, b1 in busy:
+            if b0 < w1 and w0 < b1:       # 重なる文字があれば、その後ろから
+                w0 = max(w0, b1 + 0.1)
+        if w1 - w0 >= 2 * POINT_MIN_SECONDS + 0.9:
+            mid = (w0 + w1) / 2
+            out += [(w0, mid - 0.1, shot), (mid + 0.1, w1, shot)]
+        elif w1 - w0 >= POINT_MIN_SECONDS:
+            out.append((w0, w1, shot))
+    return out
+
+
+def add_text_layers(template: str, shots: list[Shot], overlays: list[Overlay], d: float,
+                    points: list | None, end_cta: str | None, images: list[Path]) -> list[str]:
+    """商品の特徴（選び方・コツではコツ）と、最後の保存・フォロー案内を加える。出せなかったものを返す。
+
+    points は (画像のパス, 文) の並び。特徴は、その画像が1枚で大きく映っている場面にだけ出す
+    （別の服の上に、違う服の特徴が出ないように）。コツは服に共通の内容なので、順番に出す。"""
+    cta_len = 1.6 if d <= 8 else 2.0
+    if end_cta:
+        overlays.append(Overlay("cta", end_cta, d - cta_len, d, 58, SAFE, (W / 2, H * 0.45)))
+    end_at = d - cta_len if end_cta else d
+    items = [(str(path) if path else None, text) for path, text in (points or [])]
+    windows = point_windows(shots, overlays, end_at)
+    if template == "tips":
+        tips = [f"{TIP_MARKS[i]} {t}" if "\n" not in t else f"{TIP_MARKS[i]}\n{t}"
+                for i, (_, t) in enumerate(items[:len(TIP_MARKS)])]
+        chosen = list(zip(windows, tips))
+        unused = tips[len(windows):]
+    else:
+        chosen, left = [], list(items)
+        for window in windows:
+            shot = window[2]
+            if len(shot.panels) != 1:          # 2枚を並べた場面には、特徴を出さない
+                continue
+            here = str(images[shot.panels[0].stage])
+            match = next((it for it in left if it[0] == here), None)
+            if match:
+                left.remove(match)
+                chosen.append((window, match[1]))
+        unused = [t for _, t in left]
+    for (t0, t1, _), text in chosen:
+        overlays.append(Overlay("point", text, t0, t1, POINT_SIZE, SAFE, (W / 2, H * 0.74),
+                                fade_in=0.25, fade_out=0.2))
+    return unused
 
 
 def layout(template: str, images: list[Path], duration: float, transition: str,
-           hook: str, stages: dict | None = None) -> Reel:
-    """動画の構成を組み、文字を配置する（まだ書き出さない）。stages はキャッシュ用。"""
+           hook: str, stages: dict | None = None, points: list | None = None,
+           end_cta: str | None = END_CTAS[0]) -> Reel:
+    """動画の構成を組み、文字を配置する（まだ書き出さない）。stages はキャッシュ用。
+    points は (画像のパス, 特徴) の並び（選び方・コツではコツ）。end_cta は最後の保存・フォロー案内。"""
     need = IMAGES_NEEDED[template]
     if len(images) < need:
         raise ValueError(f"{TEMPLATE_LABELS[template]}には画像が{need}枚必要です")
@@ -777,8 +874,10 @@ def layout(template: str, images: list[Path], duration: float, transition: str,
             cache[p] = build_stage(p)
         st.append(cache[p])
     shots, overlays = BUILDERS[template](st, duration, transition, hook)
+    unused = add_text_layers(template, shots, overlays, duration, points, end_cta, images[:need])
     reel = Reel(template, duration, st, shots, overlays)
-    reel.place_overlays()
+    reel.unused_points = unused          # 時間が足りず出せなかった特徴（短い動画では一部だけ出す）
+    reel.place_overlays()                # 読みやすく置けなかった特徴も unused_points に加わる
     return reel
 
 

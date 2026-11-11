@@ -80,6 +80,7 @@ CTAS = {
     "compare": "気になる着こなしは保存してね🔖",
     "detail": "あとで見返せるように保存してね🔖",
     "ad": "フォローすると毎日20時にコーデが届きます✨",
+    "tips": "保存して、着こなしの参考にしてね🔖",
 }
 
 REQUIRED_PERMISSIONS = [
@@ -502,6 +503,14 @@ def compose(source: str, now: datetime, fmt: str = "reel",
     return post
 
 
+def points_for(post: dict, template: str) -> list[str] | None:
+    """動画に出す特徴・コツ。選び方・コツの企画にはコツを、それ以外には見える特徴を使う。"""
+    ai = post.get("ai_points")
+    if ai and (ai["template"] == "tips") == (template == "tips"):
+        return ai["items"]
+    return None
+
+
 def build_checked_reel(post: dict, v: dict):
     """1つの企画で、検証に合格するまで写真の組み合わせを変えて構成する。合格しなければ None。"""
     import mamc_reel_formats as fm
@@ -515,7 +524,8 @@ def build_checked_reel(post: dict, v: dict):
         images = [first] + [c for c in cands if c != first][:need - 1]
         if main not in images:          # X と同じ画像は必ず使う
             images[-1] = main
-        built = fm.layout(v["template"], images, v["duration"], v["transition"], v["hook_text"], cache)
+        built = fm.layout(v["template"], images, v["duration"], v["transition"], v["hook_text"], cache,
+                          points=points_for(post, v["template"]), end_cta=v.get("end_cta"))
         problems = built.check()
         if not problems:
             return built, images, []
@@ -547,6 +557,11 @@ def render_video(post: dict, out_path: Path, allow_switch: bool = True) -> Path:
                                       ctx["now"].month, template, str(int(v["duration"])))
             post["variant"] = v
             post["caption"] = caption_for(post, template)
+        if template == "tips" and not points_for(post, "tips"):
+            # 選び方・コツは、検査に合格したコツの文章（AI）が無いと成り立たない（文章を作り話にしない）
+            problems = ["選び方・コツの文章（AI）が無いため作れません"]
+            print(f"[情報] {problems[0]}")
+            continue
         # AI が作ったキャッチコピーを先に試し、だめなら定型のキャッチコピーで作り直す
         hooks = []
         ai = post.get("ai_hook")
@@ -621,6 +636,8 @@ def apply_caption(post: dict, ig_history: dict, now: datetime) -> None:
     post["caption_source"] = result["source"]
     if result.get("hook") and template:
         post["ai_hook"] = {"template": template, "text": result["hook"]}
+    if result.get("points") and template:
+        post["ai_points"] = {"template": template, "items": result["points"]}
     print(f"[情報] 投稿文を作りました（{'AI' if result['source'] == 'ai' else '定型文'}）: "
           f"{result['text']} / {' '.join(result['tags'])}"
           + (f" / キャッチコピー「{result['hook'].replace(chr(10), ' ')}」" if result.get("hook") else ""))
@@ -990,12 +1007,17 @@ def make_samples(args, now: datetime) -> int:
         Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "mamc_reels")
     out_dir.mkdir(parents=True, exist_ok=True)
     failed = []
-    for template in ("compare", "detail", "ad"):
-        print(f"\n########## サンプル: {template} ##########")
+    # A（7秒）・B（11秒）・C（15秒）を1本ずつ。企画は種類を変えて作る（長さを指定したときはその長さだけ）
+    plan = [("7", "detail"), ("11", "compare"), ("15", "tips")] if args.duration == "auto" else \
+        [(args.duration, t) for t in ("compare", "detail", "ad", "tips")]
+    if args.template != "auto":
+        plan = [(d, args.template) for d, _ in plan]
+    for duration, template in plan:
+        print(f"\n########## サンプル: {duration}秒・{template} ##########")
         try:
-            post = compose(args.source, now, "reel", template, args.duration)
+            post = compose(args.source, now, "reel", template, duration)
             apply_caption(post, ig_history, now)
-            render_video(post, out_dir / f"mamc_reel_{template}.mp4", allow_switch=False)
+            render_video(post, out_dir / f"mamc_reel_{duration}s_{template}.mp4", allow_switch=False)
             post["bgm"] = attach_bgm(post, ig_history, now)
             show_post(post)
             # 次のサンプルが同じ曲・同じ文にならないよう、作った内容を仮の履歴に積む
@@ -1028,7 +1050,7 @@ def main() -> int:
                         help="作った動画の保存先（省略時は一時フォルダ。--samples のときはフォルダ）")
     parser.add_argument("--template", choices=["auto", "compare", "detail", "ad"], default="auto",
                         help="動画の種類（auto: 計画にしたがって選ぶ）")
-    parser.add_argument("--duration", choices=["auto", "11"], default="auto",
+    parser.add_argument("--duration", choices=["auto", "7", "11", "15"], default="auto",
                         help="動画の長さ（auto: 計画にしたがって選ぶ）")
     parser.add_argument("--samples", action="store_true",
                         help="投稿せずに、3種類（比較・デザイン紹介・広告風）のサンプル動画を作る")
