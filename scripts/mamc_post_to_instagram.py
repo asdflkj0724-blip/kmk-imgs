@@ -660,6 +660,14 @@ def show_post(post: dict) -> None:
         print(f"【投稿形式】 リール（{fm.TEMPLATE_LABELS[v['template']]}・{v['duration']:.0f}秒・"
               f"切り替え: {v['transition']}）")
         print(f"【フック】 {v['hook_text'].replace(chr(10), ' ')}（{v['hook_id']}）")
+        ai = post.get("ai_points")
+        if ai:
+            print("【特徴・コツ（AI）】 " + " ／ ".join(
+                f"{t.replace(chr(10), ' ')}" + (f"（{Path(pth).name[:24]}）" if pth else "") for pth, t in ai["items"]))
+        unused = post.get("checks", {}).get("unused_points")
+        if unused:
+            print("【出せなかった特徴】 " + " ／ ".join(t.replace(chr(10), " ") for t in unused)
+                  + "（その画像が映らない・時間が足りない・読みやすく置けない）")
         for ov in post.get("checks", {}).get("overlays", []):
             print(f"【文字の検証】 {ov['kind']}「{ov['text'].replace(chr(10), ' ')}」 位置{ov['pos']} "
                   f"色 {'白' if ov.get('color') == 'white' else '墨'}・大きさ {ov.get('size')}・"

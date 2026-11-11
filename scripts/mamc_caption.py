@@ -64,7 +64,7 @@ UNVERIFIABLE_POINT = re.compile(r"人気|ランキング|\d\s*位|首位|上位|
                                 r"話題|定番|大好評|完売|在庫|送料|\d\s*円|%|％|専門家|保証")
 POINT_LINE_MAX = 14               # 特徴・コツの1行の文字数（54px の明朝体で画面の安全範囲に収まる長さ）
 POINT_MIN, POINT_MAX = 4, 18
-POINTS_MAX = 4
+POINTS_MAX = 6
 # SNS ごとの紹介文の長さと書き方（Instagram は従来どおり）
 PLATFORMS = {
     "instagram": {"name": "Instagram", "text": (TEXT_MIN, TEXT_MAX), "newlines": 1,
@@ -371,9 +371,10 @@ def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags
                 "",
                 "=== 動画で画像ごとに出す「見える特徴」（points）のルール ===",
                 "- 添付した画像を、順に 画像1・画像2・画像3 と呼ぶ",
-                f"- 3〜4個。1つ{POINT_MIN}〜{POINT_MAX - 4}文字。その画像ではっきり見える特徴だけ"
+                f"- 3〜6個。1つ{POINT_MIN}〜{POINT_MAX - 4}文字。その画像ではっきり見える特徴だけ"
                 "（色・柄・シルエット・丈・重ね方・ディテール。例: 裾からのぞくレース／ゆったりした袖）",
                 "- image には、その特徴が見える画像の番号（1〜3）を入れる。違う画像の服の特徴を書かない",
+                "- 画像1・画像2・画像3 のそれぞれについて、少なくとも1つずつ書く（動画ではどの画像が映るか決まっていないため）",
             ]
         lines += ["- 人気・ランキング・売れ行き・価格・お得・限定・素材・機能・サイズなど、確かめられないことは書かない",
                   "- 絵文字・ハッシュタグ・ブランド名・問いかけ（？）は入れない"]
