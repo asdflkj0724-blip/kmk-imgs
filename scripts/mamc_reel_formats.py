@@ -35,6 +35,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -61,6 +62,8 @@ HOOK_MIN_SECONDS = 1.5                 # 冒頭のキャッチコピーは、短
 END_CTAS = ["保存して\n見返してね", "フォローで\n毎日20時に\n新作コーデ", "気になったら\n保存してね"]
 POINT_SIZE = 54                        # 商品の特徴・コツの文字の大きさ
 POINT_MIN_SECONDS = 1.1                # 特徴・コツを1つ出すのに必要な最短の時間
+POINT_MAX_SECONDS = 2.2                # 長く出しすぎない（カメラが動いても読める場所を見つけやすくする）
+POINT_LINE_CHARS = 9                   # これより長い特徴・コツは2行に分ける（写真の余白に収まる幅にする）
 TIP_MARKS = "①②③④"
 TRANSITIONS = ("fade", "push", "cut")  # 編集パターン（切り替え方）
 TRANSITION_SECONDS = {"fade": 0.40, "push": 0.35, "cut": 0.0}
@@ -806,6 +809,39 @@ def build_tips(stages, d, transition, hook) -> tuple[list[Shot], list[Overlay]]:
 BUILDERS = {"compare": build_compare, "detail": build_detail, "ad": build_ad, "tips": build_tips}
 
 
+def wrap_point(text: str) -> str:
+    """長い特徴・コツを、読点や助詞の後ろで2行に分ける（幅を狭くして、写真の余白に置けるようにする）。"""
+    if "\n" in text or len(text) <= POINT_LINE_CHARS:
+        return text
+    head = ""
+    m = re.match(r"^([①-④]\s?)", text)
+    if m:
+        head, text = m.group(1).strip(), text[m.end():]
+    if len(text) > POINT_LINE_CHARS:
+        def kata(c: str) -> bool:
+            return "ァ" <= c <= "ヺ" or c == "ー"
+
+        def cost(i: int):
+            """text[:i] と text[i:] に分けるときの、切れ目としての悪さ（小さいほど自然）。"""
+            prev, nxt = text[i - 1], text[i]
+            if prev in "、／ ":
+                r = 0.0
+            elif kata(nxt) and not kata(prev):     # カタカナの言葉の前（「広がる／バルーン」）
+                r = 0.3
+            elif prev in "にをでもてと" or (prev in "はが" and not kata(nxt) and nxt not in "らりるれろっ"):
+                r = 1.0
+            elif prev == "の":
+                r = 2.0
+            else:
+                return None
+            return r + abs(len(text) / 2 - i) / 2
+
+        options = [(c, i) for i in range(2, len(text) - 1) if (c := cost(i)) is not None]
+        cut = min(options)[1] if options else (len(text) + 1) // 2
+        text = text[:cut].rstrip("、 ") + "\n" + text[cut:].lstrip()
+    return f"{head} {text}" if head else text
+
+
 def point_windows(shots: list[Shot], overlays: list[Overlay], end_at: float) -> list[tuple[float, float, Shot]]:
     """特徴・コツを出せる時間帯（ショットごと。キャッチコピー・ロゴ・最後の案内と重ならない所）。
     長いショット（15秒の動画など）は2つに分けて、出せる数を増やす。"""
@@ -818,9 +854,10 @@ def point_windows(shots: list[Shot], overlays: list[Overlay], end_at: float) -> 
                 w0 = max(w0, b1 + 0.1)
         if w1 - w0 >= 2 * POINT_MIN_SECONDS + 0.9:
             mid = (w0 + w1) / 2
-            out += [(w0, mid - 0.1, shot), (mid + 0.1, w1, shot)]
+            out += [(w0, min(mid - 0.1, w0 + POINT_MAX_SECONDS), shot),
+                    (mid + 0.1, min(w1, mid + 0.1 + POINT_MAX_SECONDS), shot)]
         elif w1 - w0 >= POINT_MIN_SECONDS:
-            out.append((w0, w1, shot))
+            out.append((w0, min(w1, w0 + POINT_MAX_SECONDS), shot))
     return out
 
 
@@ -854,7 +891,7 @@ def add_text_layers(template: str, shots: list[Shot], overlays: list[Overlay], d
                 chosen.append((window, match[1]))
         unused = [t for _, t in left]
     for (t0, t1, _), text in chosen:
-        overlays.append(Overlay("point", text, t0, t1, POINT_SIZE, SAFE, (W / 2, H * 0.74),
+        overlays.append(Overlay("point", wrap_point(text), t0, t1, POINT_SIZE, SAFE, (W / 2, H * 0.74),
                                 fade_in=0.25, fade_out=0.2))
     return unused
 
