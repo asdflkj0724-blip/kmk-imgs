@@ -33,6 +33,12 @@
   const HEART_FIRST = 12; // 最初のにじいろハートが出るまでの秒数
   const HEART_INTERVAL = 20; // 次のにじいろハートが出るまでの秒数
   const INVISIBLE_TIME = 10; // とうめいでいられる秒数（ハチに見つからない）
+  const RED_HEART_FIRST = 15; // 最初の赤いハートが出るまでの秒数
+  const RED_HEART_INTERVAL = 20; // 次の赤いハートが出るまでの秒数
+  const FIRE_TIME = 15; // ファイヤーボールを投げられる秒数
+  const FIRE_COOLDOWN = 0.35; // 次のファイヤーボールを投げられるまでの秒数
+  const FIREBALL_SPEED = 420;
+  const FIREBALL_RADIUS = 14;
   const BIG_BANANA_FIRST = 25; // 最初のでっかいバナナが出るまでの秒数
   const BIG_BANANA_INTERVAL = 20; // 次のでっかいバナナが出るまでの秒数
   const BIG_BANANA_LIFE = 4; // でっかいバナナは少しのあいだだけ出る
@@ -166,6 +172,16 @@
     star() {
       if (!soundOn || !ensureAudio()) return;
       [784, 988, 1175, 1568, 1175, 1568, 1976].forEach((f, i) => tone(f, i * 0.07, 0.12, 'square', 0.1));
+    },
+    fireReady() {
+      if (!soundOn || !ensureAudio()) return;
+      [440, 554, 659, 880].forEach((f, i) => tone(f, i * 0.07, 0.15, 'sawtooth', 0.1));
+    },
+    fire() {
+      if (!soundOn || !ensureAudio()) return;
+      // 「ボッ！」
+      tone(220, 0, 0.18, 'sawtooth', 0.14, 70);
+      tone(900, 0, 0.12, 'triangle', 0.1, 300);
     },
     heart() {
       if (!soundOn || !ensureAudio()) return;
@@ -350,6 +366,8 @@
   let appleTimer = APPLE_FIRST;
   let starTimer = STAR_FIRST;
   let heartTimer = HEART_FIRST;
+  let redHeartTimer = RED_HEART_FIRST;
+  let fireballs = [];
   let bigBananaTimer = BIG_BANANA_FIRST;
   let friend = null; // にじいろリンゴでやってくる、ハチをやっつけてくれるなかま
   // 右下のすみにある、めっちゃでっかいハチの巣（10秒ごとにハチが1ぴき出てくる）
@@ -375,6 +393,8 @@
     scale: 1, // 今の大きさ（size に向かってなめらかに変わる）
     invincible: 0, // スターの無敵タイムののこり（秒）
     invisible: 0, // にじいろハートの、とうめいタイムののこり（秒）
+    fire: 0, // 赤いハートの、ファイヤーボールタイムののこり（秒）
+    fireCooldown: 0,
     size: 1, // 毒キノコで小さくなった大きさ
     count: 0, // ミッくんが食べたバナナの数
   };
@@ -566,6 +586,7 @@
     apple: { text: 'にじいろリンゴ！', stroke: '#c0392b', life: ITEM_LIFE },
     star: { text: 'スター！', stroke: '#b8860b', life: ITEM_LIFE },
     heart: { text: 'にじいろハート！', stroke: '#d6336c', life: ITEM_LIFE },
+    redheart: { text: 'あかい ハート！', stroke: '#b3001b', life: ITEM_LIFE },
     bigbanana: { text: 'でっかいバナナ！', stroke: '#b8860b', life: BIG_BANANA_LIFE },
   };
 
@@ -598,6 +619,13 @@
         spawnSpecial('heart');
       }
     }
+    if (!specials.some((it) => it.kind === 'redheart')) {
+      redHeartTimer -= dt;
+      if (redHeartTimer <= 0) {
+        redHeartTimer = RED_HEART_INTERVAL;
+        spawnSpecial('redheart');
+      }
+    }
     if (!specials.some((it) => it.kind === 'bigbanana')) {
       bigBananaTimer -= dt;
       if (bigBananaTimer <= 0) {
@@ -623,6 +651,10 @@
         if (it.kind === 'apple') {
           sfx.apple();
           callFriend(it.x, it.y);
+        } else if (it.kind === 'redheart') {
+          sfx.fireReady();
+          gorilla.fire = FIRE_TIME;
+          floatTexts.push({ x: it.x, y: it.y - 24, t: 0, text: 'スペースキーで ファイヤー！', fill: '#ffe600', stroke: '#b3001b' });
         } else if (it.kind === 'heart') {
           sfx.heart();
           gorilla.invisible = INVISIBLE_TIME;
@@ -637,6 +669,110 @@
         }
       }
     }
+  }
+
+  // ===== ファイヤーボール =====
+  // いちばん近いハチをねらって投げる。ハチがいなければ向いている方へまっすぐ
+  function throwFireball() {
+    if (gorilla.fire <= 0 || gorilla.fireCooldown > 0) return;
+    gorilla.fireCooldown = FIRE_COOLDOWN;
+    const sx = gorilla.x + 26 * gorilla.facing * gorilla.scale;
+    const sy = gorilla.y - 10 * gorilla.scale;
+    const aim = nearestBee(sx, sy);
+    let vx = gorilla.facing;
+    let vy = 0;
+    if (aim) {
+      const d = Math.hypot(aim.x - sx, aim.y - sy) || 1;
+      vx = (aim.x - sx) / d;
+      vy = (aim.y - sy) / d;
+      gorilla.facing = vx >= 0 ? 1 : -1;
+    }
+    fireballs.push({ x: sx, y: sy, vx: vx * FIREBALL_SPEED, vy: vy * FIREBALL_SPEED, life: 1.6, spin: 0 });
+    gorilla.chomp = 0.2;
+    sfx.fire();
+  }
+
+  function nearestBee(x, y) {
+    let best = null;
+    let bestD = Infinity;
+    bees.forEach((b) => {
+      if (b.delay > 0 || b.leaving > 0) return;
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d < bestD) {
+        bestD = d;
+        best = b;
+      }
+    });
+    return best;
+  }
+
+  function updateFireballs(dt) {
+    gorilla.fireCooldown = Math.max(0, gorilla.fireCooldown - dt);
+    for (let i = fireballs.length - 1; i >= 0; i--) {
+      const f = fireballs[i];
+      // 少しだけハチの方へまがる（当たりやすいように）
+      const aim = nearestBee(f.x, f.y);
+      if (aim) {
+        const d = Math.hypot(aim.x - f.x, aim.y - f.y) || 1;
+        const k = Math.min(1, dt * 4);
+        f.vx += ((aim.x - f.x) / d * FIREBALL_SPEED - f.vx) * k;
+        f.vy += ((aim.y - f.y) / d * FIREBALL_SPEED - f.vy) * k;
+      }
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.spin += dt * 12;
+      f.life -= dt;
+      // ほのおのしっぽ
+      particles.push({
+        x: f.x + rand(-4, 4),
+        y: f.y + rand(-4, 4),
+        vx: -f.vx * 0.1,
+        vy: -f.vy * 0.1 - 40,
+        life: 0.3,
+        rot: 0,
+        vr: 0,
+        color: ['#ffd60a', '#ff8a1f', '#ff3b1f'][Math.floor(Math.random() * 3)],
+        star: false,
+      });
+      let hit = false;
+      for (let j = bees.length - 1; j >= 0; j--) {
+        const b = bees[j];
+        if (b.delay > 0 || b.leaving > 0) continue;
+        if (Math.hypot(b.x - f.x, b.y - f.y) < FIREBALL_RADIUS + BEE_RADIUS + 4) {
+          defeatBee(j);
+          hit = true;
+          break;
+        }
+      }
+      const out = f.x < 0 || f.x > W || f.y < 0 || f.y > H;
+      if (hit || out || f.life <= 0) fireballs.splice(i, 1);
+    }
+  }
+
+  function drawFireball(f) {
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 26);
+    glow.addColorStop(0, 'rgba(255,240,150,1)');
+    glow.addColorStop(0.4, 'rgba(255,140,30,0.9)');
+    glow.addColorStop(1, 'rgba(255,40,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.rotate(f.spin);
+    ctx.fillStyle = '#fff6c2';
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ff5a1f';
+    for (let k = 0; k < 4; k++) {
+      ctx.rotate(Math.PI / 2);
+      ctx.beginPath();
+      ctx.ellipse(10, 0, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   // でっかいバナナ：バナナが5本とび出して、ぜんぶミッくんのものに
@@ -1029,6 +1165,10 @@
     appleTimer = APPLE_FIRST;
     starTimer = STAR_FIRST;
     heartTimer = HEART_FIRST;
+    redHeartTimer = RED_HEART_FIRST;
+    fireballs = [];
+    gorilla.fire = 0;
+    gorilla.fireCooldown = 0;
     bigBananaTimer = BIG_BANANA_FIRST;
     gorilla.invisible = 0;
     friend = null;
@@ -1210,6 +1350,7 @@
         startGame();
       } else if (state === 'playing') {
         e.preventDefault();
+        if (e.key === ' ') throwFireball();
       }
     }
   });
@@ -1291,6 +1432,7 @@
         eatMushrooms();
         touchHives();
         updateSpecials(dt);
+        updateFireballs(dt);
         updateFriend(dt);
         if (state === 'playing') updateBees(dt);
         updateMushrooms(dt);
@@ -1309,6 +1451,7 @@
     if (state === 'playing') {
       gorilla.invincible = Math.max(0, gorilla.invincible - dt);
       gorilla.invisible = Math.max(0, gorilla.invisible - dt);
+      gorilla.fire = Math.max(0, gorilla.fire - dt);
     }
     gorilla.scale += (gorilla.size - gorilla.scale) * Math.min(1, dt * 6);
     mushrooms.forEach((m) => {
@@ -1810,7 +1953,7 @@
     ctx.restore();
   }
 
-  function drawHeartItem(it) {
+  function drawHeartItem(it, red) {
     const blink = it.life < 2 ? (Math.sin(it.life * 20) > 0 ? 1 : 0.3) : 1;
     const s = easeOutBack(it.appear) * (1 + Math.sin(it.phase * 1.5) * 0.08); // どきどき
     ctx.save();
@@ -1827,7 +1970,12 @@
     // にじいろのハート
     const shift = (it.phase * 40) % 360;
     const grad = ctx.createLinearGradient(-24, -20, 24, 20);
-    for (let k = 0; k <= 6; k++) grad.addColorStop(k / 6, `hsl(${(shift + k * 60) % 360}, 95%, 62%)`);
+    if (red) {
+      grad.addColorStop(0, '#ff6b6b');
+      grad.addColorStop(1, '#d10019');
+    } else {
+      for (let k = 0; k <= 6; k++) grad.addColorStop(k / 6, `hsl(${(shift + k * 60) % 360}, 95%, 62%)`);
+    }
     ctx.fillStyle = grad;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 3;
@@ -2258,7 +2406,8 @@
     // ゴリラは y 座標が大きいバナナより後ろに描かれないよう最後に描く
     specials.forEach((it) => {
       if (it.kind === 'apple') drawApple(it);
-      else if (it.kind === 'heart') drawHeartItem(it);
+      else if (it.kind === 'heart') drawHeartItem(it, false);
+      else if (it.kind === 'redheart') drawHeartItem(it, true);
       else if (it.kind === 'bigbanana') drawBigBanana(it);
       else drawStarItem(it);
     });
@@ -2310,6 +2459,7 @@
     );
 
     bees.forEach(drawBee);
+    fireballs.forEach(drawFireball);
 
     // キラキラ
     particles.forEach((p) => {
@@ -2339,6 +2489,7 @@
       const labels = [];
       if (gorilla.invincible > 0) labels.push(`⭐ むてき あと ${Math.ceil(gorilla.invincible)}びょう`);
       if (gorilla.invisible > 0) labels.push(`🌈💖 とうめい あと ${Math.ceil(gorilla.invisible)}びょう`);
+      if (gorilla.fire > 0) labels.push(`🔥 スペースキーで ファイヤー！ あと ${Math.ceil(gorilla.fire)}びょう`);
       if (friend && friend.leaving === 0) labels.push(`🌈 なかま あと ${Math.ceil(friend.time)}びょう`);
       labels.forEach((text, i) => outlinedText(text, W / 2, 28 + i * 34, 26, '#ffffff', '#c0392b'));
     }
@@ -2416,6 +2567,8 @@
     get invincible() { return gorilla.invincible; },
     get invisible() { return gorilla.invisible; },
     spawn(kind) { spawnSpecial(kind); },
+    get fire() { return gorilla.fire; },
+    get fireballCount() { return fireballs.length; },
     get hitCount() { return hits; },
     releaseBee() { releaseBigHiveBee(); },
     get hives() { return hives.map((h) => ({ x: h.x, y: h.y })); },
