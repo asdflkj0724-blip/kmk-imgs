@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "BUYMA出品支援（開発版）",
+  "name": "ラク出品（開発版）",
   "version": "0.3.0",
   "description": "通販サイトの商品ページから、BUYMAの出品画面にそのまま貼れる日本語の出品データと画像ZIPを作ります。BUYMAへの登録はご自身で行います。",
   "permissions": ["storage", "activeTab", "scripting", "downloads"],
