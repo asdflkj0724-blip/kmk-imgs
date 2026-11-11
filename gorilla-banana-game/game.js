@@ -35,7 +35,7 @@
   const INVISIBLE_TIME = 10; // とうめいでいられる秒数（ハチに見つからない）
   const RED_HEART_FIRST = 15; // 最初の赤いハートが出るまでの秒数
   const RED_HEART_INTERVAL = 20; // 次の赤いハートが出るまでの秒数
-  const FIRE_TIME = 15; // ファイヤーボールを投げられる秒数
+  const FIRE_TIME = 40; // ファイヤーボールを投げられる秒数
   const FIRE_COOLDOWN = 0.35; // 次のファイヤーボールを投げられるまでの秒数
   const FIREBALL_SPEED = 420;
   const FIREBALL_RADIUS = 14;
@@ -654,7 +654,7 @@
         } else if (it.kind === 'redheart') {
           sfx.fireReady();
           gorilla.fire = FIRE_TIME;
-          floatTexts.push({ x: it.x, y: it.y - 24, t: 0, text: 'スペースキーで ファイヤー！', fill: '#ffe600', stroke: '#b3001b' });
+          floatTexts.push({ x: it.x, y: it.y - 24, t: 0, text: 'ハチを クリックで ファイヤー！', fill: '#ffe600', stroke: '#b3001b' });
         } else if (it.kind === 'heart') {
           sfx.heart();
           gorilla.invisible = INVISIBLE_TIME;
@@ -673,12 +673,13 @@
 
   // ===== ファイヤーボール =====
   // いちばん近いハチをねらって投げる。ハチがいなければ向いている方へまっすぐ
-  function throwFireball() {
+  // aimBee を渡すとそのハチをねらう（クリックしたハチ）。なければいちばん近いハチ
+  function throwFireball(aimBee) {
     if (gorilla.fire <= 0 || gorilla.fireCooldown > 0) return;
     gorilla.fireCooldown = FIRE_COOLDOWN;
     const sx = gorilla.x + 26 * gorilla.facing * gorilla.scale;
     const sy = gorilla.y - 10 * gorilla.scale;
-    const aim = nearestBee(sx, sy);
+    const aim = aimBee || nearestBee(sx, sy);
     let vx = gorilla.facing;
     let vy = 0;
     if (aim) {
@@ -687,7 +688,7 @@
       vy = (aim.y - sy) / d;
       gorilla.facing = vx >= 0 ? 1 : -1;
     }
-    fireballs.push({ x: sx, y: sy, vx: vx * FIREBALL_SPEED, vy: vy * FIREBALL_SPEED, life: 1.6, spin: 0 });
+    fireballs.push({ x: sx, y: sy, vx: vx * FIREBALL_SPEED, vy: vy * FIREBALL_SPEED, life: 2, spin: 0, aim: aimBee || null });
     gorilla.chomp = 0.2;
     sfx.fire();
   }
@@ -711,7 +712,9 @@
     for (let i = fireballs.length - 1; i >= 0; i--) {
       const f = fireballs[i];
       // 少しだけハチの方へまがる（当たりやすいように）
-      const aim = nearestBee(f.x, f.y);
+      // クリックしたハチがまだいればそのハチを、いなければいちばん近いハチをおいかける
+      if (f.aim && (!bees.includes(f.aim) || f.aim.leaving > 0)) f.aim = null;
+      const aim = f.aim || nearestBee(f.x, f.y);
       if (aim) {
         const d = Math.hypot(aim.x - f.x, aim.y - f.y) || 1;
         const k = Math.min(1, dt * 4);
@@ -1383,6 +1386,23 @@
     const rect = canvas.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * W;
     const y = ((e.clientY - rect.top) / rect.height) * H;
+    // ファイヤーボールを持っているときは、クリックしたハチに投げる
+    if (gorilla.fire > 0) {
+      let bee = null;
+      let beeDist = BEE_RADIUS + 30; // 少しはずれてもハチを選べるように
+      bees.forEach((b) => {
+        if (b.delay > 0 || b.leaving > 0) return;
+        const d = Math.hypot(b.x - x, b.y - y);
+        if (d < beeDist) {
+          beeDist = d;
+          bee = b;
+        }
+      });
+      if (bee) {
+        throwFireball(bee);
+        return;
+      }
+    }
     let best = null;
     let bestDist = BANANA_RADIUS + 30; // 少しはずれてもバナナを選べるように
     bananas.concat(mushrooms, specials).forEach((b) => {
@@ -2489,7 +2509,7 @@
       const labels = [];
       if (gorilla.invincible > 0) labels.push(`⭐ むてき あと ${Math.ceil(gorilla.invincible)}びょう`);
       if (gorilla.invisible > 0) labels.push(`🌈💖 とうめい あと ${Math.ceil(gorilla.invisible)}びょう`);
-      if (gorilla.fire > 0) labels.push(`🔥 スペースキーで ファイヤー！ あと ${Math.ceil(gorilla.fire)}びょう`);
+      if (gorilla.fire > 0) labels.push(`🔥 ハチを クリックで ファイヤー！ あと ${Math.ceil(gorilla.fire)}びょう`);
       if (friend && friend.leaving === 0) labels.push(`🌈 なかま あと ${Math.ceil(friend.time)}びょう`);
       labels.forEach((text, i) => outlinedText(text, W / 2, 28 + i * 34, 26, '#ffffff', '#c0392b'));
     }
