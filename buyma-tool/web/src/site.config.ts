@@ -45,9 +45,9 @@ export const SITE = {
    * Vercel の環境変数（NEXT_PUBLIC_SELLER_*）を入れた場合は、そちらが優先されます。
    */
   seller: {
-    name: process.env.NEXT_PUBLIC_SELLER_NAME || '株式会社ファブミック',
+    name: process.env.NEXT_PUBLIC_SELLER_NAME || '株式会社FABMIC',
     manager: process.env.NEXT_PUBLIC_SELLER_MANAGER || '',
-    address: process.env.NEXT_PUBLIC_SELLER_ADDRESS || '',
+    address: process.env.NEXT_PUBLIC_SELLER_ADDRESS || '〒573-0005 大阪府枚方市池の宮2-5-1-1403 Mプラザ14F',
     phone: process.env.NEXT_PUBLIC_SELLER_PHONE || '',
     email: process.env.NEXT_PUBLIC_SELLER_EMAIL || '',
   },
