@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """輝く未来教育 X自動投稿スクリプト
 
-毎朝、子育て中のお母さんの心に響く言葉を1つ、画像付きでXに投稿する。
-- オリジナルの言葉(AI生成): 約70%
-- 著名人の名言(quotes.csv の出典確認済みのものだけ): 約30%
-末尾に「学校別の出題傾向・対策はこちら → URL」の一行と #輝く未来教育 を自動で付ける。
+毎朝、小学校受験を考えている保護者に役立つ実践的な情報を1つ、画像付きでXに投稿する。
+- 10種類のテーマを順番にローテーション(同じテーマでも毎回違う具体例)
+- 冒頭フック+実用的な内容+短いまとめ、の構成(prompt.txt)
+- ハッシュタグ3個(#輝く未来教育 #小学校受験 +関連タグ1個)を自動付与
+- 3日に1回程度、自然なフォロー案内の一文を自動付与
+- 商品URL付きの一行は週1回程度のみ
+- 投稿IDを履歴に記録(週次の反応分析 scripts/weekly_report.py で使用)
 
-- prompt.txt      : オリジナル投稿のルール
-- quotes.csv      : 出典を確認済みの名言(著者,名言,原文,出典)
-- products.csv    : 「学校別対策ガイド」行のURLを締めの一行に使う
-- history.json    : 過去90日の投稿履歴(重複防止・名言の出典記録)
-- fallback.txt    : AIが使えないときの予備のオリジナル文
+- prompt.txt      : 投稿文のルール
+- products.csv    : 「学校別対策ガイド」行のURLを週1回の一行に使う
+- history.json    : 過去90日の投稿履歴(重複防止・反応の記録)
+- fallback.txt    : AIが使えないときの予備文
 環境変数 DRY_RUN=1 で、実際には投稿せず内容の確認だけ行う。
 """
 import csv
@@ -26,33 +28,35 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 JST = timezone(timedelta(hours=9))
 
-# オリジナル投稿のテーマ(日替わり)
+# 投稿テーマ(この順番でローテーションする)
 THEMES = [
-    "子どもへの愛情",
-    "お母さんの頑張りを認める",
-    "子どもの可能性と成長",
-    "親子の絆",
-    "子育ての幸せ・小さな気づき",
-    "他人と比べない子育て",
-    "子どもの自己肯定感",
-    "失敗を恐れず挑戦すること",
+    "小学校受験の面接で言いがちなNGワードと、適切な言い換え例",
+    "年長の保護者が今の時期にやっておきたい受験準備",
+    "面接で子どもが黙ったときに、親がしてはいけない3つの行動",
+    "家庭で毎日5分でできる面接練習",
+    "「ご家庭の教育方針」を一文で伝える練習方法",
+    "兄弟姉妹について質問されたときの自然な答え方",
+    "面接で緊張しないための姿勢や手の位置の練習",
+    "志望理由を簡潔にまとめる3行テンプレート",
+    "面接前日に確認したい持ち物と準備",
+    "面接当日の朝、親子でできる緊張を和らげる習慣",
 ]
 GUIDE_CATEGORY = "学校別対策ガイド"
 REQUIRED_TAGS = ["#輝く未来教育", "#小学校受験"]  # 全投稿に必須のハッシュタグ
-EXTRA_TAGS = [  # フォロワー獲得用。毎回2個をローテーションで追加
-    "#子育て", "#育児", "#幼児教育", "#知育", "#子育てママ",
-    "#ワーママ", "#お受験", "#子どものいる暮らし", "#男の子ママ", "#女の子ママ",
+EXTRA_TAGS = [  # 関連タグ。毎回1個をローテーションで追加(タグは計3個まで)
+    "#お受験", "#小学校受験2028", "#幼児教育", "#子育て", "#年長", "#面接対策",
 ]
-QUOTE_SOURCE = "quote"  # 名言投稿の履歴上の種別
+FOLLOW_CTAS = [  # フォロー案内(3日に1回程度、URLの無い日に付ける)
+    "毎朝7時に受験のヒントを投稿しています。",
+    "フォローで毎朝7時にヒントが届きます。",
+    "毎朝7時に面接対策のヒントを発信中です。",
+]
 HISTORY_DAYS = 90  # 重複防止に参照する履歴の日数
-QUOTE_REUSE_DAYS = 30  # 同じ名言を再利用しない日数(収録数が増えたら延ばせる)
 IMAGE_FOLDERS = ["brand"]  # 普段の投稿に使う画像フォルダ
 IMAGE_FOLDERS_PRODUCT = ["brand", "school-guide"]  # 週1回の商品URL付きの日
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-# Xの上限は280(全角=2、URL=23換算)。読みやすさのため実際はもっと短く作る
+# Xの上限は280(全角=2、URL=23換算)。安全のため少し余裕を持たせる
 MAX_WEIGHTED_LEN = 276
-# 生成時の目標(本文+ハッシュタグ4個+締めの一行を含めた全体)
-TARGET_WEIGHTED_LEN = 272
 URL_RE = re.compile(r"https?://\S+")
 
 
@@ -91,7 +95,7 @@ def save_history(history: dict) -> None:
 
 
 def load_guide_product() -> dict:
-    """products.csv から「学校別対策ガイド」の行を読む(締めの一行のURLに使う)"""
+    """products.csv から「学校別対策ガイド」の行を読む(週1回の一行のURLに使う)"""
     path = ROOT / "products.csv"
     if not path.exists():
         return {}
@@ -118,74 +122,33 @@ def should_include_footer(history: dict) -> bool:
     return True
 
 
-def season_label(now: datetime) -> str:
-    return {
-        1: "冬(お正月)", 2: "冬(節分の頃)", 3: "春(ひな祭り・春休みの頃)",
-        4: "春(入園入学の頃)", 5: "春(こどもの日の頃)", 6: "初夏(梅雨の頃)",
-        7: "夏(七夕・夏休み前)", 8: "夏(夏休み)", 9: "秋(行楽・運動会の頃)",
-        10: "秋(紅葉の頃)", 11: "秋(七五三の頃)", 12: "冬(クリスマスの頃)",
-    }[now.month]
-
-
-def load_quotes() -> list:
-    """quotes.csv(出典を確認済みの名言だけを収録)を読む"""
-    path = ROOT / "quotes.csv"
-    if not path.exists():
-        return []
-    quotes = []
-    with path.open(encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            row = {(k or "").strip(): (v or "").strip() for k, v in row.items()}
-            if row.get("著者") and row.get("名言") and row.get("出典"):
-                quotes.append(row)
-    return quotes
+def choose_follow_cta(history: dict, has_footer: bool) -> str:
+    """フォロー案内は3日に1回程度。URLの一行がある日は付けない(長くなりすぎるため)"""
+    if has_footer:
+        return ""
+    for p in history["posts"][-2:]:
+        if "フォロー" in (p.get("text") or "") or "毎朝7時" in (p.get("text") or ""):
+            return ""
+    recent = {p.get("cta") for p in history["posts"][-6:]}
+    candidates = [c for c in FOLLOW_CTAS if c not in recent] or FOLLOW_CTAS
+    return random.choice(candidates)
 
 
 def build_tag_line(history: dict) -> str:
-    """必須タグ2個+フォロワー獲得用タグ2個(直近2投稿と重複しないようローテーション)"""
+    """必須タグ2個+関連タグ1個(直近2投稿と重複しないようローテーション)"""
     recent_text = " ".join(p.get("text") or "" for p in history["posts"][-2:])
     fresh = [t for t in EXTRA_TAGS if t not in recent_text] or EXTRA_TAGS
-    return " ".join(REQUIRED_TAGS + random.sample(fresh, min(2, len(fresh))))
-
-
-def is_quote_day(history: dict, quotes: list) -> bool:
-    """約半数が名言になるように決める(名言の連続はしない=ほぼ交互)"""
-    if not quotes:
-        return False
-    recent = history["posts"][-10:]
-    if recent and recent[-1].get("source") == QUOTE_SOURCE:
-        return False
-    if sum(1 for p in recent if p.get("source") == QUOTE_SOURCE) >= 5:
-        return False
-    return random.random() < 0.9
-
-
-def choose_quote(history: dict, quotes: list, tag_line: str, footer: str):
-    """直近30日に出ていない名言から選ぶ。なければ None(オリジナルに切替)"""
-    cutoff = (datetime.now(JST) - timedelta(days=QUOTE_REUSE_DAYS)).strftime("%Y-%m-%d")
-    used = {
-        p.get("quote")
-        for p in history["posts"]
-        if p.get("quote") and (p.get("date") or "9999") >= cutoff
-    }
-    candidates = [q for q in quotes if q["名言"] not in used]
-    random.shuffle(candidates)
-    for q in candidates:
-        full = build_quote_body(q) + "\n" + tag_line + ("\n" + footer if footer else "")
-        if x_weighted_len(full) <= MAX_WEIGHTED_LEN:
-            return q
-    return None
-
-
-def build_quote_body(quote: dict) -> str:
-    return f"{quote['名言']}\n―― {quote['著者']}"
+    return " ".join(REQUIRED_TAGS + [random.choice(fresh)])
 
 
 def choose_theme(history: dict) -> str:
-    """直近で使っていないテーマを選ぶ(毎日テーマが変わるように)"""
-    recent = {p.get("theme") for p in history["posts"][-5:]}
-    candidates = [t for t in THEMES if t not in recent] or THEMES
-    return random.choice(candidates)
+    """10テーマを順番にローテーションする"""
+    last_index = -1
+    for post in reversed(history["posts"]):
+        if post.get("theme") in THEMES:
+            last_index = THEMES.index(post["theme"])
+            break
+    return THEMES[(last_index + 1) % len(THEMES)]
 
 
 def choose_image(history: dict, folders=None):
@@ -210,27 +173,34 @@ def choose_image(history: dict, folders=None):
     return random.choice(fresh)
 
 
-def build_user_prompt(now, theme, history) -> str:
+def build_user_prompt(now, theme, history, body_limit: int) -> str:
     lines = [
-        f"今日は {now.strftime('%Y年%m月%d日')}(季節: {season_label(now)})の朝7時の投稿です。",
+        f"今日は {now.strftime('%Y年%m月%d日')} の朝7時の投稿です。",
         f"今回のテーマ: {theme}",
+        f"本文の上限: 全角{body_limit}文字(改行を活用して読みやすく)",
     ]
-    recent = [p["text"] for p in history["posts"][-15:] if p.get("text")]
+    same_theme = [p["text"] for p in history["posts"] if p.get("theme") == theme and p.get("text")]
+    if same_theme:
+        lines.append("同じテーマの過去投稿(同じ具体例・言い回しを使わないこと):")
+        for text in same_theme[-3:]:
+            lines.append(f"--- {text}")
+    recent = [p["text"] for p in history["posts"][-8:] if p.get("text")]
     if recent:
-        lines.append("最近の投稿(言葉・内容・構成が重複しないようにしてください):")
+        lines.append("直近の投稿(フックや構成が単調にならないように):")
         for text in recent:
             lines.append(f"--- {text}")
     lines.append("投稿の本文のみを出力してください(ハッシュタグとURLは書かない)。")
     return "\n".join(lines)
 
 
-def generate_with_ai(now, theme, history, tag_line: str, footer: str) -> str:
+def generate_with_ai(now, theme, history, extras_len: int) -> str:
     import anthropic
 
     client = anthropic.Anthropic()
     system = (ROOT / "prompt.txt").read_text(encoding="utf-8")
-    messages = [{"role": "user", "content": build_user_prompt(now, theme, history)}]
-    extra_len = x_weighted_len("\n" + tag_line + ("\n" + footer if footer else ""))
+    # 本文に使える文字数(全角換算)。タグ・フォロー案内・URLの分を引いて計算
+    body_limit = (MAX_WEIGHTED_LEN - extras_len) // 2 - 5
+    messages = [{"role": "user", "content": build_user_prompt(now, theme, history, body_limit)}]
     for attempt in range(3):
         response = client.messages.create(
             model="claude-opus-5",
@@ -244,17 +214,17 @@ def generate_with_ai(now, theme, history, tag_line: str, footer: str) -> str:
         text = text.strip('"「」\'')
         # ハッシュタグはシステムが付けるので、AIが書いてしまった分は取り除く
         text = re.sub(r"[ 　]*#\S+", "", text).strip()
-        if text and x_weighted_len(text) + extra_len <= TARGET_WEIGHTED_LEN:
+        if text and x_weighted_len(text) + extras_len <= MAX_WEIGHTED_LEN:
             return text
         messages.append({"role": "assistant", "content": text})
         messages.append(
-            {"role": "user", "content": "長すぎます。同じ内容をもっと短く、本文を全角60文字以内で書き直してください。本文のみを出力してください。"}
+            {"role": "user", "content": f"長すぎます。同じ内容をもっと短く、本文を全角{max(body_limit - 20, 60)}文字以内で書き直してください。本文のみを出力してください。"}
         )
     raise RuntimeError("文字数内の投稿文を生成できませんでした")
 
 
 def fallback_original(history: dict) -> str:
-    """AIが使えないときは fallback.txt のオリジナル文から順番に投稿する"""
+    """AIが使えないときは fallback.txt の予備文から順番に投稿する"""
     path = ROOT / "fallback.txt"
     lines = [
         line.strip()
@@ -302,36 +272,37 @@ def main() -> None:
 
     guide = load_guide_product()
     footer = guide_footer(guide)
-    if not footer:
-        print("警告: products.csv に学校別対策ガイドの有効なURLがありません(締めの一行なしで投稿します)", file=sys.stderr)
-    elif should_include_footer(history):
-        print("今日は週1回の商品URL付きの日です")
-    else:
+    if footer and not should_include_footer(history):
         footer = ""
+    if footer:
+        print("今日は週1回の商品URL付きの日です")
 
     tag_line = build_tag_line(history)
-    quotes = load_quotes()
-    quote = choose_quote(history, quotes, tag_line, footer) if is_quote_day(history, quotes) else None
+    cta = choose_follow_cta(history, bool(footer))
+    extras = "\n" + tag_line
+    if cta:
+        extras = "\n" + cta + extras
+    if footer:
+        extras += "\n" + footer
+    extras_len = x_weighted_len(extras)
 
-    theme = None
-    source = QUOTE_SOURCE if quote else "ai"
-    if quote:
-        print(f"今日の投稿: 名言({quote['著者']})")
-        body = build_quote_body(quote)
-    else:
-        theme = choose_theme(history)
-        print(f"今日の投稿: オリジナル(テーマ: {theme})")
-        try:
-            body = generate_with_ai(now, theme, history, tag_line, footer)
-        except Exception as e:
-            print(f"AI生成に失敗したため fallback.txt から投稿します: {e}", file=sys.stderr)
-            source = "fallback"
-            theme = "予備投稿"
-            body = fallback_original(history)
+    theme = choose_theme(history)
+    print(f"今日のテーマ: {theme}")
 
-    text = body + "\n" + tag_line
-    if footer and x_weighted_len(text + "\n" + footer) <= MAX_WEIGHTED_LEN:
-        text = text + "\n" + footer
+    source = "ai"
+    try:
+        body = generate_with_ai(now, theme, history, extras_len)
+    except Exception as e:
+        print(f"AI生成に失敗したため fallback.txt から投稿します: {e}", file=sys.stderr)
+        source = "fallback"
+        theme = "予備投稿"
+        cta = ""
+        body = fallback_original(history)
+        extras = "\n" + tag_line
+
+    text = body + extras
+    if x_weighted_len(text) > MAX_WEIGHTED_LEN:  # 念のための最終ガード
+        text = body + "\n" + tag_line
 
     image_path = choose_image(history, IMAGE_FOLDERS_PRODUCT if footer else IMAGE_FOLDERS)
     print("---- 投稿文 ----")
@@ -340,6 +311,7 @@ def main() -> None:
     print("---- 画像 ----")
     print(image_path.relative_to(ROOT) if image_path else "(画像なし)")
 
+    tweet_id = None
     if dry_run:
         print("DRY_RUN のため投稿はしません")
     else:
@@ -350,12 +322,11 @@ def main() -> None:
         {
             "date": today,
             "theme": theme,
-            "author": quote["著者"] if quote else None,
-            "quote": quote["名言"] if quote else None,
-            "quote_source": quote["出典"] if quote else None,
+            "cta": cta or None,
             "image": str(image_path.relative_to(ROOT)) if image_path else None,
             "text": text,
             "source": source,
+            "tweet_id": str(tweet_id) if tweet_id else None,
         }
     )
     if not dry_run:
