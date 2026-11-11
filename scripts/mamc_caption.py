@@ -50,12 +50,21 @@ HOOK_GUIDE = {
                 ["2つの着こなし、見比べて", "甘めも、クールにも", "その日の気分で着こなして"]),
     "detail": ("デザインやシルエットに目を向けさせる一言",
                ["このシルエット、好き。", "シンプルなのに目を引く", "大人っぽく着こなすなら"]),
-    "ad": ("海外ブランド広告のようなキャッチコピー",
-           ["今日の主役はこの一着", "そのコーデ、どこの？", "人と被らないかわいさ"]),
+    "ad": ("コーディネートを提案する、海外ブランド広告のようなキャッチコピー",
+           ["今日の主役はこの一着", "休日コーデを格上げするなら", "大人のシンプルコーデに"]),
+    "tips": ("保存して見返したくなる「着こなしのコツ」「選び方」の見出し。コツの数（3つ など）は入れない",
+             ["大人の重ね着、迷わないコツ", "長く着回せる選び方", "休日コーデを格上げするコツ"]),
 }
 DECO_MAX = 2
 # 「どっち派？」「A派？B派？」のように、どちらが好きかを問いかける言葉（使わない）
-AB_QUESTION = re.compile(r"どっち(?!も)|どちら(?!も)|[AＡBＢ]\s*派|派\s*[？?]")
+AB_QUESTION = re.compile(r"どっち(?!も)|どちら(?!も)|[AＡBＢ]\s*派|派\s*[？?]|どれ(から|が|に|を)"
+                         r"|[？?][^？?]{1,14}[？?]")
+# 特徴・コツの文字に入れてはいけない言葉（人気・順位・価格の比較などは、商品データで確かめられない）
+UNVERIFIABLE_POINT = re.compile(r"人気|ランキング|\d\s*位|首位|上位|No\.?\s*1|売れ|最安|お得|安い|高見え|限定|"
+                                r"話題|定番|大好評|完売|在庫|送料|\d\s*円|%|％|専門家|保証")
+POINT_LINE_MAX = 14               # 特徴・コツの1行の文字数（54px の明朝体で画面の安全範囲に収まる長さ）
+POINT_MIN, POINT_MAX = 4, 18
+POINTS_MAX = 6
 # SNS ごとの紹介文の長さと書き方（Instagram は従来どおり）
 PLATFORMS = {
     "instagram": {"name": "Instagram", "text": (TEXT_MIN, TEXT_MAX), "newlines": 1,
@@ -154,6 +163,65 @@ def fit_hook(hook: str) -> str:
     return "\n".join(lines)
 
 
+def fit_point(point: str) -> str:
+    """特徴・コツの文を整える（絵文字・記号を外し、長ければ読点や助詞の後ろで2行に分ける）。"""
+    point = xbase.DECO_RE.sub("", clean_text(point)).replace("\\n", " ").replace("\n", " ")
+    point = re.sub(r"^(?:[・\-①-⑨\s]|\d+[.．、)）])+", "", point).strip("。 ")   # 箇条書きの記号・番号だけ外す
+    if len(point) <= POINT_LINE_MAX:
+        return point
+    rank = {ch: 0 for ch in "、／ "} | {ch: 1 for ch in "にはがをでもてと"} | {"の": 2}
+    options = [(rank[ch] + abs(len(point) / 2 - (i + 1)) / 2, i + 1) for i, ch in enumerate(point[:-1])
+               if ch in rank and i + 1 <= POINT_LINE_MAX and len(point) - (i + 1) <= POINT_LINE_MAX]
+    cut = min(options)[1] if options else (len(point) + 1) // 2
+    return point[:cut].strip(" 、") + "\n" + point[cut:].strip()
+
+
+def check_point(point: str, product: dict) -> list[str]:
+    problems = []
+    n = xbase.body_char_len(point)
+    if not POINT_MIN <= n <= POINT_MAX:
+        problems.append(f"長さが範囲外（{n}文字）")
+    if any(xbase.body_char_len(l) > POINT_LINE_MAX for l in point.split("\n")) or point.count("\n") > 1:
+        problems.append("2行に収まらない")
+    if [c for c in xbase.find_foreign_text(point, product) if c not in JAPANESE_OK]:
+        problems.append("日本語以外の文字")
+    if (xbase.find_unverifiable_claims(point, product) or any(w in point for w in xbase.BANNED_WORDS)
+            or UNVERIFIABLE_POINT.search(point)):
+        problems.append("確かめられない情報・使えない表現")
+    if AB_QUESTION.search(point) or "？" in point or "?" in point:
+        problems.append("問いかけ")
+    if re.search(r"[MmＭ][AaＡ][MmＭ][CcＣ]|#", point):
+        problems.append("ブランド名・ハッシュタグ")
+    return problems
+
+
+def pick_points(candidates: list, product: dict, images: list[Path] | None = None,
+                tips: bool = False) -> list[list] | None:
+    """AI の特徴・コツから、検査に合格したものだけを [画像のパス, 文] の並びで返す（2個未満なら使わない）。
+    特徴は、どの画像の特徴かが分かるものだけを使う（画像の番号が無い・範囲外なら使わない）。"""
+    good, seen = [], set()
+    for raw in candidates[:6]:
+        item = raw if isinstance(raw, dict) else {"image": 0, "text": raw}
+        point = fit_point(str(item.get("text", "")))
+        problems = check_point(point, product)
+        try:
+            n = int(item.get("image", 0))
+        except (TypeError, ValueError):
+            n = -1
+        path = None
+        if not tips:
+            if images and 1 <= n <= len(images):
+                path = str(images[n - 1])
+            elif images is not None:
+                problems.append("どの画像の特徴か分からない")
+        if problems:
+            print(f"[注意] 特徴・コツ「{point}」は使いません: {problems}", file=sys.stderr)
+        elif point not in seen:
+            seen.add(point)
+            good.append([path, point])
+    return good[:POINTS_MAX] if len(good) >= 2 else None
+
+
 def check_hook(hook: str, product: dict, recent_hooks: list[str]) -> list[str]:
     problems = []
     lines = hook.split("\n")
@@ -230,8 +298,14 @@ SCHEMA = {
         "tags": {"type": "array", "items": {"type": "string"},
                  "description": "ハッシュタグ候補を6〜8個（#MAMC 以外）。関係の強い順"},
         "hook": {"type": "string", "description": "動画の冒頭1〜2秒に大きく出すキャッチコピー"},
+        "points": {"type": "array",
+                   "items": {"type": "object",
+                             "properties": {"image": {"type": "integer"}, "text": {"type": "string"}},
+                             "required": ["image", "text"], "additionalProperties": False},
+                   "description": "動画で出す短い文（見える特徴、または着こなしのコツ）を3〜4個。"
+                                  "image はその特徴が見える画像の番号（1〜3）。コツは 0"},
     },
-    "required": ["text", "tags", "hook"],
+    "required": ["text", "tags", "hook", "points"],
     "additionalProperties": False,
 }
 
@@ -284,6 +358,26 @@ def build_prompt(product: dict, rules: str, recent_texts: list[str], recent_tags
         ]
         if recent_hooks:
             lines.append("- 最近使ったキャッチコピー（同じものは避ける）: " + " ／ ".join(recent_hooks))
+        if template == "tips":
+            lines += [
+                "",
+                "=== 動画で1つずつ出す「着こなしのコツ」（points）のルール ===",
+                f"- 3〜4個。1つ{POINT_MIN}〜{POINT_MAX - 4}文字。画像の服で実際に見える要素（丈・色・重ね方・小物）に沿った、"
+                "見た人がすぐ試せる一般的なコツ（例: 丈の短い上に長いスカート／色は3色までにまとめる）",
+                "- image はすべて 0 にする",
+            ]
+        else:
+            lines += [
+                "",
+                "=== 動画で画像ごとに出す「見える特徴」（points）のルール ===",
+                "- 添付した画像を、順に 画像1・画像2・画像3 と呼ぶ",
+                f"- 3〜6個。1つ{POINT_MIN}〜{POINT_MAX - 4}文字。その画像ではっきり見える特徴だけ"
+                "（色・柄・シルエット・丈・重ね方・ディテール。例: 裾からのぞくレース／ゆったりした袖）",
+                "- image には、その特徴が見える画像の番号（1〜3）を入れる。違う画像の服の特徴を書かない",
+                "- 画像1・画像2・画像3 のそれぞれについて、少なくとも1つずつ書く（動画ではどの画像が映るか決まっていないため）",
+            ]
+        lines += ["- 人気・ランキング・売れ行き・価格・お得・限定・素材・機能・サイズなど、確かめられないことは書かない",
+                  "- 絵文字・ハッシュタグ・ブランド名・問いかけ（？）は入れない"]
     if rules:
         lines += ["", "=== ブランドのルール（mamc_prompt.txt）===", rules[:1500]]
     if recent_texts:
@@ -379,7 +473,7 @@ def make_caption(images: list[Path], product: dict, history_posts: list[dict], m
         if tags is None:
             problems.append("使えるハッシュタグが足りません（日本語で商品に合うタグを6〜8個）")
         if not problems:
-            hook = None
+            hook, points = None, None
             if template:
                 hook = fit_hook(str(data.get("hook", "")))
                 hook_problems = check_hook(hook, product, recent_hooks)
@@ -387,12 +481,13 @@ def make_caption(images: list[Path], product: dict, history_posts: list[dict], m
                     print(f"[注意] AI のキャッチコピー「{hook}」は使いません（定型のものを使います）: "
                           f"{hook_problems}", file=sys.stderr)
                     hook = None
+                points = pick_points(data.get("points") or [], product, list(images[:3]), template == "tips")
             return {"text": text, "tags": tags, "caption": assemble(text, tags, cta), "source": "ai",
-                    "model": MODEL, "attempts": attempt + 1, "hook": hook}
+                    "model": MODEL, "attempts": attempt + 1, "hook": hook, "points": points}
         print(f"[注意] AI の投稿文を採用しませんでした（{attempt + 1}回目）: {problems}", file=sys.stderr)
     text, tags = template_caption(product, recent_texts, last_tags, month, rng)
     return {"text": text, "tags": tags, "caption": assemble(text, tags, cta), "source": "template",
-            "problems": problems, "hook": None}
+            "problems": problems, "hook": None, "points": None}
 
 
 def assemble(text: str, tags: list[str], cta: str = "") -> str:

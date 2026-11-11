@@ -3,10 +3,13 @@
     "template": {
       "compare": 1,
       "detail": 1,
-      "ad": 1
+      "ad": 1,
+      "tips": 1
     },
     "duration": {
-      "11": 1
+      "7": 1,
+      "11": 1,
+      "15": 1
     },
     "transition": {
       "fade": 1,
@@ -16,5 +19,15 @@
   },
   "data_sufficient": {},
   "updated_at": null,
-  "note": "初期値（データが集まるまで均等に試す。長さは11秒）"
+  "note": "長さのテスト中（14日間）：長さは A（7秒）→B（11秒）→C（15秒）の順、投稿の種類は長さごとに偏らないように選ぶ。テストの開始日は、この設定での最初の投稿の日",
+  "test": {
+    "id": "length-abc-1",
+    "days": 14,
+    "durations": [
+      "7",
+      "11",
+      "15"
+    ],
+    "active": true
+  }
 }

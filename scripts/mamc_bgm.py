@@ -483,6 +483,7 @@ CURATED = [
               "stab_pattern": 3, "swing": 0.06, "start_bar": 2, "seed": 303}},
 ]
 TRACK_SECONDS = 11.0
+TRACK_LENGTHS = (7, 11, 15)   # 動画の長さ（秒）ごとに、同じ3曲を長さを合わせて用意する
 # AAC 変換で「プチッ」というノイズが出たら、条件を変えて作り直す（ビットレート, 音量）
 ENCODE_VARIANTS = [("192k", 1.0), ("256k", 1.0), ("192k", 0.94), ("160k", 0.89), ("256k", 0.89)]
 
@@ -504,11 +505,11 @@ def find_clicks(src: np.ndarray, dec: np.ndarray, block: int = 96) -> list[float
     return [round(b * block / SR, 3) for b in bad]
 
 
-def prepare_track(audio: np.ndarray, out: Path) -> dict:
-    """11秒に仕上げ、AAC に変換して検証する。ノイズが出たら条件を変えて作り直す。"""
+def prepare_track(audio: np.ndarray, out: Path, seconds: float = TRACK_SECONDS) -> dict:
+    """指定の長さ（既定 11秒）に仕上げ、AAC に変換して検証する。ノイズが出たら条件を変えて作り直す。"""
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        fin = finish(audio, TRACK_SECONDS, tmp)
+        fin = finish(audio, seconds, tmp)
         for bitrate, gain in ENCODE_VARIANTS:
             wav = tmp / "src.wav"
             write_wav(wav, fin * gain)
@@ -519,7 +520,7 @@ def prepare_track(audio: np.ndarray, out: Path) -> dict:
             dec = decode(m4a)
             clicks = find_clicks(src, dec)
             peak = 20 * np.log10(np.max(np.abs(dec)) + 1e-12)
-            problems, stats = check_audio(m4a, TRACK_SECONDS)
+            problems, stats = check_audio(m4a, seconds)
             print(f"  変換 {bitrate}・音量x{gain}: ノイズ {clicks or 'なし'}・ピーク {peak:.1f}dB・"
                   f"{stats.get('lufs')} LUFS {problems or ''}")
             if not clicks and peak <= -1.0 and not problems:
@@ -528,19 +529,32 @@ def prepare_track(audio: np.ndarray, out: Path) -> dict:
     raise RuntimeError("ノイズの無い変換ができませんでした")
 
 
-def build_curated() -> int:
-    """既定の3曲を作曲・仕上げ・検証し、mamc_bgm/ に保存して tracks.json を書き直す。"""
+def track_seconds(entry: dict) -> int:
+    """登録音源の長さ（秒）。長さの記録が無いものは、以前からの 11秒の曲。"""
+    return int(entry.get("seconds", TRACK_SECONDS))
+
+
+def track_group(entry: dict) -> str:
+    """同じ曲の長さ違いをまとめる名前（順番に流すときに使う）。"""
+    return entry.get("group", entry.get("id", ""))
+
+
+def build_curated(lengths: tuple[int, ...] = (11,)) -> int:
+    """既定の3曲を作曲・仕上げ・検証し、mamc_bgm/ に保存して tracks.json に登録する。
+    指定した長さの分だけ作り直し、それ以外の長さの登録（とファイル）はそのまま残す。"""
     LIBRARY_DIR.mkdir(exist_ok=True)
-    entries = []
-    for c in CURATED:
+    old = json.loads(LIBRARY_JSON.read_text(encoding="utf-8")).get("tracks", []) if LIBRARY_JSON.exists() else []
+    entries = [e for e in old if track_seconds(e) not in lengths]
+    for c, seconds in ((c, n) for c in CURATED for n in lengths):
         spec = c["spec"]
-        print(f"[作曲] {c['title']}")
+        print(f"[作曲] {c['title']}・{seconds}秒")
         audio = compose(spec)
         audio = audio[int(spec["start_bar"] * 4 * 60.0 / spec["tempo"] * SR):]
-        out = LIBRARY_DIR / f"{c['id']}.m4a"
-        result = prepare_track(audio, out)
+        track_id = c["id"] if seconds == 11 else f"{c['id']}-{seconds}s"
+        out = LIBRARY_DIR / f"{track_id}.m4a"
+        result = prepare_track(audio, out, seconds)
         entries.append({
-            "id": c["id"], "file": out.name, "title": c["title"],
+            "id": track_id, "group": c["id"], "seconds": seconds, "file": out.name, "title": c["title"],
             "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
             "license": "Owned by FABMIC",
             "license_url": "mamc_bgm/README.md",
@@ -551,6 +565,7 @@ def build_curated() -> int:
         })
     LIBRARY_JSON.write_text(json.dumps({"tracks": entries}, ensure_ascii=False, indent=2) + "\n",
                             encoding="utf-8")
+    entries.sort(key=lambda e: (track_group(e), track_seconds(e)))
     print(f"[完了] {len(entries)}曲を {LIBRARY_JSON.relative_to(ROOT)} に登録しました")
     return 0
 
@@ -559,11 +574,14 @@ def build_curated() -> int:
 # 投稿のとき：動画に BGM を付ける
 # --------------------------------------------------------------------------
 def next_tracks(tracks: list[dict], history_posts: list[dict]) -> list[dict]:
-    """前回使った曲の次から順番に並べる（同じ曲が続かない）。"""
+    """前回使った曲の次から順番に並べる（同じ曲が続かない。長さ違いは同じ曲として数える）。"""
     last = next((p["bgm"].get("track_id") for p in reversed(history_posts) if p.get("bgm")), None)
-    ids = [t["id"] for t in tracks]
-    start = (ids.index(last) + 1) % len(tracks) if last in ids else 0
-    return tracks[start:] + tracks[:start]
+    groups = {t["id"]: track_group(t) for t in tracks}
+    last_group = groups.get(last, last)
+    order = list(dict.fromkeys(track_group(t) for t in tracks))
+    start = (order.index(last_group) + 1) % len(order) if last_group in order else 0
+    order = order[start:] + order[:start]
+    return sorted(tracks, key=lambda t: order.index(track_group(t)))
 
 
 def add_bgm(video: Path, history_posts: list[dict], seed: str = "") -> dict | None:
@@ -576,7 +594,8 @@ def add_bgm(video: Path, history_posts: list[dict], seed: str = "") -> dict | No
         return None
     try:
         duration = video_duration(video)
-        tracks = load_library()
+        # 動画と同じ長さの曲を使う（フェードアウトが動画の終わりにそろうように）
+        tracks = [t for t in load_library() if abs(track_seconds(t) - duration) < 0.5]
         if not tracks:
             print("[注意] 使える BGM が登録されていないため、無音のまま使います", file=sys.stderr)
             return None
@@ -607,7 +626,9 @@ def add_bgm(video: Path, history_posts: list[dict], seed: str = "") -> dict | No
 def main() -> int:
     parser = argparse.ArgumentParser(description="MAMC リール用 BGM")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("build", help="既定の3曲を作って検証し、mamc_bgm/ に登録する（手元で1回だけ）")
+    b = sub.add_parser("build", help="既定の3曲を作って検証し、mamc_bgm/ に登録する（手元で1回だけ）")
+    b.add_argument("--lengths", type=int, nargs="+", default=[11],
+                   help="作る長さ（秒）。指定しなかった長さの登録はそのまま残す（例: --lengths 7 15）")
     d = sub.add_parser("demo", help="作曲だけを WAV で書き出す（試聴用）")
     d.add_argument("out")
     d.add_argument("--seed", type=int, default=1)
@@ -616,7 +637,7 @@ def main() -> int:
     a.add_argument("video")
     args = parser.parse_args()
     if args.cmd == "build":
-        return build_curated()
+        return build_curated(tuple(args.lengths))
     if args.cmd == "demo":
         spec = make_spec(random.Random(args.seed))
         if args.style:

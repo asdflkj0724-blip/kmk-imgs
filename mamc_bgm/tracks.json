@@ -89,6 +89,198 @@
         "lufs": -14.1,
         "true_peak_db": -1.1
       }
+    },
+    {
+      "id": "mamc-01-minimal-house-7s",
+      "group": "mamc-01-minimal-house",
+      "seconds": 7,
+      "file": "mamc-01-minimal-house-7s.m4a",
+      "title": "MAMC Minimal House（A minor・120BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "47235cbe8e6fd97007094340dcf62d3254f31fc96f9fd4de5b54aa54be29b821",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "minimal_house",
+        "tempo": 120,
+        "key": "A",
+        "progression": "i-VI-III-VII",
+        "stab_pattern": 1,
+        "swing": 0.08,
+        "start_bar": 2,
+        "seed": 101
+      },
+      "encode": {
+        "bitrate": "192k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -2.7
+      }
+    },
+    {
+      "id": "mamc-01-minimal-house-15s",
+      "group": "mamc-01-minimal-house",
+      "seconds": 15,
+      "file": "mamc-01-minimal-house-15s.m4a",
+      "title": "MAMC Minimal House（A minor・120BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "0484b13294c54fdcb722aa453703f5da74b4c9aa172ea39e0a19393273236092",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "minimal_house",
+        "tempo": 120,
+        "key": "A",
+        "progression": "i-VI-III-VII",
+        "stab_pattern": 1,
+        "swing": 0.08,
+        "start_bar": 2,
+        "seed": 101
+      },
+      "encode": {
+        "bitrate": "192k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      }
+    },
+    {
+      "id": "mamc-02-deep-chic-7s",
+      "group": "mamc-02-deep-chic",
+      "seconds": 7,
+      "file": "mamc-02-deep-chic-7s.m4a",
+      "title": "MAMC Deep Chic（C minor・115BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "e1c142c7b60577377eff937f54439b472c43ba3132d032f20e9baef7f23b7500",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "deep_chic",
+        "tempo": 115,
+        "key": "C",
+        "progression": "i-VII-VI-v",
+        "stab_pattern": 0,
+        "swing": 0.1,
+        "start_bar": 1,
+        "seed": 202
+      },
+      "encode": {
+        "bitrate": "192k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -3.6
+      }
+    },
+    {
+      "id": "mamc-02-deep-chic-15s",
+      "group": "mamc-02-deep-chic",
+      "seconds": 15,
+      "file": "mamc-02-deep-chic-15s.m4a",
+      "title": "MAMC Deep Chic（C minor・115BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "13c26af460d54360caad6f29825c0738a68701277ce96eeeba6589fbdcc135d8",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "deep_chic",
+        "tempo": 115,
+        "key": "C",
+        "progression": "i-VII-VI-v",
+        "stab_pattern": 0,
+        "swing": 0.1,
+        "start_bar": 1,
+        "seed": 202
+      },
+      "encode": {
+        "bitrate": "192k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -3.3
+      }
+    },
+    {
+      "id": "mamc-03-runway-pulse-7s",
+      "group": "mamc-03-runway-pulse",
+      "seconds": 7,
+      "file": "mamc-03-runway-pulse-7s.m4a",
+      "title": "MAMC Runway Pulse（E minor・124BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "93c61277d303ecafd19c00d74ed7cc8238499947a0995bc2b4c5e7c76829eeab",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "runway_pulse",
+        "tempo": 124,
+        "key": "E",
+        "progression": "i-iv-VII-III",
+        "stab_pattern": 3,
+        "swing": 0.06,
+        "start_bar": 2,
+        "seed": 303
+      },
+      "encode": {
+        "bitrate": "192k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -2.1
+      }
+    },
+    {
+      "id": "mamc-03-runway-pulse-15s",
+      "group": "mamc-03-runway-pulse",
+      "seconds": 15,
+      "file": "mamc-03-runway-pulse-15s.m4a",
+      "title": "MAMC Runway Pulse（E minor・124BPM）",
+      "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+      "license": "Owned by FABMIC",
+      "license_url": "mamc_bgm/README.md",
+      "commercial_use": true,
+      "sns_use": true,
+      "ad_use": true,
+      "attribution_required": false,
+      "sha256": "51404520c85f93532756ef5c8551cc73d4e3208057973dd88c4d547b9bbfe50f",
+      "retrieved": "2026-11-11",
+      "composition": {
+        "style": "runway_pulse",
+        "tempo": 124,
+        "key": "E",
+        "progression": "i-iv-VII-III",
+        "stab_pattern": 3,
+        "swing": 0.06,
+        "start_bar": 2,
+        "seed": 303
+      },
+      "encode": {
+        "bitrate": "256k",
+        "gain": 1.0,
+        "lufs": -14.1,
+        "true_peak_db": -2.2
+      }
     }
   ]
 }
