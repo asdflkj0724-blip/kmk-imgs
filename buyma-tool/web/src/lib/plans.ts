@@ -1,0 +1,90 @@
+/**
+ * 料金プラン。金額・件数・名前は src/site.config.ts で決める（ここは機能の説明など）。
+ */
+import { SITE } from '../site.config';
+export type PlanId = 'trial' | 'mini' | 'light' | 'standard' | 'pro';
+export type BillingInterval = 'month' | 'year';
+
+export interface Plan {
+  id: PlanId;
+  name: string;
+  monthlyPriceJpy: number;
+  /** 年払いは2か月分お得＝月額×10 */
+  yearlyPriceJpy: number;
+  monthlyLimit: number;
+  features: string[];
+  highlight?: boolean;
+}
+
+export const TRIAL_DAYS = SITE.trial.days;
+export const TRIAL_LIMIT = SITE.trial.limit;
+/** 紹介で来た人のお試し日数（1か月無料） */
+export const REFERRAL_TRIAL_DAYS = 30;
+
+/**
+ * 赤字を防ぐ安全装置：1人の1か月の AI 費用が、月額料金のこの割合を超えたら、その月は止める。
+ * 0.65 なら、AI 費用と Stripe の手数料（約3.6%）を引いても、月額の約3割は必ず利益として残る。
+ * 見込みの費用（1件約3円）の約1.3倍までなら、どのプランも件数の上限まで止まらない。
+ */
+export const AI_COST_GUARD_RATE = 0.65;
+/** 無料お試しで使える AI 費用の上限（円） */
+export const TRIAL_AI_COST_CAP_JPY = 200;
+/** AI の費用（ドル）を円にするときのレート。少し円安ぎみに見ておく */
+export const USD_JPY = Number(process.env.USD_JPY || 160);
+
+export const PLANS: Record<Exclude<PlanId, 'trial'>, Plan> = {
+  mini: {
+    id: 'mini',
+    name: SITE.plans.mini.name,
+    monthlyPriceJpy: SITE.plans.mini.monthly,
+    yearlyPriceJpy: SITE.plans.mini.yearly,
+    monthlyLimit: SITE.plans.mini.limit,
+    features: [`月${SITE.plans.mini.limit}件まで`, 'タイトル・説明文の自動作成', '価格の自動計算', 'BUYMA出品用データ（項目ごとにコピー）・CSV・画像ZIP'],
+  },
+  light: {
+    id: 'light',
+    name: SITE.plans.light.name,
+    monthlyPriceJpy: SITE.plans.light.monthly,
+    yearlyPriceJpy: SITE.plans.light.yearly,
+    monthlyLimit: SITE.plans.light.limit,
+    features: [`月${SITE.plans.light.limit}件まで`, 'ミニの機能すべて', `1件あたり約${Math.round(SITE.plans.light.monthly / SITE.plans.light.limit)}円`],
+  },
+  standard: {
+    id: 'standard',
+    name: SITE.plans.standard.name,
+    monthlyPriceJpy: SITE.plans.standard.monthly,
+    yearlyPriceJpy: SITE.plans.standard.yearly,
+    monthlyLimit: SITE.plans.standard.limit,
+    features: [`月${SITE.plans.standard.limit}件まで`, 'ライトの機能すべて', `1件あたり約${Math.round(SITE.plans.standard.monthly / SITE.plans.standard.limit)}円`],
+    highlight: true,
+  },
+  pro: {
+    id: 'pro',
+    name: SITE.plans.pro.name,
+    monthlyPriceJpy: SITE.plans.pro.monthly,
+    yearlyPriceJpy: SITE.plans.pro.yearly,
+    monthlyLimit: SITE.plans.pro.limit,
+    features: [`月${SITE.plans.pro.limit.toLocaleString('ja-JP')}件まで`, 'スタンダードの機能すべて', '在庫・価格チェック（準備中）', `1件あたり約${Math.round(SITE.plans.pro.monthly / SITE.plans.pro.limit)}円`],
+  },
+};
+
+export const PAID_PLAN_IDS = Object.keys(PLANS) as Exclude<PlanId, 'trial'>[];
+
+export function isPaidPlan(id: string): id is Exclude<PlanId, 'trial'> {
+  return (PAID_PLAN_IDS as string[]).includes(id);
+}
+
+/** Stripe の価格 ID（環境変数）とプランの対応 */
+export function stripePriceId(plan: Exclude<PlanId, 'trial'>, interval: BillingInterval): string | undefined {
+  const key = `STRIPE_PRICE_${plan.toUpperCase()}_${interval === 'year' ? 'YEARLY' : 'MONTHLY'}`;
+  return process.env[key] || undefined;
+}
+
+export function planFromStripePrice(priceId: string): { plan: Exclude<PlanId, 'trial'>; interval: BillingInterval } | null {
+  for (const plan of PAID_PLAN_IDS) {
+    for (const interval of ['month', 'year'] as const) {
+      if (stripePriceId(plan, interval) === priceId) return { plan, interval };
+    }
+  }
+  return null;
+}

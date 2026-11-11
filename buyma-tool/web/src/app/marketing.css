@@ -1,0 +1,124 @@
+/* 公開ページ（LP・規約・ブログなど）の見た目。色は globals.css の変数だけを使う */
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.site-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+.site-logo { font-weight: 800; font-size: 1.25rem; color: var(--text); text-decoration: none; }
+.site-nav { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 0.95rem; }
+.site-nav a { color: var(--text); text-decoration: none; }
+.site-nav a.site-nav-cta { color: var(--accent-text); padding: 6px 14px; }
+@media (max-width: 640px) {
+  /* スマホ：名前・ログイン・無料お試しを1段に。ほかのメニューはフッターとページ内から */
+  .site-header-inner { flex-wrap: nowrap; }
+  .site-logo { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .site-nav { gap: 10px; font-size: 0.875rem; flex-wrap: nowrap; flex-shrink: 0; }
+  .site-nav .nav-wide { display: none; }
+  .site-nav a.site-nav-cta { padding: 6px 10px; }
+}
+@media (max-width: 430px) { .site-nav .nav-login { display: none; } .site-logo { overflow: visible; } }
+/* 上に固定したメニューに、ページ内リンクの行き先が隠れないように */
+section[id], [id='signup'] { scroll-margin-top: 72px; }
+/* 見出しは、言葉の途中で改行しない */
+.phrase { display: inline-block; }
+.hero h1 { text-wrap: balance; }
+
+.site-footer { border-top: 1px solid var(--line); margin-top: 64px; padding: 32px 0; background: var(--bg-soft); }
+.site-footer-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 12px; }
+.site-footer-links a { color: var(--text); font-size: 0.9rem; }
+
+.section { padding: 56px 0; }
+.section-soft { background: var(--bg-soft); }
+.section h2 { font-size: 1.6rem; margin: 0 0 8px; line-height: 1.4; }
+.section-lead { color: var(--muted); margin: 0 0 28px; }
+
+.hero { padding: 56px 0 40px; }
+.hero-grid { display: grid; gap: 28px; align-items: center; }
+@media (min-width: 860px) { .hero-grid { grid-template-columns: 1.1fr 1fr; } }
+.hero h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.3; margin: 0 0 16px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p { font-size: 1.05rem; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 8px; }
+.demo-box { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-soft); overflow: hidden; }
+.demo-box video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.demo-fallback { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 16px; color: var(--muted); }
+.demo-play { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+
+.pain-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+@media (min-width: 720px) { .pain-list { grid-template-columns: repeat(3, 1fr); } }
+.pain-list li { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--bg); }
+
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+@media (min-width: 720px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+.steps li { border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; background: var(--bg); }
+.steps li::before { counter-increment: step; content: 'STEP ' counter(step); display: inline-block; font-weight: 700; font-size: 0.8rem; color: var(--accent); margin-bottom: 6px; }
+.steps h3, .feature h3 { margin: 0 0 6px; font-size: 1.1rem; }
+.steps p, .feature p { margin: 0; }
+
+.feature { border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; background: var(--bg); }
+
+.price-grid { display: grid; gap: 16px; }
+@media (min-width: 860px) { .price-grid { grid-template-columns: repeat(4, 1fr); } }
+.price-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; position: relative; }
+.price-card.highlight { border: 2px solid var(--accent); }
+.price-tag { position: absolute; top: -12px; left: 16px; background: var(--accent); color: var(--accent-text); font-size: 0.75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+.price-card h3 { margin: 0; font-size: 1.15rem; }
+.price-amount { font-size: 1.8rem; font-weight: 800; line-height: 1.2; }
+.price-amount small { font-size: 0.9rem; font-weight: 400; color: var(--muted); }
+.price-card ul { padding-left: 18px; margin: 4px 0 12px; flex: 1; }
+.price-card .btn { text-align: center; }
+
+.faq dt { font-weight: 700; margin-top: 18px; }
+.faq dt::before { content: 'Q. '; color: var(--accent); }
+.faq dd { margin: 4px 0 0; padding-left: 1.6em; }
+
+.cta-band { text-align: center; padding: 48px 16px; border-radius: var(--radius); background: var(--accent-soft); }
+.cta-band h2 { margin-top: 0; }
+
+/* 規約・ブログなど文章のページ */
+.prose { max-width: 760px; margin: 0 auto; padding: 40px 16px; overflow-wrap: anywhere; }
+.prose h1 { font-size: 1.8rem; line-height: 1.4; margin: 0 0 8px; }
+.prose h2 { font-size: 1.3rem; margin: 32px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.prose h3 { font-size: 1.1rem; margin: 24px 0 6px; }
+.prose ol, .prose ul { padding-left: 1.4em; }
+.draft-note { font-size: 0.8rem; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 6px 10px; display: inline-block; margin-bottom: 16px; }
+.kv-table th { width: 32%; background: var(--bg-soft); }
+@media (max-width: 560px) { .kv-table th, .kv-table td { display: block; width: 100%; } .kv-table th { border-bottom: none; } }
+
+.post-list { list-style: none; padding: 0; display: grid; gap: 16px; }
+.post-list a { text-decoration: none; color: var(--text); }
+.post-list h2 { border: none; margin: 0 0 4px; font-size: 1.15rem; }
+
+.form-row { margin-bottom: 8px; }
+.form-msg { margin-top: 12px; }
+
+@media print {
+  .site-header, .site-footer, .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  .prose { max-width: none; padding: 0; }
+  .prose h2 { page-break-after: avoid; }
+  a { color: #000; }
+}
+
+.feature-main { border-color: var(--accent); background: var(--accent-soft); }
+
+/* メール登録（主役）と申し込みボタン（小さめ） */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.signup { display: grid; gap: 10px; max-width: 560px; margin: 20px 0 8px; }
+.signup input[type='email'] { font-size: 1rem; padding: 12px 14px; }
+.signup .btn { font-size: 1.05rem; padding: 12px 18px; width: 100%; }
+@media (min-width: 560px) {
+  .signup { grid-template-columns: 1fr auto; }
+  .signup .btn { width: auto; }
+  .signup .signup-note, .signup .error { grid-column: 1 / -1; }
+}
+.signup-note { margin: 0; }
+.signup-compact { margin: 16px auto 8px; text-align: left; }
+.signup-thanks { max-width: 480px; margin: 20px 0 8px; padding: 14px 16px; border-radius: var(--radius); background: var(--accent-soft); border: 1px solid var(--accent); }
+.cta-band .signup-thanks { margin: 16px auto 8px; text-align: left; }
+.buy-link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; font: inherit; font-size: 0.95rem; cursor: pointer; }
+.buy-link:disabled { opacity: 0.6; cursor: default; }
+.buy-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 0.9rem; color: var(--muted); }
+.hero h1 .sub { display: block; font-size: 0.55em; color: var(--muted); font-weight: 700; margin-top: 10px; }
+.value-note { border-left: 4px solid var(--accent); padding: 10px 14px; background: var(--bg); margin: 0 0 20px; }
+.semi-auto { margin-top: 20px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg); }
+.flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; list-style: none; font-size: 0.9rem; }
+.flow .flow-step { background: var(--accent-soft); border-radius: 999px; padding: 2px 10px; }
+.flow .flow-arrow { color: var(--muted); }

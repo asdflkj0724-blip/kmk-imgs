@@ -1,0 +1,139 @@
+/*
+ * ポップアップの「確認・修正」画面と、商品データ（サーバーに送る形）の行き来。DOM は使わない。
+ */
+(function (root) {
+  'use strict';
+
+  const CURRENCIES = ['CNY', 'KRW', 'USD', 'EUR', 'GBP', 'JPY', 'HKD', 'TWD'];
+  const SOLD_OUT = '（品切れ）';
+  const COLOR_RE = /颜色|色|color|colour|カラー|색상|컬러|couleur|colore/i;
+  const SIZE_RE = /尺码|尺寸|码|サイズ|size|사이즈|taille|taglia/i;
+
+  /**
+   * 拡張で取れた結果（タオバオ等の専用読み取り）とサーバーの AI の結果から、使う方を決める。
+   * - 専用読み取りで全部取れていれば、それを使う（AI の費用がかからない）
+   * - そうでなければ AI の結果を使い、AI が画像を見つけられなければ専用読み取りの画像を使う
+   */
+  function chooseProduct(siteProduct, serverProduct) {
+    if (siteProduct && siteProduct.complete) return siteProduct;
+    if (!serverProduct) return siteProduct || null;
+    const p = Object.assign({}, serverProduct);
+    if ((!p.images || !p.images.length) && siteProduct && siteProduct.images && siteProduct.images.length) {
+      p.images = siteProduct.images.slice();
+    }
+    if (siteProduct && !p.itemId && siteProduct.itemId) p.itemId = siteProduct.itemId;
+    p.complete = !!(p.title && p.price && p.images && p.images.length);
+    return p;
+  }
+
+  const lines = (s) =>
+    String(s || '')
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+  function valueLines(values) {
+    return values.map((v) => v.name + (v.disabled ? SOLD_OUT : '')).join('\n');
+  }
+
+  /** 商品データ → 画面の入力欄の値 */
+  function formFromProduct(p) {
+    const colors = [];
+    const sizes = [];
+    const specs = (p.specs || []).map((s) => `${s.name}: ${s.value}`);
+    for (const g of p.skus || []) {
+      if (COLOR_RE.test(g.name)) colors.push(...g.values);
+      else if (SIZE_RE.test(g.name)) sizes.push(...g.values);
+      else specs.push(`${g.name}: ${g.values.map((v) => v.name).join(' / ')}`);
+    }
+    const currency = p.price && CURRENCIES.includes(p.price.currency) ? p.price.currency : 'CNY';
+    return {
+      title: p.title || '',
+      priceMin: p.price ? String(p.price.min) : '',
+      priceMax: p.price && p.price.max !== p.price.min ? String(p.price.max) : '',
+      currency,
+      colors: valueLines(colors),
+      sizes: valueLines(sizes),
+      specs: specs.join('\n'),
+      images: (p.images || []).map((url) => ({ url, keep: true })),
+    };
+  }
+
+  function parseValues(text) {
+    return lines(text).map((l) => {
+      const disabled = l.endsWith(SOLD_OUT);
+      return { name: disabled ? l.slice(0, -SOLD_OUT.length).trim() : l, image: '', disabled };
+    });
+  }
+
+  /** 画面の入力欄の値 → 商品データ（元の商品の source / itemId / url は引き継ぐ） */
+  function productFromForm(form, base) {
+    base = base || {};
+    const min = parseFloat(String(form.priceMin).replace(/,/g, ''));
+    const maxRaw = parseFloat(String(form.priceMax).replace(/,/g, ''));
+    const price =
+      Number.isFinite(min) && min > 0
+        ? {
+            min: Number.isFinite(maxRaw) && maxRaw > 0 ? Math.min(min, maxRaw) : min,
+            max: Number.isFinite(maxRaw) && maxRaw > 0 ? Math.max(min, maxRaw) : min,
+            currency: CURRENCIES.includes(form.currency) ? form.currency : 'CNY',
+            raw: '',
+          }
+        : null;
+    const skus = [];
+    const colors = parseValues(form.colors);
+    const sizes = parseValues(form.sizes);
+    if (colors.length) skus.push({ name: 'カラー', values: colors });
+    if (sizes.length) skus.push({ name: 'サイズ', values: sizes });
+    const specs = lines(form.specs)
+      .map((l) => {
+        const i = l.search(/[:：]/);
+        return i > 0 ? { name: l.slice(0, i).trim(), value: l.slice(i + 1).trim() } : null;
+      })
+      .filter((s) => s && s.name && s.value);
+    const images = (form.images || []).filter((i) => i.keep).map((i) => i.url);
+    const title = String(form.title || '').trim();
+    return {
+      source: base.source || 'unknown',
+      itemId: base.itemId || '',
+      url: base.url || '',
+      title,
+      price,
+      skus,
+      specs,
+      images,
+      complete: !!(title && price && images.length),
+      warnings: [],
+    };
+  }
+
+  /**
+   * 商品IDがないサイト（タオバオ以外）では、URL から作った8文字の目印を商品IDにする。
+   * サーバーに送る前に入れておくので、画像ZIPのファイル名と CSV の画像ファイル名がそろう。
+   */
+  function ensureItemId(p, hash) {
+    if (!p.itemId) p.itemId = hash(p.url);
+    return p;
+  }
+
+  /** 「全部まとめてコピー」用の文章 */
+  function listingText(fields) {
+    const order = [
+      ['title', 'タイトル'],
+      ['priceJpy', '価格（円）'],
+      ['category', 'カテゴリー候補'],
+      ['brand', 'ブランド'],
+      ['colors', '色'],
+      ['sizes', 'サイズ'],
+      ['material', '素材'],
+      ['shippingMethod', '配送方法'],
+    ];
+    const out = order.filter(([k]) => fields[k]).map(([k, label]) => `${label}：${fields[k]}`);
+    if (fields.description) out.push('', '商品コメント：', fields.description);
+    return out.join('\n');
+  }
+
+  const api = { CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.BuymaProductForm = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);

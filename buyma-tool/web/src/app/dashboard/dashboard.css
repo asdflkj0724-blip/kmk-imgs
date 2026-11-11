@@ -1,0 +1,20 @@
+.dash-header { border-bottom: 1px solid var(--line); background: var(--bg); }
+.dash-header-inner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+.dash-logo { font-weight: 800; text-decoration: none; color: var(--text); }
+.dash-nav { display: flex; gap: 14px; flex-wrap: wrap; flex: 1; }
+.dash-nav a { color: var(--text); text-decoration: none; font-size: 0.95rem; }
+.dash-nav a:hover { color: var(--accent); }
+.dash-signout { background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; }
+.dash-main { padding-top: 24px; padding-bottom: 64px; }
+.dash-main h1 { font-size: 1.5rem; margin-top: 0; }
+.stat { font-size: 2rem; font-weight: 800; line-height: 1.2; }
+.meter { height: 8px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; border: 1px solid var(--line); }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.steps { padding-left: 20px; }
+.steps li { margin-bottom: 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.form-grid { display: grid; gap: 0 16px; }
+@media (min-width: 720px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+.hint { font-size: 0.8rem; color: var(--muted); margin: 2px 0 0; }
+.thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.plan-card.current { border-color: var(--accent); }
