@@ -1620,6 +1620,71 @@
       ],
       "ig_media_id": "17979168146934876",
       "permalink": "https://www.instagram.com/reel/DfjyTzrmQO_/"
+    },
+    {
+      "date": "2026-11-11T20:21:16+09:00",
+      "slot": "2026-11-11",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "フリンジで縁どる短丈カーデに、裾をしぼったバルーンパンツ。\n結ぶトップスとロングスカートで、自由に重ねるMAMCの秋。",
+      "text": "フリンジで縁どる短丈カーデに、裾をしぼったバルーンパンツ。\n結ぶトップスとロングスカートで、自由に重ねるMAMCの秋。",
+      "image": "imageye___-_imgi_4_O1CN01UtRpX1wDfgH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01UtRpX1wDfgH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01m2uQsBwSc6F2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_62_O1CN01filqG2RyQwB2vHAO_!!4611686018427380178-0-item_pic.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#カーディガンコーデ",
+        "#ロングスカートコーデ",
+        "#バルーンパンツ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "ほつれも、\n今日の主役"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "ほつれも、\n今日の主役",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.004,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.125,
+          "worst_char": 0.238,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18121048148060391",
+      "permalink": "https://www.instagram.com/reel/DfmXFX0EoxN/"
     }
   ],
   "errors": []
