@@ -26,6 +26,8 @@ async function saveState() {
     if (product) product = PF.productFromForm(readForm(), product);
     if (listing) Object.assign(listing, readListingFields());
     await chrome.storage.session.set({ [stateKey()]: { product, listing } });
+    // BUYMA の出品画面（別のタブ）で「BUYMAに反映」に使うため、最後に作った出品データを残す
+    if (listing) await chrome.storage.local.set({ lastForBuyma: { listing, product, savedAt: Date.now() } });
   } catch (e) {}
 }
 async function loadState() {
@@ -348,7 +350,7 @@ async function generate() {
     listing = res.listing;
     renderListing(listing);
     await saveState();
-    setStatus('できました。項目ごとにコピーして、BUYMAの出品画面に貼ってください');
+    setStatus('できました。BUYMA の出品画面を開いて、もう一度このボタンから「BUYMAに反映」を押すと入ります');
   } catch (e) {
     setStatus(e.message);
   } finally {
@@ -425,11 +427,53 @@ async function buildZip(current) {
   }
 }
 
+// ---- BUYMA に反映 ----
+// ページの中で動く関数（外の変数は使えない）
+function fillActiveBuymaPage(values) {
+  return globalThis.RakuBuymaFill.fillBuyma(document, values);
+}
+
+async function showBuymaBox() {
+  const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
+  $('buymaBox').hidden = false;
+  $('extract').hidden = true;
+  if (!lastForBuyma || !lastForBuyma.listing) {
+    $('buymaTarget').textContent = 'まだ出品データがありません。先に仕入れ先の商品ページで「この商品の情報を取る」→「出品データを作る」をしてください。';
+    $('fillBuyma').disabled = true;
+    return;
+  }
+  $('buymaTarget').textContent = '入れる出品データ：' + (lastForBuyma.listing.title || '（商品名なし）');
+}
+
+async function fillBuyma() {
+  if (!requireActive()) return;
+  const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
+  if (!lastForBuyma) return setStatus('まだ出品データがありません');
+  const values = PF.buymaValues(lastForBuyma.listing, lastForBuyma.product);
+  $('fillBuyma').disabled = true;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/buyma-fill.js'] });
+    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillActiveBuymaPage, args: [values] });
+    const r = res && res.result;
+    if (!r) throw new Error('結果が返ってきませんでした');
+    const parts = [];
+    if (r.filled.length) parts.push(`${r.filled.join('・')} を入れました`);
+    if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);
+    if (r.missing.length) parts.push(`${r.missing.join('・')} は見つかりませんでした（コピーして貼ってください）`);
+    setStatus(parts.join('。') || '入れる項目がありませんでした');
+  } catch (e) {
+    setStatus('BUYMA の画面に入れられませんでした。ページを再読み込みしてから、もう一度お試しください。');
+  } finally {
+    $('fillBuyma').disabled = false;
+  }
+}
+
 // ---- はじめに ----
 async function init() {
   $('fCurrency').replaceChildren(...PF.CURRENCIES.map((c) => el('option', { value: c }, c)));
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   settings = await api.getSettings();
+  if (tab && PF.isBuymaUrl(tab.url)) await showBuymaBox();
   await loadState();
   if (product) renderForm(product);
   if (listing) renderListing(listing);
@@ -437,6 +481,7 @@ async function init() {
 }
 
 $('extract').addEventListener('click', extract);
+$('fillBuyma').addEventListener('click', fillBuyma);
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

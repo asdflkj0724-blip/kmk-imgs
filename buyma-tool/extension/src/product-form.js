@@ -22,6 +22,7 @@
       p.images = siteProduct.images.slice();
     }
     if (siteProduct && !p.itemId && siteProduct.itemId) p.itemId = siteProduct.itemId;
+    if (siteProduct && !p.shopName && siteProduct.shopName) p.shopName = siteProduct.shopName;
     p.complete = !!(p.title && p.price && p.images && p.images.length);
     return p;
   }
@@ -97,6 +98,7 @@
       source: base.source || 'unknown',
       itemId: base.itemId || '',
       url: base.url || '',
+      shopName: base.shopName || '',
       title,
       price,
       skus,
@@ -169,7 +171,33 @@
     return n;
   }
 
-  const api = { buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
+  /** BUYMA の出品画面に入れる値（「BUYMAに反映」用） */
+  function buymaValues(listing, product) {
+    const l = listing || {};
+    const p = product || {};
+    const price = Number(l.priceJpy);
+    const memo = [];
+    if (p.url) memo.push('仕入れ先：' + p.url);
+    if (p.price && p.price.min) memo.push(`仕入れ値：${p.price.min}${p.price.max && p.price.max !== p.price.min ? '〜' + p.price.max : ''} ${p.price.currency || ''}`.trim());
+    if (memo.length) memo.push('（ラク出品で作成）');
+    return {
+      title: l.title || '',
+      description: l.description || '',
+      price: Number.isFinite(price) && price > 0 ? String(Math.round(price)) : '',
+      shopName: p.shopName || '',
+      memo: memo.join('\n'),
+    };
+  }
+
+  function isBuymaUrl(url) {
+    try {
+      return /(^|\.)buyma\.com$/.test(new URL(url).hostname);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const api = { buymaValues, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaProductForm = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

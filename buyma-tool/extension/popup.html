@@ -11,6 +11,14 @@
   </header>
   <p id="account" class="small muted">確認中…</p>
 
+  <!-- BUYMA の出品画面を開いているときだけ出す -->
+  <section id="buymaBox" hidden>
+    <h2>BUYMA の出品画面です</h2>
+    <p id="buymaTarget" class="small"></p>
+    <button id="fillBuyma">BUYMAに反映</button>
+    <p class="small muted">商品名・商品コメント・商品価格・買付先ショップ名・出品メモを入れます。すでに入っている欄は上書きしません。「出品する」はご自身で押してください。</p>
+  </section>
+
   <button id="extract">この商品の情報を取る</button>
   <p id="status"></p>
 
