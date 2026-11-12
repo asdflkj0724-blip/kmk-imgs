@@ -9,7 +9,7 @@ import { fxFor, getAllowance, getProfile, settingsFor } from '@/lib/account';
 import { ProductSchema, colorsAndSizes, sourceText } from '@/lib/product';
 import { AiRefusalError, composeDescription, generateListing } from '@/lib/ai';
 import { calculatePrice } from '@/lib/pricing';
-import { checkListing } from '@/lib/listingRules';
+import { autoFixText, checkListing, fitTitle } from '@/lib/listingRules';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { CURRENCY_LABELS, normalizeCurrency } from '@/lib/fx';
@@ -55,7 +55,12 @@ export async function POST(req: Request) {
     }
     throw e;
   }
-  const g = result.generated;
+  // 根拠のない誇大表現（「高級」など）は、警告ではなく自動で消す
+  const fixedTitle = autoFixText(result.generated.title, true);
+  const fixedBody = autoFixText(result.generated.description);
+  const g = { ...result.generated, title: fitTitle(fixedTitle.text), description: fixedBody.text };
+  const removedWords = Array.from(new Set([...fixedTitle.removed, ...fixedBody.removed]));
+  const fixes = removedWords.length ? [`根拠のない表現（${removedWords.map((w) => `「${w}」`).join('')}）を自動で消しました`] : [];
   const description = composeDescription(g, template?.body ?? '');
 
   // 価格：手で入れた値 → 商品の最低価格 の順に使う。通貨は商品ページの通貨
@@ -132,6 +137,8 @@ export async function POST(req: Request) {
       images: product.images,
       issues,
       cautions: g.cautions,
+      missing: g.missing ?? [],
+      fixes,
       category: g.category,
       brand: g.brand,
       material: g.material,

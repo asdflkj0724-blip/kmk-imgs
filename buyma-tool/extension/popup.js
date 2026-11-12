@@ -6,6 +6,7 @@ let TITLE_MAX = 60; // サーバー（/api/me の titleMax）から上書きす�
 let product = null; // 確認・修正した商品データ
 let listing = null; // サーバーで作った出品データ
 let tab = null;
+let settings = null; // 拡張機能の設定（配送方法・透かしなど）
 
 function el(tag, attrs, text) {
   const e = document.createElement(tag);
@@ -25,6 +26,8 @@ async function saveState() {
     if (product) product = PF.productFromForm(readForm(), product);
     if (listing) Object.assign(listing, readListingFields());
     await chrome.storage.session.set({ [stateKey()]: { product, listing } });
+    // BUYMA の出品画面（別のタブ）で「BUYMAに反映」に使うため、最後に作った出品データを残す
+    if (listing) await chrome.storage.local.set({ lastForBuyma: { listing, product, savedAt: Date.now() } });
   } catch (e) {}
 }
 async function loadState() {
@@ -138,7 +141,7 @@ const FIELDS = [
   { key: 'colors', label: '色', type: 'input' },
   { key: 'sizes', label: 'サイズ', type: 'input' },
   { key: 'material', label: '素材', type: 'input' },
-  { key: 'shippingMethod', label: '配送方法', type: 'input' },
+  { key: 'shippingMethod', label: '配送方法', type: 'shipping' },
 ];
 
 const BREAKDOWN_LABELS = [
@@ -162,8 +165,8 @@ function fieldValue(l, key) {
 function updateTitleCount() {
   const input = $('l-title');
   if (!input) return;
-  const n = Array.from(input.value).length;
-  $('titleCount').textContent = `${n} / ${TITLE_MAX}文字`;
+  const n = PF.buymaLength(input.value);
+  $('titleCount').textContent = `半角換算 ${n} / ${TITLE_MAX}文字（全角は2文字）`;
   $('titleCount').className = 'small' + (n > TITLE_MAX ? ' over' : '');
 }
 
@@ -188,6 +191,10 @@ function renderListing(l) {
       const btn = el('button', { type: 'button', className: 'copy' }, 'コピー');
       btn.addEventListener('click', () => copyText($(id).value, f.label));
       head.append(label, btn);
+      if (f.type === 'shipping') {
+        wrap.append(head, ...shippingControl(id, fieldValue(l, f.key)));
+        return wrap;
+      }
       const input =
         f.type === 'textarea'
           ? el('textarea', { id, rows: 8 })
@@ -215,12 +222,27 @@ function renderListing(l) {
     rows.push(fx);
     $('breakdown').replaceChildren(...rows);
   }
-  const items = [
-    ...(l.priceError ? [el('li', { className: 'lv-warning' }, '【価格】' + l.priceError)] : []),
-    ...(l.issues || []).map((i) => el('li', { className: 'lv-' + i.level }, (i.level === 'error' ? '【要修正】' : '【注意】') + i.message)),
-    ...(l.cautions || []).map((c) => el('li', { className: 'lv-warning' }, '【確認してください】' + c)),
-  ];
-  $('issues').replaceChildren(...items);
+  $('issues').replaceChildren(...PF.noticeItems(l).map((n) => el('li', { className: 'lv-' + n.level }, n.text)));
+}
+
+/** 配送方法：設定で登録した名前から選ぶ。最後に選んだものを、変えるまで次の商品にも引き継ぐ */
+function shippingControl(id, serverValue) {
+  const list = (settings && settings.shippingMethods) || [];
+  if (!list.length) {
+    const input = el('input', { id, type: 'text' });
+    input.value = serverValue;
+    const hint = el('p', { className: 'ship-hint' }, '設定画面で BUYMA の配送方法を登録すると、ここで選べて、次の商品にも引き継げます。');
+    return [input, hint];
+  }
+  const select = el('select', { id });
+  select.append(el('option', { value: '' }, '（選んでください）'), ...list.map((name) => el('option', { value: name }, name)));
+  select.value = PF.pickShipping(list, settings.lastShipping, serverValue);
+  select.addEventListener('change', async () => {
+    settings = await api.saveSettings({ lastShipping: select.value });
+    saveState();
+    setStatus(select.value ? `配送方法「${select.value}」を次の商品にも使います` : '配送方法を未選択にしました');
+  });
+  return [select];
 }
 
 function readListingFields() {
@@ -328,7 +350,7 @@ async function generate() {
     listing = res.listing;
     renderListing(listing);
     await saveState();
-    setStatus('できました。項目ごとにコピーして、BUYMAの出品画面に貼ってください');
+    setStatus('できました。BUYMA の出品画面を開いて、もう一度このボタンから「BUYMAに反映」を押すと入ります');
   } catch (e) {
     setStatus(e.message);
   } finally {
@@ -392,7 +414,7 @@ async function buildZip(current) {
     const { zip, ok, failed } = await BuymaImages.buildImagesZip(
       current.images,
       itemId,
-      { maxPx: s.imageMaxPx, quality: s.jpegQuality },
+      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '' },
       (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
     );
     if (!ok) return setStatus('画像を1枚も取れませんでした');
@@ -405,10 +427,53 @@ async function buildZip(current) {
   }
 }
 
+// ---- BUYMA に反映 ----
+// ページの中で動く関数（外の変数は使えない）
+function fillActiveBuymaPage(values) {
+  return globalThis.RakuBuymaFill.fillBuyma(document, values);
+}
+
+async function showBuymaBox() {
+  const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
+  $('buymaBox').hidden = false;
+  $('extract').hidden = true;
+  if (!lastForBuyma || !lastForBuyma.listing) {
+    $('buymaTarget').textContent = 'まだ出品データがありません。先に仕入れ先の商品ページで「この商品の情報を取る」→「出品データを作る」をしてください。';
+    $('fillBuyma').disabled = true;
+    return;
+  }
+  $('buymaTarget').textContent = '入れる出品データ：' + (lastForBuyma.listing.title || '（商品名なし）');
+}
+
+async function fillBuyma() {
+  if (!requireActive()) return;
+  const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
+  if (!lastForBuyma) return setStatus('まだ出品データがありません');
+  const values = PF.buymaValues(lastForBuyma.listing, lastForBuyma.product);
+  $('fillBuyma').disabled = true;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/buyma-fill.js'] });
+    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillActiveBuymaPage, args: [values] });
+    const r = res && res.result;
+    if (!r) throw new Error('結果が返ってきませんでした');
+    const parts = [];
+    if (r.filled.length) parts.push(`${r.filled.join('・')} を入れました`);
+    if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);
+    if (r.missing.length) parts.push(`${r.missing.join('・')} は見つかりませんでした（コピーして貼ってください）`);
+    setStatus(parts.join('。') || '入れる項目がありませんでした');
+  } catch (e) {
+    setStatus('BUYMA の画面に入れられませんでした。ページを再読み込みしてから、もう一度お試しください。');
+  } finally {
+    $('fillBuyma').disabled = false;
+  }
+}
+
 // ---- はじめに ----
 async function init() {
   $('fCurrency').replaceChildren(...PF.CURRENCIES.map((c) => el('option', { value: c }, c)));
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  settings = await api.getSettings();
+  if (tab && PF.isBuymaUrl(tab.url)) await showBuymaBox();
   await loadState();
   if (product) renderForm(product);
   if (listing) renderListing(listing);
@@ -416,6 +481,7 @@ async function init() {
 }
 
 $('extract').addEventListener('click', extract);
+$('fillBuyma').addEventListener('click', fillBuyma);
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {
@@ -438,5 +504,6 @@ $('save').addEventListener('click', () => {
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.auth) loadAccount();
+  if (area === 'local' && changes.settings) api.getSettings().then((s) => (settings = s));
 });
 init();

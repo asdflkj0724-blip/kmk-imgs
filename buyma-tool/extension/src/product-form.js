@@ -22,6 +22,7 @@
       p.images = siteProduct.images.slice();
     }
     if (siteProduct && !p.itemId && siteProduct.itemId) p.itemId = siteProduct.itemId;
+    if (siteProduct && !p.shopName && siteProduct.shopName) p.shopName = siteProduct.shopName;
     p.complete = !!(p.title && p.price && p.images && p.images.length);
     return p;
   }
@@ -97,6 +98,7 @@
       source: base.source || 'unknown',
       itemId: base.itemId || '',
       url: base.url || '',
+      shopName: base.shopName || '',
       title,
       price,
       skus,
@@ -133,7 +135,69 @@
     return out.join('\n');
   }
 
-  const api = { CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText };
+  /**
+   * 配送方法の初めの選択：最後に選んだもの → サーバーの設定（登録済みの名前と完全に同じときだけ）→ 未選択。
+   * 名前が一致しないものを勝手に選ばない。
+   */
+  function pickShipping(list, last, serverValue) {
+    const names = Array.isArray(list) ? list : [];
+    if (last && names.includes(last)) return last;
+    if (serverValue && names.includes(serverValue)) return serverValue;
+    return '';
+  }
+
+  /** 出品データのお知らせを、重さごとに分ける */
+  function noticeItems(l) {
+    const out = [];
+    if (l.priceError) out.push({ level: 'warning', text: '【価格】' + l.priceError });
+    for (const i of l.issues || []) {
+      const tag = i.level === 'error' ? '【要修正】' : i.level === 'info' ? '【参考】' : '【確認】';
+      out.push({ level: i.level, text: tag + i.message });
+    }
+    for (const c of l.cautions || []) out.push({ level: 'warning', text: '【確認】' + c });
+    if ((l.missing || []).length) out.push({ level: 'info', text: '【ページに情報がなかった項目】' + l.missing.join('・') });
+    for (const f of l.fixes || []) out.push({ level: 'fixed', text: '【自動で直しました】' + f });
+    const order = { error: 0, warning: 1, info: 2, fixed: 3 };
+    return out.sort((a, b) => order[a.level] - order[b.level]);
+  }
+
+  /** BUYMA の数え方の文字数（半角は1、全角は2） */
+  function buymaLength(s) {
+    let n = 0;
+    for (const c of Array.from(String(s || ''))) {
+      const code = c.codePointAt(0);
+      n += code <= 0x7e || (code >= 0xff61 && code <= 0xff9f) ? 1 : 2;
+    }
+    return n;
+  }
+
+  /** BUYMA の出品画面に入れる値（「BUYMAに反映」用） */
+  function buymaValues(listing, product) {
+    const l = listing || {};
+    const p = product || {};
+    const price = Number(l.priceJpy);
+    const memo = [];
+    if (p.url) memo.push('仕入れ先：' + p.url);
+    if (p.price && p.price.min) memo.push(`仕入れ値：${p.price.min}${p.price.max && p.price.max !== p.price.min ? '〜' + p.price.max : ''} ${p.price.currency || ''}`.trim());
+    if (memo.length) memo.push('（ラク出品で作成）');
+    return {
+      title: l.title || '',
+      description: l.description || '',
+      price: Number.isFinite(price) && price > 0 ? String(Math.round(price)) : '',
+      shopName: p.shopName || '',
+      memo: memo.join('\n'),
+    };
+  }
+
+  function isBuymaUrl(url) {
+    try {
+      return /(^|\.)buyma\.com$/.test(new URL(url).hostname);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const api = { buymaValues, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaProductForm = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

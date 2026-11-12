@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>新規出品 | BUYMA</title></head>
+<body>
+<header><h1>新規出品</h1><button id="draft" onclick="window.__clicked='draft'">下書き保存</button></header>
+<main>
+  <section><div class="upload"><button onclick="window.__clicked='upload'">画像をアップロード（残り20枚）</button><input type="file" accept="image/*" multiple></div></section>
+  <section class="item">
+    <div class="head"><span class="ttl">商品名</span><span class="req">必須</span><span class="note">/ 出品後の変更不可</span></div>
+    <input type="text" id="itemName"><p>あと60文字(半角)</p>
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">商品コメント</span><span class="req">必須</span></div>
+    <textarea id="comment"></textarea><p>あと3000文字(半角)</p>
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">カテゴリ</span><span class="req">必須</span></div>
+    <select id="category"><option>選択してください</option></select>
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">ブランド</span><span class="req">必須</span></div>
+    <input type="text" id="brand" placeholder="ブランド名を入力すると候補が表示されます">
+    <label><input type="checkbox" id="noBrand"> ブランド指定なし</label>
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">買付先ショップ名</span><span class="note">出品後の変更不可</span></div>
+    <input type="text" id="shop"><p>あと30文字(半角)</p>
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">商品価格</span><span class="req">必須</span></div>
+    <input type="text" id="price" placeholder="¥">
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">参考価格/通常出品価格</span></div>
+    <select id="refPrice"><option>設定しない</option></select>
+    <input type="text" id="refPriceValue">
+  </section>
+  <section class="item">
+    <div class="head"><span class="ttl">出品メモ</span></div>
+    <textarea id="memo">前からあるメモ</textarea>
+  </section>
+  <footer><button id="publish" onclick="window.__clicked='publish'">出品する</button></footer>
+</main>
+<script>
+  window.__events = [];
+  for (const el of document.querySelectorAll('input, textarea')) el.addEventListener('input', () => window.__events.push(el.id));
+</script>
+</body></html>
