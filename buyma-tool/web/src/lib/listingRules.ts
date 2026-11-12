@@ -8,7 +8,8 @@ export const TITLE_MAX = Number(process.env.BUYMA_TITLE_MAX || 60);
 /** 商品説明の最大文字数（仮） */
 export const DESCRIPTION_MAX = Number(process.env.BUYMA_DESCRIPTION_MAX || 3000);
 
-export type IssueLevel = 'error' | 'warning';
+/** error＝出品前に必ず直す（致命的） / warning＝確認が必要 / info＝情報が足りないだけ */
+export type IssueLevel = 'error' | 'warning' | 'info';
 export interface Issue {
   level: IssueLevel;
   field: 'title' | 'description' | 'source';
@@ -40,9 +41,42 @@ const ERROR_WORDS = [
 
 /** BUYMA のルールに引っかかりやすい、または誇大と取られやすい言葉 */
 const WARNING_WORDS = [
-  '最安', '激安', '日本未入荷', '日本未発売', '正規品保証', '100%', '絶対', '必ず', '送料無料', '即納', '在庫あり',
+  '日本未入荷', '日本未発売', '正規品保証', '100%正規品', '絶対', '送料無料', '即納', '在庫あり',
   '同款', '大牌', '明星同款', '网红',
 ];
+
+/**
+ * 根拠のない誇大表現は、警告を出すのではなく自動で消す（「高級感」のような見た目の説明は残す）。
+ * label は「自動で直したこと」の表示に使う。
+ */
+const AUTO_REMOVE: { pattern: RegExp; label: string }[] = [
+  { pattern: /(?:最高級|超高級)(?:な|の)?/g, label: '最高級' },
+  { pattern: /高級(?!感)(?:な|の)?/g, label: '高級' },
+  { pattern: /(?:大人気|爆売れ|人気No\.?\s?1|人気ナンバーワン)(?:の)?/gi, label: '大人気' },
+  { pattern: /(?:激安|最安値|最安|格安)(?:の)?/g, label: '激安・最安' },
+  { pattern: /(?:高品質|ハイクオリティ)(?:な|の)?/g, label: '高品質' },
+];
+
+/** 誇大表現を消し、消したもの（label）を返す */
+export function autoFixText(text: string, isTitle = false): { text: string; removed: string[] } {
+  const removed: string[] = [];
+  let out = text;
+  for (const { pattern, label } of AUTO_REMOVE) {
+    if (pattern.test(out)) {
+      removed.push(label);
+      out = out.replace(pattern, '');
+    }
+    pattern.lastIndex = 0;
+  }
+  if (removed.length) {
+    out = out
+      .replace(/【\s*】|「\s*」|（\s*）|\(\s*\)/g, '')
+      .replace(/[ 　]{2,}/g, ' ')
+      .replace(/^[ 　・、,]+/gm, '');
+    if (isTitle) out = out.replace(/\s+/g, ' ').trim();
+  }
+  return { text: out, removed };
+}
 
 /** 有名ブランド名（ブランド品は正規品の確認が必要。ここは代表例） */
 const BRANDS = [

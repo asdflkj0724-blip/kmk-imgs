@@ -31,7 +31,8 @@ export const GeneratedSchema = z.object({
   material: z.string().describe('素材（わからなければ空文字）'),
   brand: z.string().describe('BUYMA のブランド欄に入れるブランド名。仕入れ元に正規品とはっきり書かれている場合だけ。わからない・ノーブランドなら空文字'),
   category: z.string().describe('BUYMA のカテゴリの候補（例：レディースファッション > アウター > コート）'),
-  cautions: z.array(z.string()).describe('出品者への注意（偽物の疑い、ブランド名の扱い、情報不足など）。なければ空'),
+  cautions: z.array(z.string()).describe('出品者が判断・確認しないと出品できないことだけ（偽物の疑い、ブランド名の扱い、性別やカテゴリーが決められない など）。情報が無いだけのことは書かない。なければ空'),
+  missing: z.array(z.string()).describe('仕入れ元のページに情報がなく、空にした項目の名前だけ（例：素材、サイズの実寸）。文ではなく項目名'),
 });
 export type Generated = z.infer<typeof GeneratedSchema>;
 
@@ -62,7 +63,8 @@ const SYSTEM = `あなたは BUYMA（日本の海外通販サイト）のパー�
 - 書き終えたら、日本人の買い物客が読んで引っかかるところがないか見直してから出力する
 
 偽物を思わせる言葉（高仿、复刻、原单、1:1 など）や、ブランドのロゴ・デザインの写しと思われる場合は、cautions に必ず書く。
-cautions（出品者への注意）は、出品者が読む日本語の文にする。項目は「商品名」「説明文」「色」「サイズ」「素材」「ブランド」「カテゴリー」と日本語で呼び、description・sizeNote・material などの英語の項目名は書かない。1つの注意は1〜2文で短くする。
+cautions（出品者への注意）は、出品者が判断しないと先に進めないことだけにする。情報が無かった項目は cautions ではなく missing に項目名だけ入れる。使わなかった表現（「高級」など）について知らせる必要はない。
+cautions は、出品者が読む日本語の文にする。項目は「商品名」「説明文」「色」「サイズ」「素材」「ブランド」「カテゴリー」と日本語で呼び、description・sizeNote・material などの英語の項目名は書かない。1つの注意は1〜2文で短くする。
 入力は中国語のほか、英語・韓国語・イタリア語・フランス語などのこともある。どの言語でも日本語で出力する。`;
 
 export type Tone = 'polite' | 'casual';

@@ -20,6 +20,7 @@ const generated: Generated = {
   sizeNote: '着丈 約110cm',
   material: 'ウール90%',
   brand: '',
+  missing: [],
   category: 'レディース > アウター > コート',
   cautions: [],
 };

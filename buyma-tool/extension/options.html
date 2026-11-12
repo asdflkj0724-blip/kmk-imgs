@@ -7,7 +7,8 @@
   <style>
     body { width: auto; max-width: 560px; margin: 24px auto; padding: 0 16px; }
     label { display: block; font-weight: 600; margin-top: 14px; }
-    input[type=text], input[type=number], select { width: 100%; padding: 6px; box-sizing: border-box; }
+    input[type=text], input[type=number], select, textarea { width: 100%; padding: 6px; box-sizing: border-box; font: inherit; }
+    label input[type=checkbox] { width: auto; margin-right: 6px; }
     .hint { color: #666; font-size: 12px; margin: 2px 0 0; }
     .row { margin-top: 18px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   </style>
@@ -24,6 +25,17 @@
     <button id="connect">ログインして連携する</button>
     <button id="logout" class="ghost">ログアウト</button>
   </div>
+
+  <h2>配送方法</h2>
+  <label for="shippingMethods">BUYMA に登録済みの配送方法（1行に1つ）</label>
+  <textarea id="shippingMethods" rows="5" placeholder="BUYMA の配送方法の名前を、そのままコピーして貼り付けてください"></textarea>
+  <p class="hint">名前は一言一句そのまま保存します。BUYMA の出品画面で選ぶ名前と同じにしてください。最後に選んだ配送方法は、変えるまで次の商品にも引き継ぎます。</p>
+
+  <h2>透かし</h2>
+  <label><input type="checkbox" id="watermarkEnabled"> 画像に透かしを入れる</label>
+  <label for="watermarkText">透かしの文字</label>
+  <input type="text" id="watermarkText" maxlength="40" placeholder="例：MAMC">
+  <p class="hint">右下の少し内側に、薄いグレーで入れます。商品が見えるくらいの薄さです。画像 ZIP を作るときに入ります。</p>
 
   <h2>画像ZIP</h2>
   <label for="imageMaxPx">長い辺の最大ピクセル</label>

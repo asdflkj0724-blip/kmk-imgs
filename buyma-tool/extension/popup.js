@@ -6,6 +6,7 @@ let TITLE_MAX = 60; // サーバー（/api/me の titleMax）から上書きす�
 let product = null; // 確認・修正した商品データ
 let listing = null; // サーバーで作った出品データ
 let tab = null;
+let settings = null; // 拡張機能の設定（配送方法・透かしなど）
 
 function el(tag, attrs, text) {
   const e = document.createElement(tag);
@@ -138,7 +139,7 @@ const FIELDS = [
   { key: 'colors', label: '色', type: 'input' },
   { key: 'sizes', label: 'サイズ', type: 'input' },
   { key: 'material', label: '素材', type: 'input' },
-  { key: 'shippingMethod', label: '配送方法', type: 'input' },
+  { key: 'shippingMethod', label: '配送方法', type: 'shipping' },
 ];
 
 const BREAKDOWN_LABELS = [
@@ -188,6 +189,10 @@ function renderListing(l) {
       const btn = el('button', { type: 'button', className: 'copy' }, 'コピー');
       btn.addEventListener('click', () => copyText($(id).value, f.label));
       head.append(label, btn);
+      if (f.type === 'shipping') {
+        wrap.append(head, ...shippingControl(id, fieldValue(l, f.key)));
+        return wrap;
+      }
       const input =
         f.type === 'textarea'
           ? el('textarea', { id, rows: 8 })
@@ -215,12 +220,27 @@ function renderListing(l) {
     rows.push(fx);
     $('breakdown').replaceChildren(...rows);
   }
-  const items = [
-    ...(l.priceError ? [el('li', { className: 'lv-warning' }, '【価格】' + l.priceError)] : []),
-    ...(l.issues || []).map((i) => el('li', { className: 'lv-' + i.level }, (i.level === 'error' ? '【要修正】' : '【注意】') + i.message)),
-    ...(l.cautions || []).map((c) => el('li', { className: 'lv-warning' }, '【確認してください】' + c)),
-  ];
-  $('issues').replaceChildren(...items);
+  $('issues').replaceChildren(...PF.noticeItems(l).map((n) => el('li', { className: 'lv-' + n.level }, n.text)));
+}
+
+/** 配送方法：設定で登録した名前から選ぶ。最後に選んだものを、変えるまで次の商品にも引き継ぐ */
+function shippingControl(id, serverValue) {
+  const list = (settings && settings.shippingMethods) || [];
+  if (!list.length) {
+    const input = el('input', { id, type: 'text' });
+    input.value = serverValue;
+    const hint = el('p', { className: 'ship-hint' }, '設定画面で BUYMA の配送方法を登録すると、ここで選べて、次の商品にも引き継げます。');
+    return [input, hint];
+  }
+  const select = el('select', { id });
+  select.append(el('option', { value: '' }, '（選んでください）'), ...list.map((name) => el('option', { value: name }, name)));
+  select.value = PF.pickShipping(list, settings.lastShipping, serverValue);
+  select.addEventListener('change', async () => {
+    settings = await api.saveSettings({ lastShipping: select.value });
+    saveState();
+    setStatus(select.value ? `配送方法「${select.value}」を次の商品にも使います` : '配送方法を未選択にしました');
+  });
+  return [select];
 }
 
 function readListingFields() {
@@ -392,7 +412,7 @@ async function buildZip(current) {
     const { zip, ok, failed } = await BuymaImages.buildImagesZip(
       current.images,
       itemId,
-      { maxPx: s.imageMaxPx, quality: s.jpegQuality },
+      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '' },
       (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
     );
     if (!ok) return setStatus('画像を1枚も取れませんでした');
@@ -409,6 +429,7 @@ async function buildZip(current) {
 async function init() {
   $('fCurrency').replaceChildren(...PF.CURRENCIES.map((c) => el('option', { value: c }, c)));
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  settings = await api.getSettings();
   await loadState();
   if (product) renderForm(product);
   if (listing) renderListing(listing);
@@ -438,5 +459,6 @@ $('save').addEventListener('click', () => {
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.auth) loadAccount();
+  if (area === 'local' && changes.settings) api.getSettings().then((s) => (settings = s));
 });
 init();
