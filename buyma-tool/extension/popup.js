@@ -163,8 +163,8 @@ function fieldValue(l, key) {
 function updateTitleCount() {
   const input = $('l-title');
   if (!input) return;
-  const n = Array.from(input.value).length;
-  $('titleCount').textContent = `${n} / ${TITLE_MAX}文字`;
+  const n = PF.buymaLength(input.value);
+  $('titleCount').textContent = `半角換算 ${n} / ${TITLE_MAX}文字（全角は2文字）`;
   $('titleCount').className = 'small' + (n > TITLE_MAX ? ' over' : '');
 }
 

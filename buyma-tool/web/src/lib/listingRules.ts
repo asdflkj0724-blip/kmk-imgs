@@ -17,17 +17,33 @@ export interface Issue {
   message: string;
 }
 
-/** 文字数（絵文字なども1文字として数える） */
-export function charLength(s: string): number {
-  return Array.from(s).length;
+/** 1文字の幅：半角（英数字・記号・半角カナ）は1、それ以外（日本語など全角）は2 */
+function charWidth(c: string): number {
+  const code = c.codePointAt(0) ?? 0;
+  return code <= 0x7e || (code >= 0xff61 && code <= 0xff9f) ? 1 : 2;
 }
 
-/** 上限を超えたら、区切り（スペース・記号）のところで切る */
+/**
+ * BUYMA の数え方の文字数（半角換算）。BUYMA の出品画面は「あと60文字(半角)」のように、
+ * 半角を1・全角を2として数える。日本語の商品名は30文字までになる。
+ */
+export function charLength(s: string): number {
+  let n = 0;
+  for (const c of Array.from(s)) n += charWidth(c);
+  return n;
+}
+
+/** 上限を超えたら、区切り（スペース・記号）のところで切る（半角換算で数える） */
 export function fitTitle(title: string, max = TITLE_MAX): string {
   const t = title.replace(/\s+/g, ' ').trim();
-  const chars = Array.from(t);
-  if (chars.length <= max) return t;
-  const cut = chars.slice(0, max).join('');
+  if (charLength(t) <= max) return t;
+  let cut = '';
+  let n = 0;
+  for (const c of Array.from(t)) {
+    if (n + charWidth(c) > max) break;
+    cut += c;
+    n += charWidth(c);
+  }
   const m = cut.match(/^(.*)[\s　\/／・|｜【】「」()（）-]/);
   const result = m && charLength(m[1]) >= max * 0.6 ? m[1] : cut;
   return result.trim();
@@ -106,10 +122,10 @@ export function checkListing(input: { title: string; description: string; source
 
   if (!title.trim()) issues.push({ level: 'error', field: 'title', message: '商品名が空です' });
   if (charLength(title) > TITLE_MAX) {
-    issues.push({ level: 'error', field: 'title', message: `商品名が${TITLE_MAX}文字を超えています（${charLength(title)}文字）` });
+    issues.push({ level: 'error', field: 'title', message: `商品名が長すぎます（BUYMA の上限は半角${TITLE_MAX}文字＝全角${TITLE_MAX / 2}文字。今は半角換算で${charLength(title)}文字）` });
   }
   if (charLength(description) > DESCRIPTION_MAX) {
-    issues.push({ level: 'error', field: 'description', message: `説明文が${DESCRIPTION_MAX}文字を超えています` });
+    issues.push({ level: 'error', field: 'description', message: `商品コメントが長すぎます（上限は半角${DESCRIPTION_MAX}文字＝全角${DESCRIPTION_MAX / 2}文字）` });
   }
 
   for (const [field, text] of [['title', title], ['description', description]] as const) {

@@ -114,3 +114,9 @@ test('本物のブラウザで：横長の画像が白い余白付きの正方�
     await browser.close();
   }
 });
+
+test('タイトルの文字数は BUYMA と同じ数え方（半角1・全角2）', () => {
+  assert.equal(PF.buymaLength('ABC'), 3);
+  assert.equal(PF.buymaLength('ウール'), 6);
+  assert.equal(PF.buymaLength('あ'.repeat(30)), 60);
+});

@@ -159,7 +159,17 @@
     return out.sort((a, b) => order[a.level] - order[b.level]);
   }
 
-  const api = { CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
+  /** BUYMA の数え方の文字数（半角は1、全角は2） */
+  function buymaLength(s) {
+    let n = 0;
+    for (const c of Array.from(String(s || ''))) {
+      const code = c.codePointAt(0);
+      n += code <= 0x7e || (code >= 0xff61 && code <= 0xff9f) ? 1 : 2;
+    }
+    return n;
+  }
+
+  const api = { buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaProductForm = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

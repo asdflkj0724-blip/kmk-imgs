@@ -23,7 +23,7 @@ export function anthropic(): Anthropic {
 }
 
 export const GeneratedSchema = z.object({
-  title: z.string().describe(`BUYMA の商品名。日本語で${TITLE_MAX}文字以内`),
+  title: z.string().describe(`BUYMA の商品名。半角換算で${TITLE_MAX}文字以内（全角は2文字に数える。日本語だけなら${TITLE_MAX / 2}文字まで）`),
   description: z.string().describe('【商品について】の本文（デザイン・特徴・着こなしや使う場面）。日本語。色・サイズ・素材の一覧や、配送・注意事項は書かない'),
   sizeNote: z.string().describe('サイズ感や寸法（着丈・幅など、仕入れ元にある範囲で）。なければ空文字'),
   colors: z.array(z.object({ original: z.string(), ja: z.string() })).describe('色の選択肢の日本語訳'),
@@ -40,7 +40,7 @@ const SYSTEM = `あなたは BUYMA（日本の海外通販サイト）のパー�
 海外の通販サイト（主にタオバオ・天猫）の商品情報をもとに、日本の買い物客に伝わる商品名と説明文を作ります。
 
 商品名のルール：
-- ${TITLE_MAX}文字以内の自然な日本語
+- 半角換算で${TITLE_MAX}文字以内の自然な日本語（BUYMA は全角を2文字に数える。日本語だけなら${TITLE_MAX / 2}文字まで。英字・数字は半角で書くと節約できる）
 - BUYMA で検索されやすいキーワードを、大事な順に入れる：アイテム名（例：ロングコート、ショルダーバッグ）→ 素材・特徴（例：ウール、ダブルフェイス、本革）→ 雰囲気・季節（例：きれいめ、秋冬）→ 色
 - キーワードをただ並べるのではなく、読んで意味が通る商品名にする。同じ意味の言葉を2回入れない（例：「コート アウター」）
 - 仕入れ元の情報に書かれていないことは書かない

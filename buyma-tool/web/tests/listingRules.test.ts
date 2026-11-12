@@ -65,3 +65,21 @@ describe('誇大表現の自動修正', async () => {
     expect(checkListing({ title: 'ウール ニット', description: '【素材】\nウール100%' })).toEqual([]);
   });
 });
+
+describe('BUYMA の数え方（半角換算）', async () => {
+  const { charLength, fitTitle, checkListing } = await import('@/lib/listingRules');
+  it('半角は1、全角は2として数える', () => {
+    expect(charLength('ABC 123')).toBe(7);
+    expect(charLength('ウールコート')).toBe(12);
+    expect(charLength('ｳｰﾙ')).toBe(3); // 半角カナ
+  });
+  it('日本語の商品名は30文字（半角60）までに収める', () => {
+    const t = fitTitle('ダブルフェイス ウール ロングコート キャメル 秋冬 きれいめ アウター レディース');
+    expect(charLength(t)).toBeLessThanOrEqual(60);
+    expect(t.startsWith('ダブルフェイス ウール')).toBe(true);
+  });
+  it('全角31文字は長すぎる', () => {
+    const issues = checkListing({ title: 'あ'.repeat(31), description: '' });
+    expect(issues.some((i) => i.level === 'error' && i.message.includes('全角30文字'))).toBe(true);
+  });
+});
