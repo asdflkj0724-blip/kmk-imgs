@@ -1860,6 +1860,72 @@
       ],
       "ig_media_id": "18342784861278936",
       "permalink": "https://www.instagram.com/reel/DfrgvizDjwc/"
+    },
+    {
+      "date": "2026-11-14T20:21:22+09:00",
+      "slot": "2026-11-14",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "b5|3",
+      "body": "小花柄の襟付きカーデにレースをのぞかせて。肩にまとうリブニットと、ベルトで結ぶストライプシャツで描くMAMCの秋。",
+      "text": "小花柄の襟付きカーデにレースをのぞかせて。肩にまとうリブニットと、ベルトで結ぶストライプシャツで描くMAMCの秋。",
+      "image": "imageye___-_imgi_46_O1CN013LuD04PFDNE2vHAO_!!4611686018427380178-0-item_pic.jpg",
+      "images": [
+        "imageye___-_imgi_46_O1CN013LuD04PFDNE2vHAO_!!4611686018427380178-0-item_pic.jpg",
+        "imageye___-_imgi_4_O1CN01OV9nKyglC9L2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01p5DMFWWjFWH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01aBYge5tA6iK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-03-runway-pulse",
+        "title": "MAMC Runway Pulse（E minor・124BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -1.1
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#襟付きカーディガン",
+        "#ストライプシャツ",
+        "#ショート丈ニット"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "襟もとから、\n秋がはじまる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "襟もとから、\n秋がはじまる",
+          "color": "white",
+          "bad": 0.007,
+          "worst_char": 0.026,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.006,
+          "worst_char": 0.011,
+          "on_face": false,
+          "on_product": 0.999
+        }
+      ],
+      "ig_media_id": "18017987189985391",
+      "permalink": "https://www.instagram.com/reel/DfuFe-4iUpu/"
     }
   ],
   "errors": []
