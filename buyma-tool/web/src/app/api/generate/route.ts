@@ -142,6 +142,7 @@ export async function POST(req: Request) {
       category: g.category,
       brand: g.brand,
       material: g.material,
+      sizeNote: g.sizeNote ?? '',
       shippingMethod: profile.shipping_method ?? '',
       currency,
     },

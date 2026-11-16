@@ -430,7 +430,35 @@ async function buildZip(current) {
 // ---- BUYMA に反映 ----
 // ページの中で動く関数（外の変数は使えない）
 function fillActiveBuymaPage(values) {
-  return globalThis.RakuBuymaFill.fillBuyma(document, values);
+  return globalThis.RakuBuymaFill.fillBuymaAll(document, values);
+}
+function readActiveBuymaShipping() {
+  return globalThis.RakuBuymaFill.readShippingOptions(document);
+}
+
+async function runInBuyma(func, args) {
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/buyma-fill.js'] });
+  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func, args: args || [] });
+  return res && res.result;
+}
+
+/** 画像の置き場所への許可（ボタンを押した直後に聞く必要がある） */
+function askImageAccess(urls) {
+  const origins = Array.from(
+    new Set(
+      (urls || [])
+        .map((u) => {
+          try {
+            return new URL(u);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter((u) => u && !FIXED_IMAGE_HOSTS.test(u.hostname))
+        .map((u) => u.origin + '/*')
+    )
+  );
+  return origins.length ? chrome.permissions.request({ origins }) : Promise.resolve(true);
 }
 
 async function showBuymaBox() {
@@ -445,26 +473,60 @@ async function showBuymaBox() {
   $('buymaTarget').textContent = '入れる出品データ：' + (lastForBuyma.listing.title || '（商品名なし）');
 }
 
-async function fillBuyma() {
+function fillBuyma() {
   if (!requireActive()) return;
-  const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
-  if (!lastForBuyma) return setStatus('まだ出品データがありません');
+  const withImages = $('fillImages').checked;
+  // 許可の確認はボタンを押した直後にする必要があるので、先に出品データを読んでから聞く
+  chrome.storage.local.get('lastForBuyma').then(({ lastForBuyma }) => {
+    if (!lastForBuyma) return setStatus('まだ出品データがありません');
+    const urls = (lastForBuyma.product && lastForBuyma.product.images) || [];
+    const ask = withImages && urls.length ? askImageAccess(urls) : Promise.resolve(true);
+    ask.then((granted) => doFillBuyma(lastForBuyma, withImages && granted, withImages && !granted));
+  });
+}
+
+async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   const values = PF.buymaValues(lastForBuyma.listing, lastForBuyma.product);
   $('fillBuyma').disabled = true;
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/buyma-fill.js'] });
-    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillActiveBuymaPage, args: [values] });
-    const r = res && res.result;
+    if (withImages) {
+      const s = await api.getSettings();
+      const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
+      const { files } = await BuymaImages.buildImageFiles(
+        p.images,
+        p.itemId,
+        { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20 },
+        (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
+      );
+      values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
+    }
+    setStatus('BUYMA の画面に入れています…');
+    const r = await runInBuyma(fillActiveBuymaPage, [values]);
     if (!r) throw new Error('結果が返ってきませんでした');
     const parts = [];
     if (r.filled.length) parts.push(`${r.filled.join('・')} を入れました`);
     if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);
-    if (r.missing.length) parts.push(`${r.missing.join('・')} は見つかりませんでした（コピーして貼ってください）`);
-    setStatus(parts.join('。') || '入れる項目がありませんでした');
+    if (r.missing.length) parts.push(`${r.missing.join('・')} は見つかりませんでした`);
+    if (imagesDenied) parts.push('画像は、許可がなかったので入れていません');
+    setStatus((parts.join('。') || '入れる項目がありませんでした') + '。くわしくは BUYMA の画面の右上をご覧ください');
   } catch (e) {
     setStatus('BUYMA の画面に入れられませんでした。ページを再読み込みしてから、もう一度お試しください。');
   } finally {
     $('fillBuyma').disabled = false;
+  }
+}
+
+/** BUYMA の出品画面の、登録済みの配送方法を、名前そのままで設定に取り込む */
+async function importShipping() {
+  try {
+    const found = await runInBuyma(readActiveBuymaShipping);
+    if (!found || !found.length) return setStatus('この画面に配送方法の一覧が見つかりませんでした（出品画面で押してください）');
+    const s = await api.getSettings();
+    const merged = s.shippingMethods.concat(found.filter((n) => !s.shippingMethods.includes(n)));
+    settings = await api.saveSettings({ shippingMethods: merged });
+    setStatus(`配送方法を${found.length}件取り込みました。出品データの画面で選べます`);
+  } catch (e) {
+    setStatus('配送方法を取り込めませんでした。ページを再読み込みしてから、もう一度お試しください。');
   }
 }
 
@@ -482,6 +544,7 @@ async function init() {
 
 $('extract').addEventListener('click', extract);
 $('fillBuyma').addEventListener('click', fillBuyma);
+$('importShipping').addEventListener('click', importShipping);
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

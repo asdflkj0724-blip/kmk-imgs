@@ -1,34 +1,56 @@
 /*
  * BUYMA の出品画面に、作った出品データを入れる（「BUYMAに反映」ボタンを押したときだけ動く）。
- * - 入れるのは、文字を入れる欄だけ（商品名・商品コメント・商品価格・買付先ショップ名・出品メモ）
- * - すでに文字が入っている欄は上書きしない
- * - ボタンは一切押さない（「出品する」も「下書き保存」も押さない。最後の確定はユーザー本人）
- * BUYMA の画面の作りは公開されていないため、欄は見出しの文字（スマホの出品画面で確認したもの）から探す。
+ *
+ * 守ること
+ * - ボタンを押したときに、開いている画面に1件分を入れるだけ
+ * - すでに入っている欄・選ばれている項目は変えない（自分で入れた内容を消さない）
+ * - 「出品する」「入力内容を確認する」「下書き保存する」などのボタンは一切押さない
+ * - 名前が一致しないもの（ブランド・配送方法・カテゴリ）は、勝手に選ばずに知らせる
+ *
+ * BUYMA の出品画面（2026年11月にパソコンで保存した画面）の作り
+ * - 1行ごとに .bmm-l-grid があり、左に見出し（.bmm-c-summary__ttl）、右に入力欄
+ * - カテゴリは react-select（.Select）。1段目を選ぶと2段目・3段目が出る
+ * - 配送方法は、登録済みの配送方法の表。行ごとに「名前」と「説明文」がある
+ * - 商品画像は input[type=file]（最大20枚）
  */
 (function (root) {
   'use strict';
 
-  /** 入れる欄。label は BUYMA の出品画面の見出し。exclude はまぎらわしい見出し */
-  const FIELDS = [
+  /** 文字を入れる欄。label は BUYMA の出品画面の見出し */
+  const TEXT_FIELDS = [
     { key: 'title', label: '商品名', exclude: ['ブランド', 'モデル'] },
     { key: 'description', label: '商品コメント', exclude: [] },
     { key: 'price', label: '商品価格', exclude: ['参考価格', '通常出品価格'] },
     { key: 'shopName', label: '買付先ショップ名', exclude: [] },
     { key: 'memo', label: '出品メモ', exclude: [] },
+    { key: 'sizeNote', label: '色・サイズ補足情報', exclude: [] },
   ];
+  const MAX_IMAGES = 20;
 
   const FIELD_SELECTOR =
     'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=search]), textarea';
 
-  function norm(s) {
-    return (s || '').replace(/[\s　]+/g, '');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function waitFor(fn, timeoutMs, stepMs) {
+    const end = Date.now() + (timeoutMs || 3000);
+    for (;;) {
+      const v = fn();
+      if (v) return v;
+      if (Date.now() > end) return null;
+      await sleep(stepMs || 100);
+    }
   }
 
-  /** 見出しの文字（「必須」「出品後の変更不可」などの添え書きは除く） */
+  function norm(s) {
+    return (s || '').normalize('NFKC').replace(/[\s　]+/g, '').toLowerCase();
+  }
+
+  /** 見出しの文字（「必須」「任意」「出品後の変更不可」などの添え書きは除く） */
   function headingText(el) {
     const clone = el.cloneNode(true);
     clone.querySelectorAll('input, textarea, select, option, button').forEach((n) => n.remove());
-    return norm(clone.textContent).replace(/必須|任意|\/?出品後の変更不可|[*＊※/／]/g, '');
+    return (clone.textContent || '').replace(/[\s　]+/g, '').replace(/必須|任意|\/?出品後の変更不可|[*＊※/／]/g, '');
   }
 
   function isUsable(el) {
@@ -37,7 +59,16 @@
     return style.display !== 'none' && style.visibility !== 'hidden';
   }
 
-  /** 見出しより後ろで、いちばん近い入力欄（間に別の見出しの欄をはさまない） */
+  /** BUYMA の1行（.bmm-l-grid）を見出しで探す */
+  function rowByTitle(doc, title) {
+    const want = title.replace(/[\s　]+/g, '');
+    for (const t of doc.querySelectorAll('.bmm-c-summary__ttl')) {
+      if (headingText(t) === want) return t.closest('.bmm-l-grid') || t.parentElement;
+    }
+    return null;
+  }
+
+  /** 見出しより後ろで、いちばん近い入力欄 */
   function fieldAfter(heading) {
     const forId = heading.getAttribute && heading.getAttribute('for');
     if (forId) {
@@ -55,17 +86,17 @@
     return null;
   }
 
-  function findField(doc, spec) {
-    const want = norm(spec.label);
+  function findTextField(doc, spec) {
+    const want = spec.label.replace(/[\s　]+/g, '');
     const candidates = Array.from(doc.querySelectorAll('label, th, dt, legend, h1, h2, h3, h4, h5, p, span, div'));
-    // 文字がちょうど一致する見出しを優先し、なければ「見出しで始まる」もの
     for (const exact of [true, false]) {
       for (const el of candidates) {
-        // 子に別の見出し候補をたくさん持つ大きな箱は飛ばす
         if (el.children.length > 6) continue;
+        // 入力欄を中に持つ大きな囲みは見出しではない（label で入力欄を包む作りだけは認める）
+        if (el.tagName !== 'LABEL' && el.querySelector(FIELD_SELECTOR)) continue;
         const t = headingText(el);
         if (!t || t.length > 20) continue;
-        if (spec.exclude.some((x) => t.includes(norm(x)))) continue;
+        if (spec.exclude.some((x) => t.includes(x))) continue;
         if (exact ? t !== want : !t.startsWith(want)) continue;
         const f = fieldAfter(el);
         if (f && isUsable(f)) return f;
@@ -84,13 +115,261 @@
     el.dispatchEvent(new win.Event('blur', { bubbles: true }));
   }
 
+  function mouse(el, type) {
+    const win = el.ownerDocument.defaultView;
+    el.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, view: win }));
+  }
+
+  // ---- 文字の欄 ----
+  function fillTextFields(doc, values, report) {
+    for (const spec of TEXT_FIELDS) {
+      const v = values[spec.key];
+      if (v === null || v === undefined || String(v).trim() === '') continue;
+      const field = findTextField(doc, spec);
+      if (!field) {
+        report.missing.push(spec.label);
+        continue;
+      }
+      if (String(field.value || '').trim() !== '') {
+        report.skipped.push(spec.label);
+        continue;
+      }
+      setValue(field, v);
+      report.filled.push(spec.label);
+    }
+  }
+
+  // ---- カテゴリ（react-select を順番に選ぶ） ----
+  /** 候補の中から、名前がはっきり合うものを1つだけ選ぶ（合わない・複数あるときは選ばない） */
+  function bestOption(options, want) {
+    const w = norm(want);
+    if (!w) return null;
+    const exact = options.filter((o) => norm(o.textContent) === w);
+    if (exact.length === 1) return exact[0];
+    const partial = options.filter((o) => {
+      const t = norm(o.textContent);
+      return t && (t.includes(w) || w.includes(t));
+    });
+    return partial.length === 1 ? partial[0] : null;
+  }
+
+  function selectedLabel(sel) {
+    const v = sel.querySelector('.Select-value-label, .Select-value');
+    return v ? (v.textContent || '').trim() : '';
+  }
+
+  async function selectCategory(doc, path, report) {
+    const segments = String(path || '')
+      .split(/\s*[>＞›»\/／]\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!segments.length) return;
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) {
+      report.missing.push('カテゴリ');
+      return;
+    }
+    const chosen = [];
+    for (let i = 0; i < segments.length; i++) {
+      const sel = await waitFor(() => row.querySelectorAll('.Select')[i], 2000);
+      if (!sel) break; // それより下の段がない
+      const already = selectedLabel(sel);
+      if (already) {
+        // すでに選ばれているときは変えない
+        if (i === 0) {
+          report.skipped.push('カテゴリ');
+          return;
+        }
+        chosen.push(already);
+        continue;
+      }
+      const control = sel.querySelector('.Select-control');
+      if (!control) break;
+      mouse(control, 'mousedown');
+      const options = await waitFor(() => {
+        const list = Array.from(sel.querySelectorAll('.Select-option'));
+        return list.length ? list : null;
+      }, 2500);
+      if (!options) {
+        report.notes.push(`カテゴリの${i + 1}段目の候補が出ませんでした。ご自身で選んでください。`);
+        return;
+      }
+      const pick = bestOption(options, segments[i]);
+      if (!pick) {
+        mouse(control, 'mousedown'); // 開いた候補を閉じる
+        report.notes.push(
+          `カテゴリ「${segments.slice(0, i + 1).join(' > ')}」に合う候補が見つからなかったので、${i + 1}段目からご自身で選んでください。`
+        );
+        if (chosen.length) report.filled.push('カテゴリ（' + chosen.join(' > ') + ' まで）');
+        return;
+      }
+      mouse(pick, 'mousedown');
+      await waitFor(() => selectedLabel(sel), 2000);
+      chosen.push((pick.textContent || '').trim());
+    }
+    if (chosen.length) report.filled.push('カテゴリ（' + chosen.join(' > ') + '）');
+  }
+
+  // ---- ブランド（候補が出たら、名前が完全に同じものだけ選ぶ） ----
+  async function fillBrand(doc, brand, report) {
+    const row = rowByTitle(doc, 'ブランド');
+    if (!row) {
+      if (brand) report.missing.push('ブランド');
+      return;
+    }
+    if (!brand) {
+      report.notes.push('ブランドは仕入れ先で確認できなかったので入れていません。ブランドがない商品なら「ブランド指定なし」を選んでください。');
+      return;
+    }
+    const input = row.querySelector('input[type=text]');
+    if (!input) {
+      report.missing.push('ブランド');
+      return;
+    }
+    if (String(input.value || '').trim()) {
+      report.skipped.push('ブランド');
+      return;
+    }
+    setValue(input, brand);
+    input.dispatchEvent(new input.ownerDocument.defaultView.KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
+    const w = norm(brand);
+    const match = await waitFor(() => {
+      const cands = Array.from(row.querySelectorAll('li, [role=option], a, .bmm-c-suggest__item, .bmm-c-suggest__list *')).filter(
+        (el) => !el.children.length || el.children.length <= 2
+      );
+      return cands.find((el) => {
+        const t = norm(el.textContent);
+        // 「MAMC」と「MAMC(エムエーエムシー)」のような、読み方付きの候補も同じとみなす
+        return t === w || t.startsWith(w + '(') || t.startsWith(w + '（');
+      });
+    }, 3000);
+    if (match) {
+      mouse(match, 'mousedown');
+      mouse(match, 'mouseup');
+      match.click();
+      report.filled.push('ブランド');
+    } else {
+      report.notes.push(`ブランド「${brand}」を入れました。出てきた候補の中から選んでください（同じ名前の候補が見つからなかったので、選んでいません）。`);
+    }
+  }
+
+  // ---- 配送方法（登録済みの表から、名前が一致する行だけチェックする） ----
+  function shippingRows(doc) {
+    const row = rowByTitle(doc, '配送方法');
+    if (!row) return [];
+    return Array.from(row.querySelectorAll('tbody tr'))
+      .filter((tr) => tr.querySelector('input[type=checkbox]') && !/disabled/.test(tr.className))
+      .map((tr) => {
+        const ps = tr.querySelectorAll('td p');
+        const name = ps[0] ? ps[0].textContent.trim() : '';
+        const descEl = tr.querySelector('.bmm-c-form-table__desc');
+        const desc = descEl ? descEl.textContent.trim() : '';
+        return { tr, name, desc, input: tr.querySelector('input[type=checkbox]') };
+      })
+      .filter((r) => r.name);
+  }
+
+  /** 設定に取り込むときの名前：「配送方法の名前｜説明文」（説明文がなければ名前だけ） */
+  function shippingKey(r) {
+    return r.desc ? `${r.name}｜${r.desc}` : r.name;
+  }
+
+  function matchShipping(rows, saved) {
+    const s = String(saved || '').trim();
+    if (!s) return [];
+    // 1. 一言一句同じ  2. 空白の違いだけ  3. 説明文だけで一致  4. 名前だけで一致
+    const tests = [
+      (r) => shippingKey(r) === s,
+      (r) => norm(shippingKey(r)) === norm(s) || norm(r.name + r.desc) === norm(s),
+      (r) => r.desc && norm(r.desc) === norm(s),
+      (r) => norm(r.name) === norm(s),
+    ];
+    for (const t of tests) {
+      const hit = rows.filter(t);
+      if (hit.length) return hit;
+    }
+    return [];
+  }
+
+  async function selectShipping(doc, saved, report) {
+    if (!saved) {
+      report.notes.push('配送方法が選ばれていないので、入れていません。');
+      return;
+    }
+    const rows = shippingRows(doc);
+    if (!rows.length) {
+      report.missing.push('配送方法');
+      return;
+    }
+    const hit = matchShipping(rows, saved);
+    if (hit.length !== 1) {
+      report.notes.push(
+        hit.length
+          ? `配送方法「${saved}」に当てはまるものが${hit.length}つあるので、選んでいません。ご自身で選ぶか、拡張機能の設定で「この画面の配送方法を取り込む」を使ってください。`
+          : `配送方法「${saved}」が、BUYMA の登録済みの配送方法に見つかりませんでした。名前を確かめてください（別の配送方法は選んでいません）。`
+      );
+      return;
+    }
+    const r = hit[0];
+    if (r.input.checked) {
+      report.skipped.push('配送方法');
+      return;
+    }
+    // BUYMA は行を押すとチェックが付く作り。付かなければチェックの部分を押す
+    r.tr.click();
+    if (!(await waitFor(() => r.input.checked, 800))) {
+      const label = r.input.closest('label') || r.input;
+      label.click();
+      await waitFor(() => r.input.checked, 800);
+    }
+    if (r.input.checked) report.filled.push('配送方法');
+    else report.notes.push(`配送方法「${saved}」にチェックを付けられませんでした。ご自身で選んでください。`);
+  }
+
+  function readShippingOptions(doc) {
+    return shippingRows(doc).map(shippingKey);
+  }
+
+  // ---- 商品画像（正方形・透かし入りの画像を、ファイルを選ぶ欄に入れる） ----
+  function base64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function uploadImages(doc, images, report) {
+    if (!images || !images.length) return;
+    const row = rowByTitle(doc, '商品画像');
+    const input = row && row.querySelector('input[type=file]');
+    if (!input) {
+      report.missing.push('商品画像');
+      return;
+    }
+    const existing = row.querySelectorAll('.bmm-c-img-upload__box:not(.bmm-c-img-upload__box--empty), .bmm-c-img-upload img');
+    if (existing.length) {
+      report.skipped.push('商品画像');
+      return;
+    }
+    const win = doc.defaultView;
+    const dt = new win.DataTransfer();
+    for (const img of images.slice(0, MAX_IMAGES)) {
+      dt.items.add(new win.File([base64ToBytes(img.base64)], img.name, { type: img.type || 'image/jpeg' }));
+    }
+    input.files = dt.files;
+    input.dispatchEvent(new win.Event('input', { bubbles: true }));
+    input.dispatchEvent(new win.Event('change', { bubbles: true }));
+    report.filled.push(`商品画像（${dt.files.length}枚）`);
+  }
+
+  // ---- お知らせ ----
   function showBanner(doc, lines, isError) {
     let el = doc.getElementById('rakushuppin-banner');
     if (!el) {
       el = doc.createElement('div');
       el.id = 'rakushuppin-banner';
       el.style.cssText =
-        'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:380px;padding:12px 16px;border-radius:8px;' +
+        'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:420px;max-height:70vh;overflow:auto;padding:12px 16px;border-radius:8px;' +
         'font:14px/1.6 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:pre-line;';
       const close = doc.createElement('button');
       close.textContent = '×';
@@ -106,39 +385,54 @@
     el.lastChild.textContent = lines.join('\n');
   }
 
-  /**
-   * @param values { title, description, price, shopName, memo }
-   * @returns { filled: string[], skipped: string[], missing: string[] }（見出しの名前）
-   */
-  function fillBuyma(doc, values) {
-    const filled = [];
-    const skipped = [];
-    const missing = [];
-    for (const spec of FIELDS) {
-      const v = values[spec.key];
-      if (v === null || v === undefined || String(v).trim() === '') continue;
-      const field = findField(doc, spec);
-      if (!field) {
-        missing.push(spec.label);
-        continue;
-      }
-      if (String(field.value || '').trim() !== '') {
-        skipped.push(spec.label); // 自分で入れた内容は消さない
-        continue;
-      }
-      setValue(field, v);
-      filled.push(spec.label);
-    }
+  function bannerLines(report) {
     const lines = [];
-    if (filled.length) lines.push('ラク出品：' + filled.join('・') + ' を入れました。');
-    if (skipped.length) lines.push('すでに入っていたので入れなかった欄：' + skipped.join('・'));
-    if (missing.length) lines.push('見つからなかった欄：' + missing.join('・') + '（コピーして貼り付けてください）');
-    lines.push('カテゴリ・ブランド・色とサイズ・配送方法・画像はご自身で選んでください。内容を確かめてから「出品する」を押してください。');
-    showBanner(doc, lines, !filled.length);
-    return { filled, skipped, missing };
+    if (report.filled.length) lines.push('ラク出品：' + report.filled.join('・') + ' を入れました。');
+    if (report.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + report.skipped.join('・'));
+    if (report.missing.length) lines.push('見つからなかった欄：' + report.missing.join('・') + '（ご自身で入れてください）');
+    lines.push(...report.notes);
+    lines.push('色とサイズの表は、ご自身で選んでください。内容を確かめてから「入力内容を確認する」を押してください。');
+    return lines;
   }
 
-  const api = { fillBuyma, FIELDS };
+  /** 文字の欄だけを入れる（すぐ終わる） */
+  function fillBuyma(doc, values) {
+    const report = { filled: [], skipped: [], missing: [], notes: [] };
+    fillTextFields(doc, values, report);
+    showBanner(doc, bannerLines(report), !report.filled.length);
+    return report;
+  }
+
+  /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
+  async function fillBuymaAll(doc, values) {
+    const report = { filled: [], skipped: [], missing: [], notes: [] };
+    showBanner(doc, ['ラク出品：入力しています…'], false);
+    fillTextFields(doc, values, report);
+    try {
+      await selectCategory(doc, values.category, report);
+    } catch (e) {
+      report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
+    }
+    try {
+      await fillBrand(doc, values.brand, report);
+    } catch (e) {
+      report.notes.push('ブランドを入れられませんでした。ご自身で入れてください。');
+    }
+    try {
+      await selectShipping(doc, values.shipping, report);
+    } catch (e) {
+      report.notes.push('配送方法を選べませんでした。ご自身で選んでください。');
+    }
+    try {
+      await uploadImages(doc, values.images, report);
+    } catch (e) {
+      report.notes.push('画像を入れられませんでした。画像 ZIP を使ってご自身で入れてください。');
+    }
+    showBanner(doc, bannerLines(report), !report.filled.length);
+    return report;
+  }
+
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

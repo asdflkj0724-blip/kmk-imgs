@@ -60,17 +60,19 @@
   }
 
   /**
-   * @returns {Promise<{zip: Uint8Array, ok: number, failed: number[]}>} failed は 1 から数えた番号
+   * 画像を取って、正方形・透かし入りの JPEG にする（ZIP と「BUYMAに反映」の両方で使う）
+   * @returns {Promise<{files: {name: string, data: Uint8Array}[], failed: number[]}>} failed は 1 から数えた番号
    */
-  async function buildImagesZip(urls, itemId, opts, onProgress) {
+  async function buildImageFiles(urls, itemId, opts, onProgress) {
     opts = opts || {};
     const maxPx = opts.maxPx || 1200;
     const quality = opts.quality || 0.9;
     const watermark = opts.watermark || '';
+    const limit = opts.limit || urls.length;
     const files = [];
     const failed = [];
-    for (let i = 0; i < urls.length; i++) {
-      if (onProgress) onProgress(i, urls.length);
+    for (let i = 0; i < urls.length && files.length < limit; i++) {
+      if (onProgress) onProgress(i, Math.min(urls.length, limit));
       try {
         const res = await fetch(urls[i], { credentials: 'omit' });
         if (!res.ok) throw new Error(String(res.status));
@@ -82,10 +84,26 @@
       }
     }
     if (onProgress) onProgress(urls.length, urls.length);
+    return { files, failed };
+  }
+
+  /**
+   * @returns {Promise<{zip: Uint8Array, ok: number, failed: number[]}>} failed は 1 から数えた番号
+   */
+  async function buildImagesZip(urls, itemId, opts, onProgress) {
+    const { files, failed } = await buildImageFiles(urls, itemId, opts, onProgress);
     return { zip: root.BuymaZip.makeZip(files), ok: files.length, failed };
   }
 
-  const api = { buildImagesZip, imageFileName, squareLayout, watermarkLayout };
+  /** バイト列を、ほかの画面に渡せる文字（base64）にする */
+  function bytesToBase64(bytes) {
+    let bin = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    return btoa(bin);
+  }
+
+  const api = { buildImagesZip, buildImageFiles, bytesToBase64, imageFileName, squareLayout, watermarkLayout };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaImages = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

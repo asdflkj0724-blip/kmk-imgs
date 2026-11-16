@@ -186,6 +186,10 @@
       price: Number.isFinite(price) && price > 0 ? String(Math.round(price)) : '',
       shopName: p.shopName || '',
       memo: memo.join('\n'),
+      sizeNote: l.sizeNote || '',
+      brand: l.brand || '',
+      category: l.category || '',
+      shipping: l.shippingMethod || '',
     };
   }
 

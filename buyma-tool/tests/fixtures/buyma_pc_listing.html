@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>新規出品 | BUYMA（テスト用の再現）</title></head>
+<body>
+<!-- 2026年11月にパソコンで保存した BUYMA の新規出品画面と同じ部品の作り（中身はテスト用） -->
+<form>
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">商品画像<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field__input"><div class="bmm-c-img-upload"><div class="bmm-c-img-upload__box bmm-c-img-upload__box--empty"><div class="bmm-c-img-upload__dropzone"><input accept="image/jpeg,image/gif,image/png" type="file" multiple></div></div></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">商品名<span class="bmm-c-label bmm-c-label--required">必須</span></p><p class="bmm-c-summary__note">出品後の変更不可</p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-field__input"><input type="text" class="bmm-c-text-field" id="title" value=""></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">商品コメント<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-field__input"><textarea class="bmm-c-textarea" id="comment"></textarea></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">カテゴリ<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-field__input sell-category"><div class="bmm-l-grid bmm-l-grid-no-bottom" id="catLevels"></div></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">ブランド<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-suggest"><div class="bmm-c-suggest__input"><input class="bmm-c-text-field" id="brand" placeholder="ブランド名を入力すると候補が表示されます" type="text" value=""></div><ul class="bmm-c-suggest__list" id="brandList"></ul></div>
+  <label class="bmm-c-checkbox"><input class="bmm-c-checkbox__input" type="checkbox" id="noBrand"><span class="bmm-c-checkbox__body">ブランド指定なし</span></label></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">色・サイズ<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="sell-variation"><table><tbody><tr><td><input type="text" class="bmm-c-text-field" placeholder="色指定なし" id="colorName"></td></tr></tbody></table>
+  <div class="bmm-c-field"><p class="bmm-c-field__label">色・サイズ補足情報<span class="bmm-c-label bmm-c-label--optional">任意</span></p><div class="bmm-c-field__input"><textarea class="bmm-c-textarea" id="sizeNote"></textarea></div></div></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">配送方法<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-form-table"><table class="bmm-c-form-table__table"><thead><tr><th></th><th>配送方法</th><th>送料</th></tr></thead></table>
+  <table class="bmm-c-form-table__table"><tbody id="ship">
+    <tr><td class="bmm-c-form-table__icon-cell"><label class="bmm-c-checkbox bmm-c-checkbox--pointer-none"><input class="bmm-c-checkbox__input" type="checkbox"></label></td><td><p>日本郵便 - ゆうパック</p><p class="bmm-c-form-table__desc">【通常便（本州・四国・九州）】ご購入後3～5日で発送</p></td><td>¥0</td></tr>
+    <tr><td class="bmm-c-form-table__icon-cell"><label class="bmm-c-checkbox bmm-c-checkbox--pointer-none"><input class="bmm-c-checkbox__input" type="checkbox"></label></td><td><p>日本郵便 - ゆうパック</p><p class="bmm-c-form-table__desc">【通常便（北海道・沖縄・離島）】ご購入後3～4日で発送</p></td><td>¥1,000</td></tr>
+    <tr><td class="bmm-c-form-table__icon-cell"><label class="bmm-c-checkbox bmm-c-checkbox--pointer-none"><input class="bmm-c-checkbox__input" type="checkbox"></label></td><td><p>ヤマト運輸 - ネコポス</p><p class="bmm-c-form-table__desc">追跡番号付きポスト投函でのお届けです。</p></td><td>¥0</td></tr>
+    <tr><td class="bmm-c-form-table__icon-cell"><label class="bmm-c-checkbox bmm-c-checkbox--pointer-none"><input class="bmm-c-checkbox__input" type="checkbox"></label></td><td><p>ヤマト運輸　-　宅急便</p></td><td>¥0</td></tr>
+    <tr class="bmm-c-text-field bmm-c-form-table__foot--disabled"><td class="bmm-c-form-table__icon-cell"><label class="bmm-c-checkbox bmm-c-checkbox--pointer-none"><input class="bmm-c-checkbox__input" type="checkbox"></label></td><td><p>使えない配送方法</p></td><td>¥0</td></tr>
+  </tbody></table></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">買付先ショップ名</p><p class="bmm-c-summary__note">出品後の変更不可</p></div></div>
+  <div class="bmm-l-col bmm-l-col-8"><div class="bmm-c-field"><div class="bmm-c-field__input"><input type="text" class="bmm-c-text-field" id="shop" value=""></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">商品価格<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field__input"><div class="bmm-c-custom-text"><input type="text" class="bmm-c-text-field bmm-c-text-field--half-size-char" id="price" value=""></div></div></div></div>
+
+<div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">出品メモ</p></div></div>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="bmm-c-field__input"><textarea class="bmm-c-textarea" id="memo"></textarea></div></div></div></div>
+
+<button type="button" class="bmm-c-btn" onclick="window.__clicked='draft'">下書き保存する</button>
+<button type="button" class="bmm-c-btn" onclick="window.__clicked='confirm'">入力内容を確認する</button>
+</form>
+<script>
+  // ---- react-select（v1）のふるまいを再現：mousedown で開く・候補を mousedown で選ぶ・次の段が出る ----
+  const TREE = {
+    'レディースファッション': { 'ボトムス': ['パンツ', 'スカート'], 'アウター': ['コート', 'ジャケット'] },
+    'メンズファッション': { 'ボトムス': ['パンツ'] },
+  };
+  const levels = document.getElementById('catLevels');
+  function addLevel(options) {
+    const item = document.createElement('div');
+    item.className = 'bmm-l-col bmm-l-col-4 sell-category__item';
+    item.innerHTML = '<div class="Select bmm-c-custom-select sell-category-select Select--single"><div class="Select-control"><span class="Select-multi-value-wrapper"><div class="Select-placeholder">選択してください</div><div class="Select-input" role="combobox" tabindex="0"></div></span></div></div>';
+    const sel = item.firstChild;
+    const control = sel.querySelector('.Select-control');
+    control.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const open = sel.querySelector('.Select-menu-outer');
+      if (open) { open.remove(); return; }
+      setTimeout(() => {
+        const menu = document.createElement('div');
+        menu.className = 'Select-menu-outer';
+        menu.innerHTML = '<div class="Select-menu" role="listbox">' + options.map((o) => '<div class="Select-option" role="option">' + o + '</div>').join('') + '</div>';
+        for (const opt of menu.querySelectorAll('.Select-option')) {
+          opt.addEventListener('mousedown', (ev) => {
+            ev.preventDefault();
+            const name = opt.textContent;
+            menu.remove();
+            sel.querySelector('.Select-multi-value-wrapper').innerHTML = '<div class="Select-value"><span class="Select-value-label">' + name + '</span></div>';
+            window.__category = (window.__category || []).concat(name);
+            const depth = window.__category.length;
+            let node = TREE;
+            for (const k of window.__category) node = node[k];
+            setTimeout(() => {
+              if (Array.isArray(node)) { if (depth < 3) addLevel(node); }
+              else if (node) addLevel(Object.keys(node));
+            }, 50);
+          });
+        }
+        sel.appendChild(menu);
+      }, 50);
+    });
+    levels.appendChild(item);
+  }
+  addLevel(Object.keys(TREE));
+
+  // ---- 配送方法：行を押すとチェックが付く ----
+  for (const tr of document.querySelectorAll('#ship tr')) {
+    tr.addEventListener('click', () => {
+      if (tr.className.includes('disabled')) return;
+      const cb = tr.querySelector('input'); cb.checked = !cb.checked;
+    });
+  }
+
+  // ---- ブランド：文字を入れると、少しあとで候補が出る。押すと選ばれる ----
+  const brand = document.getElementById('brand');
+  brand.addEventListener('input', () => {
+    setTimeout(() => {
+      const q = brand.value.trim();
+      const list = document.getElementById('brandList');
+      list.innerHTML = '';
+      for (const name of [q + '(エムエーエムシー)', q + ' Paris', 'ZARA']) {
+        const li = document.createElement('li');
+        li.textContent = name;
+        li.addEventListener('click', () => { brand.value = name; window.__brand = name; list.innerHTML = ''; });
+        list.appendChild(li);
+      }
+    }, 200);
+  });
+
+  // ---- 画像：ファイルが入ったら記録する ----
+  document.querySelector('input[type=file]').addEventListener('change', (e) => {
+    window.__files = Array.from(e.target.files).map((f) => ({ name: f.name, type: f.type, size: f.size }));
+  });
+</script>
+</body></html>
