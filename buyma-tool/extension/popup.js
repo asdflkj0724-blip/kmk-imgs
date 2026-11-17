@@ -435,6 +435,59 @@ function fillActiveBuymaPage(values) {
 function readActiveBuymaShipping() {
   return globalThis.RakuBuymaFill.readShippingOptions(document);
 }
+function showActiveReport(r) {
+  const F = globalThis.RakuBuymaFill;
+  const lines = [];
+  if (r.filled.length) lines.push('ラク出品：' + r.filled.join('・') + ' を入れました。');
+  if (r.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + r.skipped.join('・'));
+  if (r.missing.length) lines.push('見つからなかった欄：' + r.missing.join('・') + '（ご自身で入れてください）');
+  lines.push(...r.notes);
+  lines.push('色とサイズの表は、ご自身で選んでください。内容を確かめてから「入力内容を確認する」を押してください。');
+  F.showBanner(document, lines, !r.filled.length);
+}
+function readActiveCategoryLevel(i) {
+  return globalThis.RakuBuymaFill.categoryLevel(document, i);
+}
+function pickActiveCategory(i, index) {
+  return globalThis.RakuBuymaFill.categoryPick(document, i, index);
+}
+
+/**
+ * カテゴリを1段ずつ選ぶ。名前がはっきり合えばそのまま、合わなければ BUYMA の実際の候補を AI に見せて選んでもらう。
+ * @returns {{chosen: string[], note: string}}
+ */
+async function chooseCategory(wanted, title) {
+  const segs = PF.categorySegments(wanted);
+  const chosen = [];
+  if (!segs.length) return { chosen, note: '' };
+  for (let i = 0; i < 4; i++) {
+    const lv = await runInBuyma(readActiveCategoryLevel, [i]);
+    if (!lv || !lv.exists) break;
+    if (lv.selected) {
+      if (i === 0) return { chosen: [], note: 'カテゴリはすでに選ばれていたので、そのままにしました。', skipped: true };
+      chosen.push(lv.selected);
+      continue;
+    }
+    if (!lv.options.length) return { chosen, note: `カテゴリの${i + 1}段目の候補が出ませんでした。ご自身で選んでください。` };
+    let index = segs[i] ? PF.localCategoryPick(lv.options, segs[i]) : -1;
+    if (index < 0) {
+      setStatus(`カテゴリの${i + 1}段目を選んでいます…`);
+      try {
+        index = (await api.pickCategory({ title: title || '', wanted, chosen, options: lv.options.slice(0, 300) })).index;
+      } catch (e) {
+        index = -1;
+      }
+    }
+    if (index < 0) {
+      await runInBuyma(pickActiveCategory, [i, -1]);
+      return { chosen, note: `カテゴリの${i + 1}段目は、合う候補がはっきりしなかったので選んでいません。ご自身で選んでください。` };
+    }
+    const name = await runInBuyma(pickActiveCategory, [i, index]);
+    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` };
+    chosen.push(name);
+  }
+  return { chosen, note: '' };
+}
 
 async function runInBuyma(func, args) {
   await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/buyma-fill.js'] });
@@ -461,10 +514,29 @@ function askImageAccess(urls) {
   return origins.length ? chrome.permissions.request({ origins }) : Promise.resolve(true);
 }
 
+/** BUYMA の画面で使う配送方法の選択。一覧が空なら、この画面から自動で取り込む */
+async function setupBuymaShipping() {
+  if (!settings.shippingMethods.length) {
+    try {
+      const found = await runInBuyma(readActiveBuymaShipping);
+      if (found && found.length) settings = await api.saveSettings({ shippingMethods: found });
+    } catch (e) {}
+  }
+  const sel = $('buymaShipping');
+  const list = settings.shippingMethods;
+  sel.replaceChildren(el('option', { value: '' }, list.length ? '（選んでください）' : '（この画面に配送方法の一覧がありません）'), ...list.map((n) => el('option', { value: n }, n)));
+  sel.value = settings.lastShipping || '';
+  sel.onchange = async () => {
+    settings = await api.saveSettings({ lastShipping: sel.value });
+    setStatus(sel.value ? '配送方法を覚えました。次の商品からも自動で使います' : '配送方法を未選択にしました');
+  };
+}
+
 async function showBuymaBox() {
   const { lastForBuyma } = await chrome.storage.local.get('lastForBuyma');
   $('buymaBox').hidden = false;
   $('extract').hidden = true;
+  await setupBuymaShipping();
   if (!lastForBuyma || !lastForBuyma.listing) {
     $('buymaTarget').textContent = 'まだ出品データがありません。先に仕入れ先の商品ページで「この商品の情報を取る」→「出品データを作る」をしてください。';
     $('fillBuyma').disabled = true;
@@ -487,8 +559,14 @@ function fillBuyma() {
 
 async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   const values = PF.buymaValues(lastForBuyma.listing, lastForBuyma.product);
+  // 配送方法：この画面で選んだもの（＝最後に選んだもの）を使う
+  values.shipping = $('buymaShipping').value || values.shipping || settings.lastShipping || '';
+  values.noBrandIfUnknown = settings.noBrandIfUnknown;
+  values.categoryByPopup = true;
   $('fillBuyma').disabled = true;
   try {
+    // カテゴリを先に選ぶ（AI と相談しながら1段ずつ）
+    const cat = await chooseCategory(values.category, values.title);
     if (withImages) {
       const s = await api.getSettings();
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
@@ -503,6 +581,10 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
     setStatus('BUYMA の画面に入れています…');
     const r = await runInBuyma(fillActiveBuymaPage, [values]);
     if (!r) throw new Error('結果が返ってきませんでした');
+    if (cat.chosen.length && !cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '）');
+    if (cat.skipped) r.skipped.unshift('カテゴリ');
+    if (cat.note) r.notes.unshift(cat.note);
+    await runInBuyma(showActiveReport, [r]);
     const parts = [];
     if (r.filled.length) parts.push(`${r.filled.join('・')} を入れました`);
     if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);

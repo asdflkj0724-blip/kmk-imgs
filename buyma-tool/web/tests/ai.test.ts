@@ -121,3 +121,18 @@ describe('ページの中身の切り詰め', async () => {
     expect(p.images.length).toBe(40);
   });
 });
+
+describe('BUYMA のカテゴリ選び', async () => {
+  const { pickCategoryOption } = await import('@/lib/ai');
+  const input = { title: 'ミディ丈スカート', wanted: 'レディースファッション > ボトムス > スカート', chosen: [], options: ['レディース', 'メンズ', 'ベビー・キッズ'] };
+  it('実際の候補を番号付きで見せて、1つ選ばせる', async () => {
+    const { client, parse } = fakeClient({ stop_reason: 'end_turn', parsed_output: { index: 0 }, model: 'm', usage: { input_tokens: 1, output_tokens: 1 } });
+    const r = await pickCategoryOption(input, client);
+    expect(r.index).toBe(0);
+    expect(parse.mock.calls[0][0].messages[0].content).toContain('0: レディース\n1: メンズ');
+  });
+  it('範囲外の番号は「選ばない」にする', async () => {
+    const { client } = fakeClient({ stop_reason: 'end_turn', parsed_output: { index: 9 }, model: 'm', usage: { input_tokens: 1, output_tokens: 1 } });
+    expect((await pickCategoryOption(input, client)).index).toBe(-1);
+  });
+});

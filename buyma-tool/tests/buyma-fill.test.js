@@ -210,3 +210,44 @@ test('すでに選ばれているカテゴリ・チェックの付いた配送�
     await browser.close();
   }
 });
+
+test('カテゴリ：候補を読んで、番号で選ぶ（拡張機能の画面が AI と相談しながら使う）', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const lv0 = await page.evaluate(() => RakuBuymaFill.categoryLevel(document, 0));
+    assert.deepEqual(lv0, { exists: true, selected: '', options: ['レディースファッション', 'メンズファッション'] });
+    // 名前がはっきり合えば、AI に聞かずに選べる
+    assert.equal(PF.localCategoryPick(lv0.options, 'レディース'), 0);
+    assert.equal(await page.evaluate(() => RakuBuymaFill.categoryPick(document, 0, 0)), 'レディースファッション');
+    const lv1 = await page.evaluate(() => RakuBuymaFill.categoryLevel(document, 1));
+    assert.deepEqual(lv1.options, ['ボトムス', 'アウター']);
+    assert.equal(await page.evaluate(() => RakuBuymaFill.categoryPick(document, 1, 0)), 'ボトムス');
+    const lv2 = await page.evaluate(() => RakuBuymaFill.categoryLevel(document, 2));
+    assert.deepEqual(lv2.options, ['パンツ', 'スカート']);
+    // -1 なら選ばずに閉じる
+    assert.equal(await page.evaluate(() => RakuBuymaFill.categoryPick(document, 2, -1)), '');
+    assert.deepEqual(await page.evaluate(() => window.__category), ['レディースファッション', 'ボトムス']);
+    assert.deepEqual(await page.evaluate(() => RakuBuymaFill.categoryLevel(document, 3)), { exists: false });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('ブランドがわからないとき、設定がオンなら「ブランド指定なし」にチェック', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const r = await page.evaluate(() => RakuBuymaFill.fillBuymaAll(document, { brand: '', noBrandIfUnknown: true, categoryByPopup: true }));
+    assert.equal(await page.evaluate(() => document.getElementById('noBrand').checked), true);
+    assert.ok(r.filled.includes('ブランド（指定なし）'));
+    assert.equal(await page.evaluate(() => window.__category || null), null, 'categoryByPopup のときはカテゴリに触らない');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('カテゴリの名前の分け方と、はっきり合うものだけを選ぶ', () => {
+  assert.deepEqual(PF.categorySegments('レディースファッション > ボトムス ＞ スカート'), ['レディースファッション', 'ボトムス', 'スカート']);
+  assert.equal(PF.localCategoryPick(['レディース', 'メンズ'], 'レディースファッション'), 0);
+  assert.equal(PF.localCategoryPick(['スカート', 'ロングスカート'], 'スカート'), 0, '完全に同じものを優先');
+  assert.equal(PF.localCategoryPick(['ワンピース', 'オールインワン'], 'パンツ'), -1, '合わなければ AI に聞く');
+});

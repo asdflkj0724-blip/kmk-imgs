@@ -305,3 +305,49 @@ export function extractToProduct(page: PageInput, r: ExtractResult) {
     readBy: 'ai' as const,
   };
 }
+
+/**
+ * BUYMA のカテゴリ選び：出品画面に実際に出ている候補の中から、商品に合うものを1つ選ぶ。
+ * AI が考えたカテゴリ名（例：レディースファッション > ボトムス > スカート）と、BUYMA の候補の名前が
+ * 少し違うことがあるため、候補そのものを見せて選んでもらう。合うものがなければ選ばない。
+ */
+export const CategoryPickSchema = z.object({
+  title: z.string().max(300).default(''),
+  wanted: z.string().max(300),
+  chosen: z.array(z.string().max(100)).max(5).default([]),
+  options: z.array(z.string().max(100)).min(1).max(300),
+});
+export type CategoryPickInput = z.infer<typeof CategoryPickSchema>;
+
+const PickResultSchema = z.object({
+  index: z.number().int().describe('選んだ候補の番号（0から）。合う候補がなければ -1'),
+});
+
+export async function pickCategoryOption(
+  input: CategoryPickInput,
+  client = anthropic()
+): Promise<{ index: number; usage: TokenUsage; model: string }> {
+  const list = input.options.map((o, i) => `${i}: ${o}`).join('\n');
+  const content = [
+    `商品名：${input.title || '（不明）'}`,
+    `考えたカテゴリ：${input.wanted}`,
+    input.chosen.length ? `すでに選んだ上の段：${input.chosen.join(' > ')}` : '',
+    `BUYMA の出品画面の、今の段の候補：\n${list}`,
+    '',
+    '今の段の候補の中から、この商品にいちばん合うものの番号を1つ選んでください。',
+    '性別（レディース・メンズ）や商品の種類がはっきり合わない候補しかないときは -1 にしてください。推測で無理に選ばないでください。',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const res = await client.beta.messages.parse({
+    model: EXTRACT_MODEL,
+    max_tokens: 4000,
+    ...(EXTRACT_MODEL.includes('haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
+    output_config: { effort: 'low', format: betaZodOutputFormat(PickResultSchema) },
+    messages: [{ role: 'user', content }],
+  });
+  if (res.stop_reason === 'refusal') throw new AiRefusalError('カテゴリを選べませんでした');
+  const raw = res.parsed_output?.index;
+  const index = typeof raw === 'number' && raw >= 0 && raw < input.options.length ? raw : -1;
+  return { index, usage: readUsage(res.usage), model: res.model };
+}

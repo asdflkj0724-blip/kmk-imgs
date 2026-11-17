@@ -8,6 +8,7 @@ async function load() {
   $('jpegQuality').value = s.jpegQuality;
   $('shippingMethods').value = s.shippingMethods.join('\n');
   $('watermarkEnabled').checked = s.watermarkEnabled;
+  $('noBrandIfUnknown').checked = s.noBrandIfUnknown;
   $('watermarkText').value = s.watermarkText;
   const auth = await api.getAuth();
   $('auth').textContent = auth ? `ログイン中：${auth.email || '（メール不明）'}` : 'ログインしていません';
@@ -20,6 +21,7 @@ async function save() {
     jpegQuality: $('jpegQuality').value,
     shippingMethods: $('shippingMethods').value.split(/\r?\n/),
     watermarkEnabled: $('watermarkEnabled').checked,
+    noBrandIfUnknown: $('noBrandIfUnknown').checked,
     watermarkText: $('watermarkText').value,
   });
   await load();
