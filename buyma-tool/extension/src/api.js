@@ -14,6 +14,8 @@
     shippingMethods: [],
     /** 最後に選んだ配送方法。変えるまで次の商品にも引き継ぐ */
     lastShipping: '',
+    /** ブランドがわからない商品は、BUYMA で「ブランド指定なし」にする */
+    noBrandIfUnknown: true,
     watermarkEnabled: false,
     watermarkText: '',
   };
@@ -59,6 +61,7 @@
     }
     const last = cleanName(src.lastShipping);
     out.lastShipping = out.shippingMethods.includes(last) ? last : '';
+    out.noBrandIfUnknown = src.noBrandIfUnknown !== false;
     out.watermarkEnabled = src.watermarkEnabled === true;
     out.watermarkText = String(src.watermarkText == null ? '' : src.watermarkText).replace(/[\r\n]+/g, ' ').slice(0, 40);
     const q = Number(out.jpegQuality);
@@ -181,6 +184,7 @@
         request('/api/generate', { method: 'POST', body: { product, templateId: templateId || undefined, instruction: instruction || undefined } }),
       // どのサイトでも：ページの中身から AI が商品情報を抜き出す
       extract: (page) => request('/api/extract', { method: 'POST', body: { page } }),
+      pickCategory: (input) => request('/api/category-pick', { method: 'POST', body: input }),
       vision: (imageBase64, mediaType, url) => request('/api/vision', { method: 'POST', body: { imageBase64, mediaType, url } }),
       updateListing: (id, patch) => request('/api/listings/' + encodeURIComponent(id), { method: 'PATCH', body: patch }),
     };

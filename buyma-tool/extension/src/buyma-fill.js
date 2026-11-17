@@ -210,15 +210,76 @@
     if (chosen.length) report.filled.push('カテゴリ（' + chosen.join(' > ') + '）');
   }
 
+  /**
+   * カテゴリの i 段目（0から）を開いて、候補の名前を返す（AI に選んでもらうため）。
+   * すでに選ばれていれば selected に名前が入る。段がなければ exists: false。
+   */
+  async function categoryLevel(doc, i) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) return { exists: false };
+    const sel = await waitFor(() => row.querySelectorAll('.Select')[i], 2500);
+    if (!sel) return { exists: false };
+    const already = selectedLabel(sel);
+    if (already) return { exists: true, selected: already, options: [] };
+    const options = await openOptions(sel);
+    return { exists: true, selected: '', options: options ? options.map((o) => (o.textContent || '').trim()) : [] };
+  }
+
+  async function openOptions(sel) {
+    const now = () => {
+      const list = Array.from(sel.querySelectorAll('.Select-option'));
+      return list.length ? list : null;
+    };
+    if (now()) return now();
+    const control = sel.querySelector('.Select-control');
+    if (!control) return null;
+    mouse(control, 'mousedown');
+    return waitFor(now, 2500);
+  }
+
+  /** カテゴリの i 段目で、index 番目の候補を選ぶ（-1 なら閉じるだけ）。選んだ名前を返す */
+  async function categoryPick(doc, i, index) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    const sel = row && row.querySelectorAll('.Select')[i];
+    if (!sel) return '';
+    if (selectedLabel(sel)) return selectedLabel(sel);
+    const options = await openOptions(sel);
+    if (!options) return '';
+    if (index < 0 || index >= options.length) {
+      const control = sel.querySelector('.Select-control');
+      if (control) mouse(control, 'mousedown');
+      return '';
+    }
+    mouse(options[index], 'mousedown');
+    return (await waitFor(() => selectedLabel(sel), 2000)) || '';
+  }
+
   // ---- ブランド（候補が出たら、名前が完全に同じものだけ選ぶ） ----
-  async function fillBrand(doc, brand, report) {
+  async function fillBrand(doc, brand, report, noBrandIfUnknown) {
     const row = rowByTitle(doc, 'ブランド');
     if (!row) {
       if (brand) report.missing.push('ブランド');
       return;
     }
     if (!brand) {
-      report.notes.push('ブランドは仕入れ先で確認できなかったので入れていません。ブランドがない商品なら「ブランド指定なし」を選んでください。');
+      if (!noBrandIfUnknown) {
+        report.notes.push('ブランドは仕入れ先で確認できなかったので入れていません。ブランドがない商品なら「ブランド指定なし」を選んでください。');
+        return;
+      }
+      // 設定で「わからないときはブランド指定なし」にしているとき
+      const box = Array.from(row.querySelectorAll('label')).find((l) => /ブランド指定なし/.test(l.textContent || ''));
+      const cb = box && box.querySelector('input[type=checkbox]');
+      if (!cb) {
+        report.notes.push('「ブランド指定なし」が見つかりませんでした。ご自身で選んでください。');
+        return;
+      }
+      if (cb.checked) {
+        report.skipped.push('ブランド');
+        return;
+      }
+      box.click();
+      if (await waitFor(() => cb.checked, 800)) report.filled.push('ブランド（指定なし）');
+      else report.notes.push('「ブランド指定なし」にチェックを付けられませんでした。ご自身で選んでください。');
       return;
     }
     const input = row.querySelector('input[type=text]');
@@ -408,13 +469,16 @@
     const report = { filled: [], skipped: [], missing: [], notes: [] };
     showBanner(doc, ['ラク出品：入力しています…'], false);
     fillTextFields(doc, values, report);
-    try {
-      await selectCategory(doc, values.category, report);
-    } catch (e) {
-      report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
+    // カテゴリは、拡張機能の画面が AI と相談しながら1段ずつ選ぶ（categoryByPopup）。そうでなければここで選ぶ
+    if (!values.categoryByPopup) {
+      try {
+        await selectCategory(doc, values.category, report);
+      } catch (e) {
+        report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
+      }
     }
     try {
-      await fillBrand(doc, values.brand, report);
+      await fillBrand(doc, values.brand, report, values.noBrandIfUnknown === true);
     } catch (e) {
       report.notes.push('ブランドを入れられませんでした。ご自身で入れてください。');
     }
@@ -432,7 +496,7 @@
     return report;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, TEXT_FIELDS };
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

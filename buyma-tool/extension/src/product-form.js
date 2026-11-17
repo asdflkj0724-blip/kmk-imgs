@@ -201,7 +201,27 @@
     }
   }
 
-  const api = { buymaValues, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
+  /** カテゴリの候補の中から、名前がはっきり合うものの番号（なければ -1）。AI に聞く前に試す */
+  function localCategoryPick(options, want) {
+    const norm = (s) => String(s || '').normalize('NFKC').replace(/[\s　]+/g, '').toLowerCase();
+    const w = norm(want);
+    if (!w) return -1;
+    const list = (options || []).map(norm);
+    const exact = list.map((t, i) => (t === w ? i : -1)).filter((i) => i >= 0);
+    if (exact.length === 1) return exact[0];
+    const part = list.map((t, i) => (t && (t.includes(w) || w.includes(t)) ? i : -1)).filter((i) => i >= 0);
+    return part.length === 1 ? part[0] : -1;
+  }
+
+  /** 「レディースファッション > ボトムス > スカート」を段ごとに分ける */
+  function categorySegments(path) {
+    return String(path || '')
+      .split(/\s*[>＞›»\/／]\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  const api = { localCategoryPick, categorySegments, buymaValues, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaProductForm = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
