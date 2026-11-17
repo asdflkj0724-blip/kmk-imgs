@@ -138,7 +138,7 @@
       <span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></span><span>移動</span>
       <span><kbd>マウス</kbd></span><span>まわりを見る</span>
       <span><kbd>左クリック</kbd></span><span>ブロックをこわして集める / 敵に攻撃</span>
-      <span><kbd>右クリック</kbd></span><span>ブロックをおく / 動物をペットにする / 話しかける / 食べる / 釣り</span>
+      <span><kbd>右クリック</kbd></span><span>ブロックをおく / 動物をペットにする / 話しかける / 食べる / 釣り / 指輪を撃つ</span>
       <span><kbd>E</kbd></span><span>もちもの・クラフト・剣と服の工房</span>
       <span><kbd>1</kbd>〜<kbd>9</kbd> / <kbd>ホイール</kbd></span><span>もつものを選ぶ</span>
       <span><kbd>スペース</kbd></span><span>ジャンプ / 泳ぐ / 上昇</span>
@@ -229,6 +229,11 @@ const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANKS=7, GLASS=
   COAL_ORE=15, IRON_ORE=16, GOLD_ORE=17, SILVER_ORE=18, EMERALD_ORE=19, DIAMOND_ORE=20,
   GOLD_BLOCK=21, SILVER_BLOCK=22, EMERALD_BLOCK=23, DIAMOND_BLOCK=24,
   COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34;
+const GEAR_LOOT = [
+  { id: 'sword', mat: 'diamond' }, { id: 'sword', mat: 'gold' }, { id: 'sword', mat: 'diamond', deco: 'gold' }, { id: 'sword', mat: 'gold', deco: 'diamond' },
+  { id: 'clothes', mat: 'diamond' }, { id: 'clothes', mat: 'gold' }, { id: 'clothes', mat: 'gold', deco: 'diamond' }, { id: 'clothes', mat: 'diamond', deco: 'emerald' },
+  { id: 'ring', mat: 'gold', deco: 'diamond' }, { id: 'ring', mat: 'silver', deco: 'emerald' }, { id: 'ring', mat: 'diamond', deco: 'gold' }, { id: 'ring', mat: 'gold' },
+];
 const STICK=100, COAL=101, IRON_INGOT=102, GOLD=103, SILVER=104, EMERALD=105, DIAMOND=106, STRING=107, FISH=108, APPLE=109, COOKIE=110, ROD=111;
 
 const BLOCKS = {
@@ -301,6 +306,7 @@ const DECO = {
 };
 const FORGE = {
   sword:   { name: '剣', mats: { wood: [[PLANKS, 2], [STICK, 1]], stone: [[COBBLE, 2], [STICK, 1]], iron: [[IRON_INGOT, 2], [STICK, 1]], silver: [[SILVER, 2], [STICK, 1]], gold: [[GOLD, 2], [STICK, 1]], diamond: [[DIAMOND, 2], [STICK, 1]] } },
+  ring:    { name: '指輪', mats: { silver: [[SILVER, 1]], gold: [[GOLD, 1]], diamond: [[DIAMOND, 1]] } },
   clothes: { name: '服', mats: { cloth: [[STRING, 4]], leaf: [[LEAVES, 5]], iron: [[IRON_INGOT, 5]], silver: [[SILVER, 5]], gold: [[GOLD, 5]], diamond: [[DIAMOND, 5]] } },
 };
 const RECIPES = [
@@ -547,6 +553,13 @@ function paintIcon(g, s) {
       p(4, 11, '#7a5230'); p(3, 12, '#7a5230'); p(2, 13, '#3a2a1a'); p(1, 14, '#3a2a1a');
       break;
     }
+    case 'ring': {
+      const band = MAT[s.mat].col, gem = s.deco ? DECO[s.deco].col : '#ff5c8a';
+      drawRows(g, ['....GGGG....', '...GWGGGG...', '....GGGG....', '...BBBBBB...', '..BB....BB..', '.BB......BB.', '.B........B.', '.B........B.', '.BB......BB.', '..BB....BB..', '...BBBBBB...'],
+        { G: gem, W: '#ffffff', B: band }, 2, 2);
+      p(4, 7, shadeHex(band, 1.3)); p(5, 6, shadeHex(band, 1.3));
+      break;
+    }
     case 'clothes': {
       const m = MAT[s.mat] || MAT.cloth;
       drawRows(g, ['..SS....SS..', '.SSSS..SSSS.', 'SSSSSSSSSSSS', 'SSSSSSSSSSSS', 'DS.SSSSSS.SD', '...SSSSSS...', '...SSSSSS...', '...SSSSSS...', '...SSSSSS...', '...DDDDDD...'],
@@ -571,11 +584,12 @@ function iconCopy(s) {
 }
 function itemName(s) {
   if (!s) return '';
-  if (s.id === 'sword' || s.id === 'clothes') return `${MAT[s.mat].name}の${s.id === 'sword' ? '剣' : '服'}` + (s.deco ? `（${DECO[s.deco].name}のかざり）` : '');
+  if (s.id === 'sword' || s.id === 'clothes' || s.id === 'ring') return `${MAT[s.mat].name}の${{ sword: '剣', clothes: '服', ring: '指輪' }[s.id]}` + (s.deco ? `（${DECO[s.deco].name}のかざり）` : '');
   if (isBlockItem(s.id)) return BLOCKS[s.id].name;
   return ITEMS[s.id] || '？';
 }
 const swordPower = s => MAT[s.mat].power + (s.deco ? 1 : 0);
+const ringPower = s => (s.mat === 'diamond' ? 6 : 4) + (s.deco ? 1 : 0);
 const clothesDef = s => MAT[s.mat].def + (s.deco ? 1 : 0);
 
 // ================= three.js セットアップ =================
@@ -843,8 +857,9 @@ function generateChunk(cx, cz) {
       buildHouse(hs, set, setIfAir);
       if (inChunk(hs.x, hs.z)) {
         if (hs.type === 'old') {
-          const it = lootFor(hs.id, [[DIAMOND, 1], [EMERALD, 2], [GOLD, 2], [SILVER, 2], [TORCH, 4], [LANTERN, 1]]);
-          loot.push({ key: hs.id, x: hs.x + 0.5, y: hs.f + 1.1, z: hs.z + 0.5, item: { id: it[0], count: it[1] } });
+          const it = lootFor(hs.id, [[DIAMOND, 1], [EMERALD, 2], [GOLD, 2], [SILVER, 2], [TORCH, 4], [LANTERN, 1], ...GEAR_LOOT.map(g => [g, 1])]);
+          const item = typeof it[0] === 'object' ? Object.assign({ count: 1 }, it[0]) : { id: it[0], count: it[1] };
+          loot.push({ key: hs.id, x: hs.x + 0.5, y: hs.f + 1.1, z: hs.z + 0.5, item });
         } else {
           npcs.push({ key: 'h' + hs.id, x: hs.x + 0.5, y: hs.f + 1.05, z: hs.z + 0.5, home: { x: hs.x + 0.5, z: hs.z + 0.5 }, radius: Math.min(hs.hw, hs.hd) - 0.9 });
         }
@@ -862,6 +877,16 @@ function generateChunk(cx, cz) {
     if ((top !== GRASS && top !== SAND && top !== SNOW) || data[idxOf(lx, h + 1, lz)] !== AIR) continue;
     const it = lootFor(wx + ',' + wz, [[TORCH, 3], [TORCH, 2], [TORCH, 4], [LANTERN, 1], [LANTERN, 1], [LAMP, 1], [APPLE, 2]]);
     loot.push({ key: wx + ',' + wz, x: wx + 0.5, y: h + 1.1, z: wz + 0.5, item: { id: it[0], count: it[1] } });
+  }
+  // 地面に落ちている強い装備（ダイヤや金の剣・服・指輪）
+  for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
+    const wx = ox + lx, wz = oz + lz;
+    if (hash(wx, wz, seed + 720) > 0.0016) continue;
+    const h = heightAt(wx, wz);
+    const top = data[idxOf(lx, h, lz)];
+    if ((top !== GRASS && top !== SAND && top !== SNOW) || data[idxOf(lx, h + 1, lz)] !== AIR) continue;
+    const key = 'g' + wx + ',' + wz;
+    loot.push({ key, x: wx + 0.5, y: h + 1.1, z: wz + 0.5, item: Object.assign({ count: 1 }, lootFor(key, GEAR_LOOT)) });
   }
   const e = edits[ckey(cx, cz)];
   if (e) for (const k in e) data[+k] = e[k];
@@ -1402,6 +1427,8 @@ const Sound = (() => {
     bite() { noise(0.2, 800, { ftype: 'lowpass', vol: 0.35 }); tone(900, 0.1, { vol: 0.1, type: 'triangle' }); },
     talk(x, y, z) { const v = near(x, y, z); for (let i = 0; i < 4; i++) tone(700 + Math.random() * 500, 0.06, { delay: i * 0.08, vol: 0.08 * v, type: 'triangle' }); },
     gift() { arp([784, 988, 1175, 1568, 1976], 0.06, 0.1, 'sine'); },
+    zap() { tone(1300, 0.14, { to: 2600, type: 'triangle', vol: 0.09 }); tone(2000, 0.12, { delay: 0.05, vol: 0.05 }); },
+    sparkle() { tone(2600, 0.08, { vol: 0.06, type: 'triangle' }); tone(3300, 0.1, { delay: 0.05, vol: 0.05 }); },
     love() { arp([659, 880, 1047], 0.09, 0.09, 'sine'); },
     voice(type, x, y, z) {
       const v = near(x, y, z); if (v <= 0.02) return;
@@ -1511,6 +1538,12 @@ const drops = [];
 const lootSpawned = new Set();
 const cubeGeoCache = new Map();
 const spriteTexCache = new Map();
+function spriteTex(item) {
+  const k = iconKey(item);
+  let tex = spriteTexCache.get(k);
+  if (!tex) { tex = new THREE.CanvasTexture(iconCanvas(item)); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; spriteTexCache.set(k, tex); }
+  return tex;
+}
 function dropMesh(item) {
   if (isBlockItem(item.id) && !CROSS.has(item.id)) {
     let geo = cubeGeoCache.get(item.id);
@@ -1525,16 +1558,13 @@ function dropMesh(item) {
     }
     return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5 }));
   }
-  const k = iconKey(item);
-  let tex = spriteTexCache.get(k);
-  if (!tex) { tex = new THREE.CanvasTexture(iconCanvas(item)); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; spriteTexCache.set(k, tex); }
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, alphaTest: 0.5 }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: spriteTex(item), alphaTest: 0.5 }));
   s.scale.set(0.45, 0.45, 0.45);
   return s;
 }
 function spawnDrop(item, x, y, z, vel, lootKey, delay) {
   const d = { item, pos: new THREE.Vector3(x, y, z), vel: vel || new THREE.Vector3((Math.random() - 0.5) * 2, 3, (Math.random() - 0.5) * 2),
-    w: 0.14, h: 0.28, onGround: false, age: 0, pickDelay: delay ?? 0.3, lootKey, mesh: dropMesh(item), lightT: 0, glow: !!LIGHTS[item.id] };
+    w: 0.14, h: 0.28, onGround: false, age: 0, pickDelay: delay ?? 0.3, lootKey, mesh: dropMesh(item), lightT: 0, glow: !!LIGHTS[item.id] || typeof item.id === 'string' };
   scene.add(d.mesh);
   drops.push(d);
   return d;
@@ -2057,11 +2087,11 @@ function teleportPet(m) {
 }
 
 let defeated = 0;
-function attackMob(m, dir) {
+function attackMob(m, dir, power) {
   if (m.T.villager) { talkTo(m); return; }
   if (!m.T.hostile) { nuzzle(m); return; }
   const held = inv[selected];
-  const dmg = held && held.id === 'sword' ? swordPower(held) : 3;
+  const dmg = power || (held && held.id === 'sword' ? swordPower(held) : 3);
   m.hp -= dmg;
   m.hurtT = 0.35;
   m.vel.x += dir.x * 6; m.vel.z += dir.z * 6; m.vel.y = 5;
@@ -2140,6 +2170,52 @@ function updateSpawns(dt) {
         break;
       }
     }
+  }
+}
+
+// ================= 指輪を撃つ =================
+const shots = [];
+let shotCD = 0;
+function shootRing(s) {
+  if (shotCD > 0) return;
+  shotCD = 0.3;
+  const d = new THREE.Vector3(); camera.getWorldDirection(d);
+  const mesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: spriteTex(s), alphaTest: 0.5 }));
+  mesh.scale.set(0.4, 0.4, 0.4);
+  const pos = camera.position.clone().addScaledVector(d, 0.6);
+  mesh.position.copy(pos);
+  scene.add(mesh);
+  shots.push({ mesh, pos, vel: d.multiplyScalar(26), life: 1.6, dmg: ringPower(s), col: s.deco ? DECO[s.deco].col : MAT[s.mat].col });
+  Sound.zap(); swingHeld();
+}
+function removeShot(sh) { scene.remove(sh.mesh); sh.mesh.material.dispose(); shots.splice(shots.indexOf(sh), 1); }
+function updateShots(dt) {
+  shotCD -= dt;
+  for (const sh of shots.slice()) {
+    sh.life -= dt;
+    if (sh.life <= 0) { removeShot(sh); continue; }
+    const steps = 4;
+    let done = false;
+    for (let i = 0; i < steps && !done; i++) {
+      sh.pos.addScaledVector(sh.vel, dt / steps);
+      if (isSolid(getBlock(Math.floor(sh.pos.x), Math.floor(sh.pos.y), Math.floor(sh.pos.z)))) {
+        for (let k = 0; k < 5; k++) spawnParticle(sh.pos.x, sh.pos.y, sh.pos.z, new THREE.Color(sh.col), 2);
+        Sound.sparkle(); done = true; break;
+      }
+      for (const m of mobs) {
+        if (!m.T.hostile || !m.g.visible) continue;
+        const p = sh.pos;
+        if (Math.abs(p.x - m.pos.x) < m.w + 0.25 && Math.abs(p.z - m.pos.z) < m.w + 0.25 && p.y > m.pos.y - 0.2 && p.y < m.pos.y + m.h + 0.2) {
+          for (let k = 0; k < 8; k++) spawnParticle(p.x, p.y, p.z, new THREE.Color(sh.col), 3);
+          attackMob(m, sh.vel.clone().normalize(), sh.dmg);
+          done = true; break;
+        }
+      }
+    }
+    if (done) { removeShot(sh); continue; }
+    sh.mesh.position.copy(sh.pos);
+    sh.mesh.material.rotation += dt * 14;
+    if (Math.random() < dt * 25) spawnParticle(sh.pos.x, sh.pos.y, sh.pos.z, new THREE.Color(sh.col), 0.4, true);
   }
 }
 
@@ -2366,14 +2442,14 @@ function forgeNeeds() {
 function renderForge() {
   const F = FORGE[forgeState.kind];
   if (!F.mats[forgeState.mat]) forgeState.mat = Object.keys(F.mats)[0];
-  chips(document.getElementById('forgeKind'), [['sword', '剣'], ['clothes', '服']], forgeState.kind, k => { forgeState.kind = k; });
+  chips(document.getElementById('forgeKind'), [['sword', '剣'], ['clothes', '服'], ['ring', '指輪']], forgeState.kind, k => { forgeState.kind = k; });
   chips(document.getElementById('forgeMat'), Object.keys(F.mats).map(k => [k, MAT[k].name]), forgeState.mat, k => { forgeState.mat = k; });
   chips(document.getElementById('forgeDeco'), [[null, 'なし'], ...Object.keys(DECO).map(k => [k, DECO[k].name])], forgeState.deco, k => { forgeState.deco = k; });
   const item = { id: forgeState.kind, mat: forgeState.mat, deco: forgeState.deco, count: 1 };
   const g = document.getElementById('forgeIcon').getContext('2d');
   g.clearRect(0, 0, 16, 16); g.drawImage(iconCanvas(item), 0, 0);
   document.getElementById('forgeName').textContent = itemName(item);
-  document.getElementById('forgeStat').textContent = forgeState.kind === 'sword' ? `こうげき力 ${swordPower(item)}` : `まもり ${clothesDef(item)}`;
+  document.getElementById('forgeStat').textContent = forgeState.kind === 'sword' ? `こうげき力 ${swordPower(item)}` : forgeState.kind === 'ring' ? `飛ばす力 ${ringPower(item)}（右クリックで撃つ）` : `まもり ${clothesDef(item)}`;
   const needs = document.getElementById('forgeNeeds'); needs.innerHTML = '';
   const need = forgeNeeds();
   need.forEach(([id, n]) => needs.append(needEl(id, n)));
@@ -2453,6 +2529,7 @@ function secondaryAction() {
   const s = inv[selected];
   if (!s) return;
   if (s.id === ROD) { castRod(); return; }
+  if (s.id === 'ring') { shootRing(s); return; }
   if (FOOD[s.id]) {
     if (player.hp >= 20) { toast('おなかいっぱい！'); return; }
     player.hp = Math.min(20, player.hp + FOOD[s.id]);
@@ -2701,6 +2778,7 @@ function loop(now) {
     updateSpawns(dt);
     updateDrops(dt);
     updateFishing(dt);
+    updateShots(dt);
   }
 
   camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
