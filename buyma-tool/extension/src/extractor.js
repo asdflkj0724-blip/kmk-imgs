@@ -198,12 +198,27 @@
     return Array.from(new Set(urls));
   }
 
+  /** お店の名前（BUYMA の「買付先ショップ名」に使う）。ブランド名とは別もの */
+  function extractShopName(doc) {
+    const el = first(doc, [
+      cls('shopName--'),
+      cls('ShopHeader--title'),
+      cls('shopHeader--name'),
+      '.tb-shop-name a',
+      '.tb-shop-name',
+      '.slogo-shopname',
+      '.shop-name-link',
+    ]);
+    return el ? text(el).slice(0, 60) : '';
+  }
+
   function extractProduct(doc, url) {
     const pageUrl = url || (doc.location && doc.location.href) || '';
     const result = {
       source: detectSource(pageUrl),
       itemId: itemIdOf(pageUrl),
       url: pageUrl,
+      shopName: extractShopName(doc),
       title: extractTitle(doc),
       price: extractPrice(doc),
       skus: extractSkus(doc),

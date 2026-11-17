@@ -26,6 +26,7 @@ test('新しいタオバオのページ', async () => {
   assert.equal(p.source, 'taobao');
   assert.equal(p.itemId, '7001');
   assert.equal(p.title, '2024新款 双面羊毛大衣女 中长款');
+  assert.equal(p.shopName, 'MAMC旗舰店');
   assert.equal(p.price.min, 459); // 割引後の価格を優先
   assert.deepEqual(p.images, [
     'https://img.alicdn.com/imgextra/i1/111/O1CN01a.jpg',

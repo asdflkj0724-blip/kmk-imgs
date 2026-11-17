@@ -8,7 +8,8 @@ export const TITLE_MAX = Number(process.env.BUYMA_TITLE_MAX || 60);
 /** 商品説明の最大文字数（仮） */
 export const DESCRIPTION_MAX = Number(process.env.BUYMA_DESCRIPTION_MAX || 3000);
 
-export type IssueLevel = 'error' | 'warning';
+/** error＝出品前に必ず直す（致命的） / warning＝確認が必要 / info＝情報が足りないだけ */
+export type IssueLevel = 'error' | 'warning' | 'info';
 export interface Issue {
   level: IssueLevel;
   field: 'title' | 'description' | 'source';
@@ -16,17 +17,33 @@ export interface Issue {
   message: string;
 }
 
-/** 文字数（絵文字なども1文字として数える） */
-export function charLength(s: string): number {
-  return Array.from(s).length;
+/** 1文字の幅：半角（英数字・記号・半角カナ）は1、それ以外（日本語など全角）は2 */
+function charWidth(c: string): number {
+  const code = c.codePointAt(0) ?? 0;
+  return code <= 0x7e || (code >= 0xff61 && code <= 0xff9f) ? 1 : 2;
 }
 
-/** 上限を超えたら、区切り（スペース・記号）のところで切る */
+/**
+ * BUYMA の数え方の文字数（半角換算）。BUYMA の出品画面は「あと60文字(半角)」のように、
+ * 半角を1・全角を2として数える。日本語の商品名は30文字までになる。
+ */
+export function charLength(s: string): number {
+  let n = 0;
+  for (const c of Array.from(s)) n += charWidth(c);
+  return n;
+}
+
+/** 上限を超えたら、区切り（スペース・記号）のところで切る（半角換算で数える） */
 export function fitTitle(title: string, max = TITLE_MAX): string {
   const t = title.replace(/\s+/g, ' ').trim();
-  const chars = Array.from(t);
-  if (chars.length <= max) return t;
-  const cut = chars.slice(0, max).join('');
+  if (charLength(t) <= max) return t;
+  let cut = '';
+  let n = 0;
+  for (const c of Array.from(t)) {
+    if (n + charWidth(c) > max) break;
+    cut += c;
+    n += charWidth(c);
+  }
   const m = cut.match(/^(.*)[\s　\/／・|｜【】「」()（）-]/);
   const result = m && charLength(m[1]) >= max * 0.6 ? m[1] : cut;
   return result.trim();
@@ -40,9 +57,42 @@ const ERROR_WORDS = [
 
 /** BUYMA のルールに引っかかりやすい、または誇大と取られやすい言葉 */
 const WARNING_WORDS = [
-  '最安', '激安', '日本未入荷', '日本未発売', '正規品保証', '100%', '絶対', '必ず', '送料無料', '即納', '在庫あり',
+  '日本未入荷', '日本未発売', '正規品保証', '100%正規品', '絶対', '送料無料', '即納', '在庫あり',
   '同款', '大牌', '明星同款', '网红',
 ];
+
+/**
+ * 根拠のない誇大表現は、警告を出すのではなく自動で消す（「高級感」のような見た目の説明は残す）。
+ * label は「自動で直したこと」の表示に使う。
+ */
+const AUTO_REMOVE: { pattern: RegExp; label: string }[] = [
+  { pattern: /(?:最高級|超高級)(?:な|の)?/g, label: '最高級' },
+  { pattern: /高級(?!感)(?:な|の)?/g, label: '高級' },
+  { pattern: /(?:大人気|爆売れ|人気No\.?\s?1|人気ナンバーワン)(?:の)?/gi, label: '大人気' },
+  { pattern: /(?:激安|最安値|最安|格安)(?:の)?/g, label: '激安・最安' },
+  { pattern: /(?:高品質|ハイクオリティ)(?:な|の)?/g, label: '高品質' },
+];
+
+/** 誇大表現を消し、消したもの（label）を返す */
+export function autoFixText(text: string, isTitle = false): { text: string; removed: string[] } {
+  const removed: string[] = [];
+  let out = text;
+  for (const { pattern, label } of AUTO_REMOVE) {
+    if (pattern.test(out)) {
+      removed.push(label);
+      out = out.replace(pattern, '');
+    }
+    pattern.lastIndex = 0;
+  }
+  if (removed.length) {
+    out = out
+      .replace(/【\s*】|「\s*」|（\s*）|\(\s*\)/g, '')
+      .replace(/[ 　]{2,}/g, ' ')
+      .replace(/^[ 　・、,]+/gm, '');
+    if (isTitle) out = out.replace(/\s+/g, ' ').trim();
+  }
+  return { text: out, removed };
+}
 
 /** 有名ブランド名（ブランド品は正規品の確認が必要。ここは代表例） */
 const BRANDS = [
@@ -72,10 +122,10 @@ export function checkListing(input: { title: string; description: string; source
 
   if (!title.trim()) issues.push({ level: 'error', field: 'title', message: '商品名が空です' });
   if (charLength(title) > TITLE_MAX) {
-    issues.push({ level: 'error', field: 'title', message: `商品名が${TITLE_MAX}文字を超えています（${charLength(title)}文字）` });
+    issues.push({ level: 'error', field: 'title', message: `商品名が長すぎます（BUYMA の上限は半角${TITLE_MAX}文字＝全角${TITLE_MAX / 2}文字。今は半角換算で${charLength(title)}文字）` });
   }
   if (charLength(description) > DESCRIPTION_MAX) {
-    issues.push({ level: 'error', field: 'description', message: `説明文が${DESCRIPTION_MAX}文字を超えています` });
+    issues.push({ level: 'error', field: 'description', message: `商品コメントが長すぎます（上限は半角${DESCRIPTION_MAX}文字＝全角${DESCRIPTION_MAX / 2}文字）` });
   }
 
   for (const [field, text] of [['title', title], ['description', description]] as const) {

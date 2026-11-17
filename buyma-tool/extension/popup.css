@@ -16,6 +16,9 @@ button.copy { margin: 0; padding: 4px 8px; font-size: 12px; background: #fff; co
 #issues { padding-left: 18px; margin: 6px 0; }
 .lv-error { color: #b42318; }
 .lv-warning { color: #b45309; }
+.lv-info { color: #666; }
+.lv-fixed { color: #1c7c4a; }
+.ship-hint { font-size: 12px; color: #b45309; margin: 2px 0 0; }
 .over { color: #b42318; font-weight: 700; }
 .row3 { display: grid; grid-template-columns: 1fr 1fr 80px; gap: 6px; }
 #images { display: flex; flex-wrap: wrap; gap: 4px; }

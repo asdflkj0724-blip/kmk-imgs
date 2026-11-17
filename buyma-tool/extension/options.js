@@ -6,6 +6,9 @@ async function load() {
   $('apiBase').value = s.apiBase;
   $('imageMaxPx').value = s.imageMaxPx;
   $('jpegQuality').value = s.jpegQuality;
+  $('shippingMethods').value = s.shippingMethods.join('\n');
+  $('watermarkEnabled').checked = s.watermarkEnabled;
+  $('watermarkText').value = s.watermarkText;
   const auth = await api.getAuth();
   $('auth').textContent = auth ? `ログイン中：${auth.email || '（メール不明）'}` : 'ログインしていません';
 }
@@ -15,6 +18,9 @@ async function save() {
     apiBase: $('apiBase').value,
     imageMaxPx: $('imageMaxPx').value,
     jpegQuality: $('jpegQuality').value,
+    shippingMethods: $('shippingMethods').value.split(/\r?\n/),
+    watermarkEnabled: $('watermarkEnabled').checked,
+    watermarkText: $('watermarkText').value,
   });
   await load();
   $('status').textContent = '保存しました';

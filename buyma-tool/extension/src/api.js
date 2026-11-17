@@ -10,7 +10,18 @@
     apiBase: 'http://localhost:3000',
     imageMaxPx: 1200,
     jpegQuality: 0.9,
+    /** BUYMA に登録済みの配送方法の名前（ユーザーがコピーして貼った文字を、一言一句そのまま保存する） */
+    shippingMethods: [],
+    /** 最後に選んだ配送方法。変えるまで次の商品にも引き継ぐ */
+    lastShipping: '',
+    watermarkEnabled: false,
+    watermarkText: '',
   };
+
+  /** 貼り付けで付いた前後の改行だけを取る（中の文字・空白は変えない） */
+  function cleanName(v) {
+    return String(v == null ? '' : v).replace(/^[\r\n]+|[\r\n]+$/g, '');
+  }
 
   class ApiError extends Error {
     constructor(message, status, body) {
@@ -38,6 +49,18 @@
       jpegQuality: src.jpegQuality,
     };
     out.imageMaxPx = Math.min(4000, Math.max(300, Math.round(Number(out.imageMaxPx) || DEFAULT_SETTINGS.imageMaxPx)));
+    // 配送方法：空のものと、まったく同じ名前の重複だけを除く（名前そのものは変えない）
+    const list = Array.isArray(src.shippingMethods) ? src.shippingMethods : [];
+    out.shippingMethods = [];
+    for (const v of list) {
+      const name = cleanName(v);
+      if (name.trim() && name.length <= 200 && !out.shippingMethods.includes(name)) out.shippingMethods.push(name);
+      if (out.shippingMethods.length >= 30) break;
+    }
+    const last = cleanName(src.lastShipping);
+    out.lastShipping = out.shippingMethods.includes(last) ? last : '';
+    out.watermarkEnabled = src.watermarkEnabled === true;
+    out.watermarkText = String(src.watermarkText == null ? '' : src.watermarkText).replace(/[\r\n]+/g, ' ').slice(0, 40);
     const q = Number(out.jpegQuality);
     out.jpegQuality = q > 0 && q <= 1 ? q : DEFAULT_SETTINGS.jpegQuality;
     return out;

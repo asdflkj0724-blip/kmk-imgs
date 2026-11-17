@@ -11,6 +11,16 @@
   </header>
   <p id="account" class="small muted">確認中…</p>
 
+  <!-- BUYMA の出品画面を開いているときだけ出す -->
+  <section id="buymaBox" hidden>
+    <h2>BUYMA の出品画面です</h2>
+    <p id="buymaTarget" class="small"></p>
+    <label class="small"><input type="checkbox" id="fillImages" checked> 画像も入れる（正方形・透かし入り。20枚まで）</label>
+    <button id="fillBuyma">BUYMAに反映</button>
+    <p class="small muted">商品名・商品コメント・価格・カテゴリ・ブランド・配送方法・買付先ショップ名・出品メモ・画像を入れます。すでに入っている欄は変えません。最後の確定はご自身で押してください。</p>
+    <button id="importShipping" class="ghost">この画面の配送方法を設定に取り込む</button>
+  </section>
+
   <button id="extract">この商品の情報を取る</button>
   <p id="status"></p>
 
