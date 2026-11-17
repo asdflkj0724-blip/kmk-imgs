@@ -106,7 +106,8 @@ export async function generateListing(
   product: Product,
   extraInstruction = '',
   client = anthropic(),
-  tone: Tone = 'polite'
+  tone: Tone = 'polite',
+  model: string = MODEL
 ): Promise<GenerateResult> {
   // 言い回しは毎回変わりうるので、system ではなくこちらに入れる（system を固定してキャッシュを効かせるため）
   const content =
@@ -114,11 +115,10 @@ export async function generateListing(
     `\n\n${TONE_TEXT[tone] ?? TONE_TEXT.polite}` +
     (extraInstruction ? `\n\n出品者からの追加の指示:\n${extraInstruction.slice(0, 1000)}` : '');
   const res = await client.beta.messages.parse({
-    model: MODEL,
+    model,
     max_tokens: 16000,
-    // 断られたときは、サーバー側で別のモデルに自動で切り替える
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    // 断られたときは、サーバー側で別のモデルに自動で切り替える（Haiku はこの指定に対応していないので付けない）
+    ...(model.includes('haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
     system: SYSTEM,
     output_config: { effort: EFFORT, format: betaZodOutputFormat(GeneratedSchema) },
     messages: [{ role: 'user', content }],
