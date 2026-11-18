@@ -2646,7 +2646,11 @@ function updateMob(m, dt) {
   m.think -= dt; m.attackCD -= dt; m.hurtT -= dt; m.voiceT -= dt; m.giftT -= dt; m.greetT -= dt; m.sayT -= dt; m.happyT -= dt;
 
   const chasing = T.hostile && player.hp > 0 && dist < 22 && Math.abs(dy) < 10;
-  if (chasing) {
+  m.playCheckT = (m.playCheckT || 0) - dt;
+  if (m.playCheckT <= 0) { m.playCheckT = 1; m.playRec = findPlay(m); if (!m.playRec) m.play = null; }
+  if (m.playRec && !chasing && m !== mount) {
+    playAI(m, dt); wantSpeed = 0;
+  } else if (chasing) {
     m.targetYaw = Math.atan2(dx, dz);
     wantSpeed = dist > 0.9 ? T.speed : 0;
     if (dist < 1.25 + m.w && Math.abs(dy) < 1.6 && m.attackCD <= 0) {
@@ -2757,7 +2761,9 @@ function updateMob(m, dt) {
   }
   const wasGround = m.onGround;
   let bumped = false;
-  if (T.swim) {
+  if (m.playRec && m.play && m !== mount) {
+    playMove(m, dt);
+  } else if (T.swim) {
     // ネッシー：海の上だけを泳ぐ
     const nx = p.x + v.x * dt, nz = p.z + v.z * dt;
     const wet = (x, z) => getBlock(Math.floor(x), SEA, Math.floor(z)) === WATER;
@@ -2846,6 +2852,61 @@ function followPoint(m) {
   const side = ((strHash(m.uid) % 5) - 2) * 0.9;
   const bx = Math.sin(player.yaw), bz = Math.cos(player.yaw), back = m.T.big ? 5.5 : 2.6;
   return { x: player.pos.x + bx * back + bz * side * (m.T.big ? 2 : 1), z: player.pos.z + bz * back - bx * side * (m.T.big ? 2 : 1) };
+}
+// ===== ペットの遊び場（キャットタワー・いぬ小屋・うさぎ小屋） =====
+const PLAY_HOUSE = { cat: 'cattower', dog: 'doghouse', rabbit: 'hutch' };
+const PLAY_SPOTS = {
+  cattower: [[0.25, 0.95, 0.15], [-0.25, 1.45, -0.2], [-0.1, 0.52, -0.05], [0.65, 0, 0.6], [-0.6, 0, 0.55], [0.3, 0, 0.35]],
+  doghouse: [[0, 0, 1.2], [1.1, 0, 0.9], [-1.1, 0, 0.9], [0.4, 0, 0.75], [1.2, 0, -0.6], [-1.2, 0, -0.6], [0, 0, 0.1]],
+  hutch: [[0, 0.08, 0.05], [0.3, 0.08, 0], [-0.3, 0.08, 0], [0, 0, 0.9], [0.8, 0, 0.7], [-0.8, 0, 0.7]],
+};
+function findPlay(m) {
+  const kind = PLAY_HOUSE[m.type];
+  if (!kind || m === mount) return null;
+  if (m.homeRec) return m.homeRec.kind === kind ? m.homeRec : null;
+  let best = null, bd = 10;
+  for (const r of props) if (r.kind === kind) { const d = Math.hypot(r.x - m.pos.x, r.z - m.pos.z); if (d < bd) { bd = d; best = r; } }
+  if (best && m.pet && Math.hypot(best.x - player.pos.x, best.z - player.pos.z) > 12) return null; // 飼い主がはなれたら、ついていく
+  return best;
+}
+function playAI(m, dt) {
+  const rec = m.playRec;
+  if (!m.play || m.play.rec !== rec) m.play = { rec, t: 1, wait: 0, from: m.pos.clone(), to: m.pos.clone(), dur: 1, idx: -1 };
+  const pl = m.play;
+  if (pl.t < 1) return;
+  pl.wait -= dt;
+  if (pl.wait > 0) return;
+  const spots = PLAY_SPOTS[rec.kind];
+  let i = Math.random() * spots.length | 0;
+  if (rec.kind === 'cattower' && Math.random() < 0.7) i = Math.random() * 3 | 0; // ねこは高い所が好き
+  if (i === pl.idx) i = (i + 1) % spots.length;
+  pl.idx = i;
+  const [sx, sy, sz] = spots[i], c = Math.cos(rec.yaw), sn = Math.sin(rec.yaw);
+  pl.from.copy(m.pos);
+  pl.to.set(rec.x + sx * c + sz * sn, rec.y + sy, rec.z - sx * sn + sz * c);
+  const d = pl.from.distanceTo(pl.to);
+  if (d > 6) pl.from.copy(pl.to).add(new THREE.Vector3(0.5, 0, 0.5)); // 遠くからはワープしてくる
+  pl.dur = Math.max(0.45, Math.min(2.5, d / 2.6));
+  pl.t = 0;
+  m.targetYaw = Math.atan2(pl.to.x - pl.from.x, pl.to.z - pl.from.z);
+  if (Math.random() < 0.35) Sound.voice(m.type, m.pos.x, m.pos.y, m.pos.z);
+}
+function playMove(m, dt) {
+  const pl = m.play, p = m.pos, v = m.vel;
+  if (pl.t < 1) {
+    pl.t = Math.min(1, pl.t + dt / pl.dur);
+    const k = pl.t, hop = Math.sin(Math.PI * k) * (0.35 + Math.abs(pl.to.y - pl.from.y) * 0.6);
+    p.lerpVectors(pl.from, pl.to, k); p.y += hop;
+    v.set((pl.to.x - pl.from.x) / pl.dur, 0, (pl.to.z - pl.from.z) / pl.dur);
+    if (m.type === 'rabbit') m.squash = 0.15;
+    if (pl.t >= 1) {
+      p.copy(pl.to); v.set(0, 0, 0);
+      pl.wait = 0.8 + Math.random() * 1.6;
+      m.happyT = 1.2;
+      if (Math.random() < 0.5) hearts(p.x, p.y + m.h, p.z, 2);
+    }
+  } else { v.set(0, 0, 0); m.targetYaw += Math.sin(performance.now() / 900 + m.walk) * 0.004; }
+  m.onGround = true;
 }
 let mount = null;
 function mountOn(m) {
@@ -3340,7 +3401,7 @@ function takeDisplay(rec) {
   saveSoon();
 }
 function pickUpProp(rec) {
-  for (const m of mobs) if (m.homeRec === rec) m.homeRec = null;
+  for (const m of mobs) { if (m.homeRec === rec) m.homeRec = null; if (m.playRec === rec) { m.playRec = null; m.play = null; } }
   if (rec.tvOn) tvTurnOff(rec);
   const sk = 'p:' + rec.uid;
   if (chests[sk]) { for (const it of chests[sk]) if (it) addItem(it); delete chests[sk]; }
