@@ -108,6 +108,13 @@
   #forgeIcon { width: 72px; height: 72px; image-rendering: pixelated; flex: none; }
   #forgeName { font-size: 16px; margin-bottom: 4px; }
   #forgeStat { font-size: 13px; color: var(--gold); margin-bottom: 6px; }
+  .shopnote { margin: 0 0 12px; color: var(--gold); font-size: 15px; }
+  #shopTabs { flex-wrap: wrap; }
+  .shopgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+  .good { display: flex; gap: 10px; align-items: center; background: var(--panel2); border: 2px solid var(--edge); border-radius: 4px; padding: 8px; }
+  .good canvas { width: 40px; height: 40px; image-rendering: pixelated; flex: none; }
+  .good .nm { font-size: 13px; flex: 1; min-width: 0; }
+  .good button { font-size: 13px; padding: 5px 10px; }
   #petList { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
   @media (prefers-reduced-motion: reduce) { #hearts.low svg { animation: none; } #held { transition: none; } }
 </style>
@@ -140,6 +147,7 @@
       <span><kbd>左クリック</kbd></span><span>ブロックをこわして集める / 敵に攻撃</span>
       <span><kbd>右クリック</kbd></span><span>ブロックをおく / 動物をペットにする / 話しかける / 食べる / 釣り / 指輪を撃つ</span>
       <span><kbd>E</kbd></span><span>もちもの・クラフト・剣と服の工房</span>
+      <span><kbd>右クリック</kbd>（たな）</span><span>スーパーでお買い物（ぜんぶ無料）/ 車に乗る</span>
       <span><kbd>1</kbd>〜<kbd>9</kbd> / <kbd>ホイール</kbd></span><span>もつものを選ぶ</span>
       <span><kbd>スペース</kbd></span><span>ジャンプ / 泳ぐ / 上昇</span>
       <span><kbd>Shift</kbd></span><span>ダッシュ（飛行中は下降）</span>
@@ -179,7 +187,12 @@
         <div id="hotGrid" class="grid"></div>
         <p class="hint">アイテムをクリックで選んで、別のわくをクリックすると入れかえます。服を選んで「着ている服」のわくをクリックすると着られます。下の段が手にもつ列です。</p>
       </section>
-      <section class="panel">
+      <section class="panel" id="chestPanel" hidden>
+        <h3>チェスト</h3>
+        <div id="chestGrid" class="grid"></div>
+        <p class="hint">アクセサリーや宝物をしまっておけます。かばんのアイテムを選んで、チェストのわくをクリックすると入ります。</p>
+      </section>
+      <section class="panel" id="craftPanel">
         <div class="tabs" role="tablist">
           <button role="tab" id="tabRecipes" aria-selected="true">クラフト</button>
           <button role="tab" id="tabForge" aria-selected="false">剣・服の工房</button>
@@ -201,6 +214,18 @@
         </div>
       </section>
     </div>
+  </div>
+</div>
+
+<div id="shop" class="overlay" hidden>
+  <div class="inv">
+    <div class="invhead">
+      <h2>キューブマート</h2>
+      <button id="shopClose" class="ghost">とじる（E）</button>
+    </div>
+    <p class="shopnote">ぜんぶ無料！ 好きなものを好きなだけもらってね。</p>
+    <div class="tabs" id="shopTabs" role="tablist"></div>
+    <div id="shopGrid" class="shopgrid"></div>
   </div>
 </div>
 
@@ -228,13 +253,17 @@ const CELL = 96;
 const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANKS=7, GLASS=8, BRICK=9, WATER=10, COBBLE=11, SNOW=12, BEDROCK=13, LAMP=14,
   COAL_ORE=15, IRON_ORE=16, GOLD_ORE=17, SILVER_ORE=18, EMERALD_ORE=19, DIAMOND_ORE=20,
   GOLD_BLOCK=21, SILVER_BLOCK=22, EMERALD_BLOCK=23, DIAMOND_BLOCK=24,
-  COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34;
+  COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34,
+  CHEST=35, SHELF=36, FLOOR=37, SIGN=38, BED=39, SOFA=40, BOOKSHELF=41, TV=42, FRIDGE=43, TABLE=44,
+  WOOL_P=45, WOOL_B=46, WOOL_Y=47, TEDDY=48, BALL=49, GAMEBOX=50, ROAD=51, ROAD_LINE=52;
 const GEAR_LOOT = [
   { id: 'sword', mat: 'diamond' }, { id: 'sword', mat: 'gold' }, { id: 'sword', mat: 'diamond', deco: 'gold' }, { id: 'sword', mat: 'gold', deco: 'diamond' },
   { id: 'clothes', mat: 'diamond' }, { id: 'clothes', mat: 'gold' }, { id: 'clothes', mat: 'gold', deco: 'diamond' }, { id: 'clothes', mat: 'diamond', deco: 'emerald' },
   { id: 'ring', mat: 'gold', deco: 'diamond' }, { id: 'ring', mat: 'silver', deco: 'emerald' }, { id: 'ring', mat: 'diamond', deco: 'gold' }, { id: 'ring', mat: 'gold' },
 ];
-const STICK=100, COAL=101, IRON_INGOT=102, GOLD=103, SILVER=104, EMERALD=105, DIAMOND=106, STRING=107, FISH=108, APPLE=109, COOKIE=110, ROD=111;
+const STICK=100, COAL=101, IRON_INGOT=102, GOLD=103, SILVER=104, EMERALD=105, DIAMOND=106, STRING=107, FISH=108, APPLE=109, COOKIE=110, ROD=111,
+  ONIGIRI=113, BREAD=114, CAKE=115, ICECREAM=116, PETFOOD=117, CAR=118;
+const CAR_COLORS = { red: { name: '赤', col: 0xe0403a }, blue: { name: '青', col: 0x3f7fe0 }, yellow: { name: '黄色', col: 0xf2c230 }, pink: { name: 'ピンク', col: 0xff8ab8 }, white: { name: '白', col: 0xf2f2f2 } };
 
 const BLOCKS = {
   [GRASS]:  { name: '草ブロック', tex: [0, 1, 2], snd: 'grass' },
@@ -271,19 +300,38 @@ const BLOCKS = {
   [ROOF_R]:  { name: '赤い屋根', tex: [34, 34, 34], snd: 'stone' },
   [ROOF_B]:  { name: '青い屋根', tex: [35, 35, 35], snd: 'stone' },
   [CLOUD]:   { name: '雲',       tex: [36, 36, 36], snd: 'sand' },
+  [CHEST]:   { name: 'チェスト',     tex: [38, 37, 38], snd: 'wood' },
+  [SHELF]:   { name: '商品だな',     tex: [8, 39, 8], snd: 'wood' },
+  [FLOOR]:   { name: 'お店のゆか',   tex: [40, 40, 40], snd: 'stone' },
+  [SIGN]:    { name: 'かんばん',     tex: [41, 41, 41], snd: 'stone' },
+  [BED]:     { name: 'ベッド',       tex: [42, 43, 8], snd: 'wood' },
+  [SOFA]:    { name: 'ソファ',       tex: [44, 44, 44], snd: 'grass' },
+  [BOOKSHELF]:{ name: '本だな',      tex: [8, 45, 8], snd: 'wood' },
+  [TV]:      { name: 'テレビ',       tex: [46, 46, 46], snd: 'glass' },
+  [FRIDGE]:  { name: 'れいぞうこ',   tex: [47, 47, 47], snd: 'stone' },
+  [TABLE]:   { name: 'テーブル',     tex: [48, 49, 48], snd: 'wood' },
+  [WOOL_P]:  { name: 'ピンクの毛糸', tex: [50, 50, 50], snd: 'grass' },
+  [WOOL_B]:  { name: '水色の毛糸',   tex: [51, 51, 51], snd: 'grass' },
+  [WOOL_Y]:  { name: '黄色の毛糸',   tex: [52, 52, 52], snd: 'grass' },
+  [TEDDY]:   { name: 'くまのぬいぐるみ', tex: [53, 53, 53], snd: 'grass' },
+  [BALL]:    { name: 'ボール',       tex: [54, 54, 54], snd: 'grass' },
+  [GAMEBOX]: { name: 'ゲーム機',     tex: [55, 55, 55], snd: 'glass' },
+  [ROAD]:    { name: '道路',         tex: [56, 56, 56], snd: 'stone' },
+  [ROAD_LINE]:{ name: '道路（白線）', tex: [57, 57, 57], snd: 'stone' },
 };
-const TILE_COUNT = 37;
+const TILE_COUNT = 58;
 const ITEMS = {
   [STICK]: '棒', [COAL]: '石炭', [IRON_INGOT]: '鉄インゴット', [GOLD]: '金', [SILVER]: '銀',
   [EMERALD]: 'エメラルド', [DIAMOND]: 'ダイヤモンド', [STRING]: '糸', [FISH]: 'さかな',
   [APPLE]: 'りんご', [COOKIE]: 'クッキー', [ROD]: '釣り竿',
+  [ONIGIRI]: 'おにぎり', [BREAD]: 'パン', [CAKE]: 'ケーキ', [ICECREAM]: 'アイスクリーム', [PETFOOD]: 'ペットのごはん', [CAR]: '車',
 };
-const FOOD = { [FISH]: 4, [APPLE]: 3, [COOKIE]: 2 };
+const FOOD = { [FISH]: 4, [APPLE]: 3, [COOKIE]: 2, [ONIGIRI]: 4, [BREAD]: 3, [CAKE]: 6, [ICECREAM]: 2 };
 const DROPS = { [COAL_ORE]: COAL, [GOLD_ORE]: GOLD, [SILVER_ORE]: SILVER, [EMERALD_ORE]: EMERALD, [DIAMOND_ORE]: DIAMOND, [COBWEB]: STRING };
 const LIGHTS = { [LAMP]: 12, [LANTERN]: 11, [TORCH]: 9 };
-const CROSS = new Set([COBWEB, TORCH, LANTERN, FLOWER_R, FLOWER_Y]);
+const CROSS = new Set([COBWEB, TORCH, LANTERN, FLOWER_R, FLOWER_Y, TEDDY, BALL, GAMEBOX]);
 
-const isTransparent = id => id === AIR || id === LEAVES || id === GLASS || id === WATER || CROSS.has(id);
+const isTransparent = id => id === AIR || id === LEAVES || id === GLASS || id === WATER || id === TABLE || CROSS.has(id);
 const isSolid = id => id !== AIR && id !== WATER && !CROSS.has(id);
 const blocksSky = id => isSolid(id) && id !== LEAVES && id !== GLASS && id !== CLOUD;
 const isBlockItem = id => typeof id === 'number' && id < 100;
@@ -508,6 +556,73 @@ const shadeHex = (hex, v) => shadeC(hexRGB(hex), v);
   };
   roof(34, [196, 64, 52]); roof(35, [62, 108, 190]);
   for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(36, x, y, shadeC([250, 252, 255], 0.95 + rnd() * 0.05));
+  const circ = (t, cx, cy, r, col) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) px(t, x, y, typeof col === 'function' ? col(x, y) : col); };
+  const wood = [150, 104, 56];
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    const edge = x === 0 || y === 0 || x === 15 || y === 15;
+    px(37, x, y, edge ? shadeC(wood, 0.55) : y === 5 ? shadeC(wood, 0.6) : shadeC(wood, 0.9 + rnd() * 0.12));
+    px(38, x, y, edge ? shadeC(wood, 0.55) : shadeC(wood, 0.95 + rnd() * 0.1));
+  }
+  [[7, 4], [8, 4], [7, 5], [8, 5], [7, 6], [8, 6]].forEach(([x, y]) => px(37, x, y, '#f2c94c')); px(37, 8, 6, '#8a6a1a');
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(39, x, y, shadeC([92, 64, 40], 0.9 + rnd() * 0.1));
+  const goods = ['#e8434f', '#4a90d9', '#ffd25a', '#5ccf7a', '#ff8ab8', '#a98bff', '#ff9e3d', '#ffffff'];
+  for (const row of [0, 5, 10]) {
+    for (let x = 1; x < 15;) {
+      const w = 2 + (rnd() * 2 | 0), hh = 2 + (rnd() * 3 | 0), col = goods[rnd() * goods.length | 0];
+      for (let xx = x; xx < Math.min(15, x + w); xx++) for (let yy = row + 4 - hh; yy < row + 4; yy++) px(39, xx, yy, col);
+      px(39, x, row + 4 - hh, '#ffffff');
+      x += w;
+    }
+    for (let x = 0; x < 16; x++) px(39, x, row + 4, '#5a3a26');
+  }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    const grout = x % 4 === 3 || y % 4 === 3, cell = ((x >> 2) + (y >> 2)) % 2;
+    px(40, x, y, grout ? '#b9b9c0' : cell ? shadeC([240, 240, 244], 0.97 + rnd() * 0.03) : shadeC([206, 214, 232], 0.97 + rnd() * 0.03));
+  }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(41, x, y, y < 4 ? '#e8434f' : y < 12 ? '#fffaf0' : '#ffd25a');
+  for (let x = 1; x < 14; x += 3) { px(41, x, 6, '#e8434f'); px(41, x + 1, 6, '#e8434f'); px(41, x, 7, '#3b6fd9'); px(41, x + 1, 8, '#3b6fd9'); px(41, x, 9, '#e8434f'); px(41, x + 1, 9, '#e8434f'); }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    let c = y < 5 ? shadeC([250, 250, 250], 0.92 + rnd() * 0.06) : y === 9 ? '#ffffff' : shadeC([214, 64, 84], 0.9 + rnd() * 0.12);
+    if (y < 5 && (x === 0 || x === 15 || y === 0)) c = '#d8d8de';
+    px(42, x, y, c);
+    px(43, x, y, y < 6 ? shadeC([214, 64, 84], 0.9 + rnd() * 0.12) : y === 6 ? '#ffffff' : shadeC(wood, 0.85 + rnd() * 0.12));
+  }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    const seam = x === 7 || x === 8 || y === 9;
+    px(44, x, y, seam ? shadeC([255, 150, 190], 0.78) : shadeC([255, 150, 190], (y < 3 ? 1.08 : 0.97) + rnd() * 0.05));
+  }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(45, x, y, shadeC(wood, 0.8));
+  for (const row of [1, 9]) for (let x = 1; x < 15; x++) { const col = goods[(x * 7 + row) % goods.length]; for (let y = row; y < row + 6; y++) px(45, x, y, shadeHex(col, x % 2 ? 0.8 : 1)); px(45, x, row + 1, '#fff6d0'); }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    const screen = x >= 1 && x <= 14 && y >= 1 && y <= 10;
+    px(46, x, y, screen ? shadeC([70, 140, 230], 0.75 + (10 - y) * 0.035) : y >= 12 && (x < 5 || x > 10) ? '#1b1b1f' : '#26262b');
+  }
+  px(46, 3, 2, '#ffffff'); px(46, 4, 2, '#ffffff'); px(46, 3, 3, '#ffffff');
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    px(47, x, y, y === 5 ? '#a9b0ba' : (x === 12 && ((y > 1 && y < 4) || (y > 6 && y < 12))) ? '#8d96a3' : shadeC([240, 244, 248], 0.96 + rnd() * 0.04));
+  }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    px(48, x, y, y % 4 === 3 ? shadeC([200, 160, 100], 0.75) : shadeC([200, 160, 100], 0.95 + rnd() * 0.08));
+    if (y < 3 || x < 2 || x > 13) px(49, x, y, shadeC([200, 160, 100], y < 3 ? 0.9 : 0.75));
+  }
+  noiseTile(50, [255, 160, 200], 0.12); noiseTile(51, [130, 190, 255], 0.12); noiseTile(52, [255, 220, 110], 0.12);
+  // くまのぬいぐるみ
+  circ(53, 4, 3, 1.6, '#8a5a32'); circ(53, 11, 3, 1.6, '#8a5a32');
+  circ(53, 7.5, 5.5, 3.6, '#a8713f'); circ(53, 7.5, 12, 3.8, '#a8713f');
+  circ(53, 7.5, 7, 1.4, '#e8c9a0');
+  px(53, 6, 4, '#1d1d1d'); px(53, 9, 4, '#1d1d1d'); px(53, 7, 6, '#3a2010'); px(53, 8, 6, '#3a2010');
+  for (let x = 5; x < 11; x++) px(53, x, 9, '#ff5c8a');
+  // ボール
+  circ(54, 7.5, 9, 6, (x, y) => y < 8 ? '#e8434f' : y < 10 ? '#ffffff' : '#3b6fd9');
+  px(54, 5, 5, '#ffffff'); px(54, 6, 4, '#ffffff');
+  // ゲーム機
+  for (let y = 5; y < 13; y++) for (let x = 1; x < 15; x++) px(55, x, y, (x === 1 || x === 14) && (y === 5 || y === 12) ? 'rgba(0,0,0,0)' : '#5a6cf0');
+  for (let y = 6; y < 11; y++) for (let x = 5; x < 11; x++) px(55, x, y, '#bfe8ff');
+  [[3, 8], [2, 8], [4, 8], [3, 7], [3, 9]].forEach(([x, y]) => px(55, x, y, '#22264a'));
+  px(55, 12, 7, '#e8434f'); px(55, 13, 9, '#ffd25a');
+  noiseTile(56, [62, 64, 70], 0.25);
+  noiseTile(57, [62, 64, 70], 0.25);
+  for (let y = 0; y < 10; y++) { px(57, 7, y, '#f4f4f4'); px(57, 8, y, '#e6e6e6'); }
 })();
 
 const texture = new THREE.CanvasTexture(atlas);
@@ -542,6 +657,16 @@ function paintIcon(g, s) {
       for (let i = 0; i < 11; i++) p(2 + i, 13 - i, '#8a5a2b');
       for (let y = 3; y < 12; y++) p(13, y, '#e8e8e8');
       p(12, 12, '#9aa'); p(12, 13, '#9aa'); p(13, 13, '#9aa'); break;
+    case ONIGIRI: drawRows(g, ['....WWWW....', '...WWWWWW...', '..WWWWWWWW..', '..WWWWWWWW..', '.WWWWWWWWWW.', '.WWWNNNNWWW.', 'WWWWNNNNWWWW', 'WWWWNNNNWWWW', '.WWWNNNNWWW.'], { W: '#fbfbf6', N: '#1f3a2a' }, 2, 3); break;
+    case BREAD: drawRows(g, ['..BBBBBBBB..', '.BLLLLLLLLB.', 'BLLLLLLLLLLB', 'BLLLLLLLLLLB', 'BLLLLLLLLLLB', 'BBBBBBBBBBBB'], { B: '#b5762e', L: '#f2d39a' }, 2, 5); break;
+    case CAKE: drawRows(g, ['....R.R.R...', '...CCCCCC...', '..WWWWWWWW..', '..PPPPPPPP..', '..SSSSSSSS..', '..PPPPPPPP..', '..SSSSSSSS..', '.DDDDDDDDDD.'], { R: '#e8384a', C: '#fff6e8', W: '#ffffff', P: '#ff9ab8', S: '#f5d27a', D: '#b9bcc8' }, 2, 3); break;
+    case ICECREAM: drawRows(g, ['....PPP.....', '...PPPPP....', '...PWPPP....', '...MMMMM....', '...MMMMM....', '....CCC.....', '....CCC.....', '.....C......', '.....C......'], { P: '#ff9ab8', W: '#ffffff', M: '#9ff0d0', C: '#d9a35b' }, 3, 3); break;
+    case PETFOOD: drawRows(g, ['...KK.KK.K..', '..KKKKKKKK..', '.RRRRRRRRRR.', '.RRWRRRRRRR.', '..RRRRRRRR..', '...RRRRRR...'], { K: '#8a5a2b', R: '#e0383e', W: '#ff9a9a' }, 2, 5); break;
+    case CAR: {
+      const cc = '#' + (CAR_COLORS[s.mat] || CAR_COLORS.red).col.toString(16).padStart(6, '0');
+      drawRows(g, ['...CCCCC....', '..CGGCGGC...', '.BBBBBBBBBB.', 'BBBBBBBBBBBY', 'BBBBBBBBBBBB', '.KK.....KK..', '.KK.....KK..'], { C: shadeHex(cc, 1.1), G: '#bfe8ff', B: cc, Y: '#fff2a0', K: '#1d1d1d' }, 2, 4);
+      break;
+    }
     case 'sword': {
       const m = MAT[s.mat] || MAT.wood;
       const L = shadeHex(m.col, 1.25), M = m.col, K = shadeHex(m.col, 0.55);
@@ -585,6 +710,7 @@ function iconCopy(s) {
 function itemName(s) {
   if (!s) return '';
   if (s.id === 'sword' || s.id === 'clothes' || s.id === 'ring') return `${MAT[s.mat].name}の${{ sword: '剣', clothes: '服', ring: '指輪' }[s.id]}` + (s.deco ? `（${DECO[s.deco].name}のかざり）` : '');
+  if (s.id === CAR) return `${(CAR_COLORS[s.mat] || CAR_COLORS.red).name}の車`;
   if (isBlockItem(s.id)) return BLOCKS[s.id].name;
   return ITEMS[s.id] || '？';
 }
@@ -652,6 +778,30 @@ scene.add(highlight);
 
 // ================= 村と家 =================
 const villageCache = new Map();
+let market = null, mainKey = null;
+function baseVillageOk(gx, gz) {
+  if (hash(gx, gz, seed + 600) >= 0.5) return false;
+  const cx = gx * CELL + 24 + Math.floor(hash(gx, gz, seed + 601) * 48);
+  const cz = gz * CELL + 24 + Math.floor(hash(gx, gz, seed + 602) * 48);
+  const h = heightAt(cx, cz);
+  return h > SEA + 2 && h < 52;
+}
+// スポーン地点にいちばん近い村を「大きなスーパーのある町」にする
+function isMainCell(gx, gz) {
+  if (mainKey === null) {
+    mainKey = 'none';
+    outer: for (let r = 0; r <= 6; r++) for (let z = -r; z <= r; z++) for (let x = -r; x <= r; x++) {
+      if (Math.max(Math.abs(x), Math.abs(z)) !== r) continue;
+      if (baseVillageOk(x, z)) { mainKey = x + ',' + z; break outer; }
+    }
+  }
+  return mainKey === gx + ',' + gz;
+}
+// 道路の高さ：駐車場から1マスずつなめらかに地面へつなぐ
+function roadY(v, z) {
+  const d = z - (v.cz + 16), th = Math.max(SEA + 1, heightAt(v.cx, z));
+  return v.h + Math.max(-d, Math.min(d, th - v.h));
+}
 const HAIR = ['#4a2f23', '#f2d16b', '#f19ac0', '#2a2430', '#b06a3c', '#9ec9f0', '#c9a2f0'];
 const DRESS = ['#ff7aa8', '#7ac8ff', '#ffd36b', '#a98bff', '#7fe0a8', '#ff9e6b', '#ffffff'];
 const RIBBON = ['#ff4f7b', '#ffffff', '#ffe14d', '#6fd0ff'];
@@ -672,13 +822,15 @@ function villageAt(gx, gz) {
   const cz = gz * CELL + 24 + Math.floor(hash(gx, gz, seed + 602) * 48);
   const h = heightAt(cx, cz);
   if (r < 0.5 && h > SEA + 2 && h < 52) {
-    v = { cx, cz, h, houses: [], lone: false, key };
-    const n = 4 + Math.floor(hash(gx, gz, seed + 603) * 4);
+    const main = isMainCell(gx, gz);
+    v = { cx, cz, h, houses: [], lone: false, key, main };
+    if (main) market = { cx, cz, f: h };
+    const n = main ? 8 : 4 + Math.floor(hash(gx, gz, seed + 603) * 4);
     const types = ['wood', 'brick', 'white', 'wood', 'white', 'brick', 'old'];
     for (let i = 0; i < n; i++) {
       const s = seed + 610 + i * 7;
-      const ang = i / n * Math.PI * 2 + hash(gx, gz, s) * 0.7;
-      const dist = 11 + hash(gx, gz, s + 1) * 6;
+      const ang = main ? Math.PI * 0.8 + (i + 0.5) / n * Math.PI * 1.4 + (hash(gx, gz, s) - 0.5) * 0.15 : i / n * Math.PI * 2 + hash(gx, gz, s) * 0.7;
+      const dist = main ? 24 + hash(gx, gz, s + 1) * 4 : 11 + hash(gx, gz, s + 1) * 6;
       const x = Math.round(cx + Math.cos(ang) * dist), z = Math.round(cz + Math.sin(ang) * dist);
       const hw = 2 + (hash(gx, gz, s + 2) < 0.45 ? 1 : 0), hd = 2 + (hash(gx, gz, s + 3) < 0.45 ? 1 : 0);
       let type = types[Math.floor(hash(gx, gz, s + 4) * types.length)];
@@ -690,7 +842,7 @@ function villageAt(gx, gz) {
       if (v.houses.some(o => Math.abs(o.x - x) < o.hw + hw + 3 && Math.abs(o.z - z) < o.hd + hd + 3)) continue;
       v.houses.push(hs);
     }
-    if (!v.houses.length) v = null;
+    if (!v.houses.length && !main) v = null;
   } else if (r >= 0.5 && r < 0.75) {
     const type = hash(gx, gz, seed + 620) < 0.65 ? 'old' : 'wood';
     const hs = makeHouse(key + ':0', cx, cz, 2 + (hash(gx, gz, seed + 621) < 0.5 ? 1 : 0), 2, type, ['N', 'S', 'E', 'W'][Math.floor(hash(gx, gz, seed + 622) * 4)]);
@@ -765,6 +917,66 @@ function buildHouse(hs, set, setIfAir) {
   }
 }
 
+function buildMarket(v, set) {
+  const { cx, cz, h: f } = v;
+  const x0 = cx - 11, x1 = cx + 11, z0 = cz - 8, z1 = cz + 8, top = f + 7;
+  for (let X = x0 - 1; X <= x1 + 1; X++) for (let Z = z0 - 1; Z <= z1 + 1; Z++) {
+    const th = heightAt(X, Z);
+    for (let Y = f + 1; Y <= f + 18; Y++) set(X, Y, Z, AIR);
+    for (let Y = f - 1; Y >= Math.min(th, f - 4); Y--) set(X, Y, Z, COBBLE);
+    const inside = X >= x0 && X <= x1 && Z >= z0 && Z <= z1;
+    set(X, f, Z, inside ? FLOOR : COBBLE);
+  }
+  for (let X = x0; X <= x1; X++) for (let Z = z0; Z <= z1; Z++) {
+    if (X !== x0 && X !== x1 && Z !== z0 && Z !== z1) continue;
+    const corner = (X === x0 || X === x1) && (Z === z0 || Z === z1);
+    for (let Y = f + 1; Y <= f + 6; Y++) {
+      let id = corner ? BRICK : PLASTER;
+      if (!corner) {
+        if (Z === z1 && Y >= f + 5) id = SIGN;
+        else if (Z === z1 && Y >= f + 2 && Y <= f + 4 && Math.abs(X - cx) > 2) id = GLASS;
+        else if (Z !== z1 && (Y === f + 2 || Y === f + 3) && (X + Z) % 3 === 0) id = GLASS;
+      }
+      set(X, Y, Z, id);
+    }
+  }
+  for (let X = cx - 1; X <= cx + 1; X++) for (let Y = f + 1; Y <= f + 3; Y++) set(X, Y, z1, AIR);
+  for (let X = x0; X <= x1; X++) for (let Z = z0; Z <= z1; Z++) {
+    const inner = X > x0 && X < x1 && Z > z0 && Z < z1;
+    set(X, top, Z, inner && (X - cx) % 4 === 0 && (Z - cz) % 4 === 0 ? LAMP : ROOF_B);
+  }
+  // かんばんを屋根の上にも
+  for (let X = cx - 6; X <= cx + 6; X++) { set(X, top + 1, z1, SIGN); set(X, top + 2, z1, SIGN); }
+  // 店の中
+  for (let X = x0 + 2; X <= x1 - 2; X++) { set(X, f + 1, z0 + 1, FRIDGE); set(X, f + 2, z0 + 1, FRIDGE); }
+  for (const rz of [-5, -2, 1]) for (let X = cx - 9; X <= cx + 9; X++) {
+    if (Math.abs(X - cx) < 2) continue;
+    set(X, f + 1, cz + rz, SHELF); set(X, f + 2, cz + rz, SHELF);
+  }
+  for (let X = cx - 9; X <= cx - 5; X++) set(X, f + 1, cz + 5, TABLE);
+  set(cx - 9, f + 2, cz + 5, TEDDY); set(cx - 7, f + 2, cz + 5, GAMEBOX); set(cx - 5, f + 2, cz + 5, FLOWER_R);
+  set(cx + 4, f + 1, cz + 5, SOFA); set(cx + 5, f + 1, cz + 5, SOFA); set(cx + 4, f + 1, cz + 3, TV);
+  set(cx + 7, f + 1, cz + 4, BED); set(cx + 7, f + 1, cz + 5, BED);
+  set(cx + 9, f + 1, cz + 3, BOOKSHELF); set(cx + 9, f + 2, cz + 3, BOOKSHELF);
+  set(cx + 9, f + 1, cz + 5, CHEST); set(cx + 6, f + 1, cz + 3, BALL);
+  // 駐車場
+  for (let X = x0 - 1; X <= x1 + 1; X++) for (let Z = z1 + 2; Z <= z1 + 8; Z++) {
+    for (let Y = f + 1; Y <= f + 8; Y++) set(X, Y, Z, AIR);
+    for (let Y = f - 1; Y >= Math.min(heightAt(X, Z), f - 4); Y--) set(X, Y, Z, COBBLE);
+    set(X, f, Z, (X - cx + 40) % 4 === 2 && Z >= z1 + 3 && Z <= z1 + 7 ? ROAD_LINE : ROAD);
+  }
+  for (const X of [x0 - 1, x1 + 1]) { set(X, f + 1, z1 + 8, LOG); set(X, f + 2, z1 + 8, LOG); set(X, f + 3, z1 + 8, LANTERN); }
+  // 町から外へのびる道路
+  for (let Z = z1 + 9; Z <= z1 + 80; Z++) {
+    const rh = roadY(v, Z);
+    for (let X = cx - 2; X <= cx + 2; X++) {
+      for (let Y = rh + 1; Y <= rh + 6; Y++) set(X, Y, Z, AIR);
+      for (let Y = rh - 1; Y >= Math.min(heightAt(X, Z), rh - 2); Y--) set(X, Y, Z, COBBLE);
+      set(X, rh, Z, X === cx && Z % 3 !== 0 ? ROAD_LINE : ROAD);
+    }
+  }
+}
+
 function buildVillageExtras(v, set) {
   if (v.lone) return;
   const { cx, cz, h } = v;
@@ -790,7 +1002,7 @@ function lootFor(key, list) { return list[Math.floor(hash(strHash(key), 3, seed 
 function generateChunk(cx, cz) {
   const data = new Uint8Array(CS * CS * H);
   const ox = cx * CS, oz = cz * CS;
-  const loot = [], npcs = [];
+  const loot = [], npcs = [], carsHere = [];
   for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
     const wx = ox + lx, wz = oz + lz;
     const h = heightAt(wx, wz);
@@ -851,8 +1063,17 @@ function generateChunk(cx, cz) {
   for (let gz = g0z - 1; gz <= g0z + 1; gz++) for (let gx = g0x - 1; gx <= g0x + 1; gx++) {
     const v = villageAt(gx, gz);
     if (!v) continue;
-    if (Math.abs(v.cx - (ox + 8)) > 48 || Math.abs(v.cz - (oz + 8)) > 48) continue;
-    buildVillageExtras(v, set);
+    const reach = v.main ? 110 : 48;
+    if (Math.abs(v.cx - (ox + 8)) > reach || Math.abs(v.cz - (oz + 8)) > reach) continue;
+    if (v.main) {
+      buildMarket(v, set);
+      const staff = [[v.cx - 4, v.cz + 3], [v.cx + 4, v.cz - 3]];
+      staff.forEach(([x, z], i) => { if (inChunk(x, z)) npcs.push({ key: 'm' + v.key + ':' + i, x: x + 0.5, y: v.h + 1.05, z: z + 0.5, home: { x: x + 0.5, z: z + 0.5 }, radius: 5 }); });
+      [[v.cx - 7, 'red'], [v.cx + 3, 'blue'], [v.cx + 7, 'yellow']].forEach(([x, col], i) => {
+        const z = v.cz + 13;
+        if (inChunk(x, z)) carsHere.push({ key: 'car' + v.key + ':' + i, x: x + 0.5, y: v.h + 1.05, z: z + 0.5, yaw: Math.PI, color: col });
+      });
+    } else buildVillageExtras(v, set);
     for (const hs of v.houses) {
       buildHouse(hs, set, setIfAir);
       if (inChunk(hs.x, hs.z)) {
@@ -865,8 +1086,9 @@ function generateChunk(cx, cz) {
         }
       }
     }
-    if (!v.lone && inChunk(v.cx, v.cz)) {
-      for (let i = 0; i < 3; i++) npcs.push({ key: 'v' + v.key + ':' + i, x: v.cx + 0.5 + (i - 1), y: v.h + 1.05, z: v.cz + 0.5, home: { x: v.cx + 0.5, z: v.cz + 0.5 }, radius: 15 });
+    const pz = v.main ? v.cz + 11 : v.cz;
+    if (!v.lone && inChunk(v.cx, pz)) {
+      for (let i = 0; i < 3; i++) npcs.push({ key: 'v' + v.key + ':' + i, x: v.cx + 0.5 + (i - 1), y: v.h + 1.05, z: pz + 0.5, home: { x: v.cx + 0.5, z: pz + 0.5 }, radius: v.main ? 12 : 15 });
     }
   }
   for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
@@ -895,7 +1117,7 @@ function generateChunk(cx, cz) {
     const r = LIGHTS[data[i]];
     if (r) lights.push([ox + (i % CS), (i / (CS * CS)) | 0, oz + ((i / CS | 0) % CS), r]);
   }
-  return { data, lights, loot, npcs };
+  return { data, lights, loot, npcs, cars: carsHere };
 }
 
 function getBlock(x, y, z) {
@@ -1087,7 +1309,7 @@ function disposeChunk(c) {
 function ensureData(cx, cz) {
   const k = ckey(cx, cz);
   let c = chunks.get(k);
-  if (!c) { const g = generateChunk(cx, cz); c = { cx, cz, data: g.data, lights: g.lights, loot: g.loot, npcs: g.npcs, mesh: null, water: null }; chunks.set(k, c); }
+  if (!c) { const g = generateChunk(cx, cz); c = { cx, cz, data: g.data, lights: g.lights, loot: g.loot, npcs: g.npcs, cars: g.cars, mesh: null, water: null }; chunks.set(k, c); }
   return c;
 }
 const hasData = (cx, cz) => chunks.has(ckey(cx, cz));
@@ -1172,6 +1394,12 @@ const player = {
 const EYE = 1.62;
 
 function spawnPoint() {
+  isMainCell(0, 0);
+  if (mainKey !== 'none') {
+    const [gx, gz] = mainKey.split(',').map(Number);
+    const v = villageAt(gx, gz);
+    if (v) return new THREE.Vector3(v.cx + 0.5, v.h + 1.05, v.cz + 15.5);
+  }
   for (let r = 0; r <= 4; r++) for (let gz = -r; gz <= r; gz++) for (let gx = -r; gx <= r; gx++) {
     if (Math.max(Math.abs(gx), Math.abs(gz)) !== r) continue;
     const v = villageAt(gx, gz);
@@ -1492,7 +1720,7 @@ const Music = (() => {
 // ================= もちもの =================
 const inv = new Array(36).fill(null);
 const equip = { clothes: null };
-const stackable = s => typeof s.id === 'number' && s.id !== ROD;
+const stackable = s => typeof s.id === 'number' && s.id !== ROD && s.id !== CAR;
 const sameStack = (a, b) => a && b && stackable(a) && a.id === b.id;
 function addItem(item) {
   let n = item.count;
@@ -1939,6 +2167,11 @@ function populateChunk(c) {
     npcSpawned.add(n.key);
     createMob('villager', n.x, n.y, n.z, n);
   }
+  for (const cd of c.cars || []) {
+    if (carSpawned.has(cd.key) || picked.has(cd.key)) continue;
+    carSpawned.add(cd.key);
+    createCar(cd.x, cd.y, cd.z, cd.yaw, cd.color, cd.key, false);
+  }
 }
 
 function updateMob(m, dt) {
@@ -2173,6 +2406,190 @@ function updateSpawns(dt) {
   }
 }
 
+// ================= 車 =================
+const cars = [];
+const carSpawned = new Set();
+let riding = null;
+function createCar(x, y, z, yaw, color, key, owned) {
+  if (!CAR_COLORS[color]) color = 'red';
+  const c = { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), yaw, w: 0.9, h: 1.3, onGround: false, color, key, owned,
+    speed: 0, g: new THREE.Group(), mats: [], wheels: [], lightT: 0, sky: 1, lamp: 0, bumpT: 0 };
+  const box = (parent, w, h, d, col, px, py, pz, glow) => {
+    const mat = new THREE.MeshBasicMaterial({ color: col, vertexColors: true });
+    mat.userData.base = new THREE.Color(col); mat.userData.glow = !!glow; c.mats.push(mat);
+    const m = new THREE.Mesh(shadedBox(w, h, d), mat); m.position.set(px, py, pz); parent.add(m); return m;
+  };
+  const col = CAR_COLORS[color].col;
+  box(c.g, 1.7, 0.55, 3.0, col, 0, 0.62, 0);
+  box(c.g, 1.5, 0.5, 1.6, shadeNum(col, 1.1), 0, 1.12, -0.25);
+  box(c.g, 1.54, 0.32, 1.3, 0x2b3f5c, 0, 1.13, -0.25);
+  box(c.g, 1.36, 0.32, 1.64, 0x2b3f5c, 0, 1.13, -0.25);
+  box(c.g, 1.74, 0.12, 0.14, 0xdddddd, 0, 0.42, 1.5); box(c.g, 1.74, 0.12, 0.14, 0xdddddd, 0, 0.42, -1.5);
+  box(c.g, 0.3, 0.14, 0.04, 0xfff2a0, -0.55, 0.74, 1.51, true); box(c.g, 0.3, 0.14, 0.04, 0xfff2a0, 0.55, 0.74, 1.51, true);
+  box(c.g, 0.3, 0.12, 0.04, 0xff3a3a, -0.6, 0.74, -1.51, true); box(c.g, 0.3, 0.12, 0.04, 0xff3a3a, 0.6, 0.74, -1.51, true);
+  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const pv = new THREE.Group(); pv.position.set(sx * 0.8, 0.3, sz * 1.0); c.g.add(pv);
+    box(pv, 0.26, 0.6, 0.6, 0x1d1d1d, 0, 0, 0); box(pv, 0.28, 0.22, 0.22, 0xc8c8c8, 0, 0, 0);
+    c.wheels.push(pv);
+  }
+  scene.add(c.g);
+  cars.push(c);
+  return c;
+}
+function removeCar(c) {
+  scene.remove(c.g); c.mats.forEach(m => m.dispose());
+  if (c.key) carSpawned.delete(c.key);
+  const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1);
+  if (riding === c) riding = null;
+}
+function raycastCar(maxDist) {
+  const o = camera.position, d = new THREE.Vector3(); camera.getWorldDirection(d);
+  let best = null, bt = maxDist;
+  for (const c of cars) {
+    if (c === riding) continue;
+    const t = rayBox(o, d, { x: c.pos.x - 1.1, y: c.pos.y, z: c.pos.z - 1.1 }, { x: c.pos.x + 1.1, y: c.pos.y + 1.45, z: c.pos.z + 1.1 });
+    if (t !== null && t < bt) { bt = t; best = c; }
+  }
+  return best ? { car: best, t: bt } : null;
+}
+function enterCar(c) {
+  riding = c; c.owned = true;
+  if (c.key) { picked.add(c.key); c.key = null; }
+  player.yaw = c.yaw + Math.PI; player.pitch = -0.1; player.flying = false;
+  if (fishing.active) reelIn();
+  Sound.place(PLANKS);
+  toast('車に乗った！ W/S で前・うしろ、A/D でハンドル、Shift でおりる');
+  saveSoon();
+}
+function exitCar() {
+  const c = riding; if (!c) return;
+  riding = null;
+  const side = new THREE.Vector3(Math.cos(c.yaw), 0, -Math.sin(c.yaw));
+  for (const s of [1.8, -1.8]) for (let dy = 1; dy >= -2; dy--) {
+    const x = Math.floor(c.pos.x + side.x * s), z = Math.floor(c.pos.z + side.z * s), y = Math.floor(c.pos.y) + dy;
+    if (standable(x, y, z)) { player.pos.set(x + 0.5, y + 0.01, z + 0.5); player.vel.set(0, 0, 0); player.airTop = player.pos.y; return; }
+  }
+  player.pos.set(c.pos.x, c.pos.y + 1.5, c.pos.z); player.airTop = player.pos.y;
+}
+function pickUpCar(c) {
+  if (addItem({ id: CAR, mat: c.color, count: 1 }) > 0) { toast('かばんがいっぱい！'); return; }
+  if (c.key) picked.add(c.key);
+  puff(c.pos.x, c.pos.y, c.pos.z, 10);
+  logPickup({ id: CAR, mat: c.color, count: 1 });
+  Sound.pop();
+  removeCar(c);
+  saveSoon();
+}
+function updateCars(dt) {
+  for (const c of cars.slice()) {
+    const far = Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z);
+    if (far > 95 && !c.owned) { removeCar(c); continue; }
+    if (!chunkReady(c.pos.x, c.pos.z)) { c.g.visible = false; continue; }
+    c.g.visible = true;
+    const v = c.vel;
+    if (c === riding) {
+      const thr = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+      if (thr) c.speed += thr * 12 * dt; else c.speed *= Math.pow(0.25, dt);
+      c.speed = Math.max(-6, Math.min(15, c.speed));
+      const steer = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
+      const turn = steer * dt * 1.9 * Math.max(-1, Math.min(1, c.speed / 5));
+      c.yaw += turn; player.yaw += turn;
+      // ぶつかった敵はやっつける
+      c.bumpT -= dt;
+      if (Math.abs(c.speed) > 4 && c.bumpT <= 0) for (const m of mobs) {
+        if (m.T.hostile && m.pos.distanceTo(c.pos) < 1.8) { attackMob(m, new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw)), 8); c.bumpT = 0.4; break; }
+      }
+    } else c.speed *= Math.pow(0.05, dt);
+    const nx = c.pos.x + Math.sin(c.yaw) * c.speed * dt * 4, nz = c.pos.z + Math.cos(c.yaw) * c.speed * dt * 4;
+    if (!chunkReady(nx, nz)) c.speed = 0;
+    v.x = Math.sin(c.yaw) * c.speed; v.z = Math.cos(c.yaw) * c.speed;
+    const inW = getBlock(Math.floor(c.pos.x), Math.floor(c.pos.y + 0.3), Math.floor(c.pos.z)) === WATER;
+    if (inW) { v.y += (2 - v.y) * Math.min(1, dt * 3); c.speed *= Math.pow(0.4, dt); } else v.y -= 28 * dt;
+    v.y = Math.max(v.y, -40);
+    const bumped = stepEntity(c, dt);
+    if (bumped && c.onGround && Math.abs(c.speed) > 0.5) v.y = 6.8;
+    if (c.pos.y < -5) { c.pos.y = 80; v.set(0, 0, 0); }
+    c.g.position.copy(c.pos); c.g.rotation.y = c.yaw;
+    for (const wpv of c.wheels) wpv.rotation.x += c.speed * dt / 0.3;
+    c.lightT -= dt;
+    if (c.lightT <= 0) { c.lightT = 0.3; const l = lightAt(c.pos.x, c.pos.y + 1, c.pos.z); c.sky = l.sky; c.lamp = l.lamp; }
+    const b = Math.max(0.1, c.sky * daylight, c.lamp);
+    for (const mat of c.mats) if (!mat.userData.glow) mat.color.copy(mat.userData.base).multiplyScalar(b);
+  }
+}
+function updateRide() {
+  const c = riding;
+  player.pos.set(c.pos.x, c.pos.y + 0.05, c.pos.z);
+  player.vel.set(0, 0, 0); player.airTop = player.pos.y;
+  player.headInWater = false; document.getElementById('water').hidden = true;
+}
+
+// ================= スーパー =================
+const SHOP = [
+  { key: 'food', name: '食べ物', items: [[ONIGIRI, 4], [BREAD, 4], [CAKE, 2], [ICECREAM, 4], [COOKIE, 8], [APPLE, 8], [FISH, 4]] },
+  { key: 'pet', name: 'ペットのごはん', items: [[PETFOOD, 8], [BALL, 2], [TEDDY, 1]] },
+  { key: 'toy', name: 'おもちゃ・ゲーム', items: [[TEDDY, 2], [BALL, 4], [GAMEBOX, 1], [ROD, 1]] },
+  { key: 'acc', name: 'アクセサリー', items: [[CHEST, 2], [{ id: 'ring', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'ring', mat: 'silver', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'diamond', deco: 'gold' }, 1], [{ id: 'ring', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'silver' }, 1], [DIAMOND, 2], [EMERALD, 2]] },
+  { key: 'furn', name: '家具', items: [[BED, 2], [SOFA, 4], [TABLE, 4], [BOOKSHELF, 4], [TV, 1], [FRIDGE, 2], [CHEST, 2], [LAMP, 8], [LANTERN, 8], [TORCH, 16], [WOOL_P, 16], [WOOL_B, 16], [WOOL_Y, 16], [FLOWER_R, 8], [FLOWER_Y, 8]] },
+  { key: 'car', name: '車', items: [[{ id: CAR, mat: 'red' }, 1], [{ id: CAR, mat: 'blue' }, 1], [{ id: CAR, mat: 'yellow' }, 1], [{ id: CAR, mat: 'pink' }, 1], [{ id: CAR, mat: 'white' }, 1]] },
+  { key: 'gear', name: '剣・服', items: [[{ id: 'sword', mat: 'diamond' }, 1], [{ id: 'sword', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'clothes', mat: 'diamond' }, 1], [{ id: 'clothes', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'clothes', mat: 'cloth', deco: 'diamond' }, 1]] },
+  { key: 'build', name: 'ブロック', items: [[PLANKS, 32], [BRICK, 32], [PLASTER, 32], [GLASS, 16], [ROOF_R, 32], [ROOF_B, 32], [GOLD_BLOCK, 8], [SILVER_BLOCK, 8], [EMERALD_BLOCK, 8], [DIAMOND_BLOCK, 8], [ROAD, 32], [CLOUD, 16]] },
+];
+let shopOpen = false, shopTab = 'food';
+const shopEl = document.getElementById('shop');
+const inMarket = (x, z) => market && Math.abs(x - market.cx) <= 11 && Math.abs(z - market.cz) <= 8;
+function marketCategory(x, z, id) {
+  if (id === FRIDGE || !market) return 'food';
+  const rz = z - market.cz, left = x < market.cx;
+  if (rz === -5) return left ? 'food' : 'pet';
+  if (rz === -2) return left ? 'toy' : 'acc';
+  if (rz === 1) return left ? 'furn' : 'car';
+  return 'food';
+}
+function openShop(tab) {
+  shopOpen = true; playing = false; shopTab = tab;
+  for (const k in keys) keys[k] = false;
+  shopEl.hidden = false;
+  renderShop();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function closeShop() { shopOpen = false; shopEl.hidden = true; startPlay(); }
+function renderShop() {
+  const tabs = document.getElementById('shopTabs'), grid = document.getElementById('shopGrid');
+  tabs.innerHTML = ''; grid.innerHTML = '';
+  for (const cat of SHOP) {
+    const b = document.createElement('button');
+    b.textContent = cat.name; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', cat.key === shopTab ? 'true' : 'false');
+    b.addEventListener('click', () => { shopTab = cat.key; renderShop(); });
+    tabs.append(b);
+  }
+  const cat = SHOP.find(c => c.key === shopTab) || SHOP[0];
+  for (const [it, n] of cat.items) {
+    const item = Object.assign({}, typeof it === 'object' ? it : { id: it }, { count: n });
+    const card = document.createElement('div'); card.className = 'good';
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = itemName(item) + (n > 1 ? ` ×${n}` : '');
+    const btn = document.createElement('button'); btn.textContent = 'もらう';
+    btn.addEventListener('click', () => {
+      const left = addItem(Object.assign({}, item));
+      if (left >= item.count) { toast('かばんがいっぱい！'); return; }
+      logPickup(Object.assign({}, item, { count: item.count - left }));
+      toast(`${itemName(item)}をもらった！`);
+      Sound.gift(); saveSoon();
+    });
+    card.append(iconCopy(item), nm, btn);
+    grid.append(card);
+  }
+}
+document.getElementById('shopClose').addEventListener('click', closeShop);
+
+// ================= チェスト =================
+let chests = {}, curChest = null;
+function openChest(x, y, z) {
+  const k = x + ',' + y + ',' + z;
+  curChest = chests[k] || (chests[k] = new Array(18).fill(null));
+  openInv();
+}
+
 // ================= 指輪を撃つ =================
 const shots = [];
 let shotCD = 0;
@@ -2346,8 +2763,8 @@ function renderHearts() {
 let invOpen = false, invPick = null, craftTab = 'recipes';
 const forgeState = { kind: 'sword', mat: 'wood', deco: null };
 const invEl = document.getElementById('inv');
-const slotAt = ref => ref === 'equip' ? equip.clothes : inv[ref];
-function setSlot(ref, v) { if (ref === 'equip') equip.clothes = v; else inv[ref] = v; }
+const slotAt = ref => ref === 'equip' ? equip.clothes : typeof ref === 'string' ? curChest[+ref.slice(1)] : inv[ref];
+function setSlot(ref, v) { if (ref === 'equip') equip.clothes = v; else if (typeof ref === 'string') curChest[+ref.slice(1)] = v; else inv[ref] = v; }
 function clickSlot(ref) {
   if (invPick === null) {
     if (slotAt(ref)) invPick = ref;
@@ -2378,6 +2795,12 @@ function needEl(id, n) {
   return el;
 }
 function renderInventory() {
+  document.getElementById('chestPanel').hidden = !curChest;
+  document.getElementById('craftPanel').hidden = !!curChest;
+  if (curChest) {
+    const cg = document.getElementById('chestGrid'); cg.innerHTML = '';
+    for (let i = 0; i < curChest.length; i++) { const ref = 'c' + i; const el = slotEl(curChest[i], invPick === ref ? 'pick' : ''); el.addEventListener('click', () => clickSlot(ref)); cg.append(el); }
+  }
   const bag = document.getElementById('bagGrid'), hot = document.getElementById('hotGrid');
   bag.innerHTML = ''; hot.innerHTML = '';
   for (let i = 9; i < 36; i++) { const el = slotEl(inv[i], invPick === i ? 'pick' : ''); el.addEventListener('click', () => clickSlot(i)); bag.append(el); }
@@ -2497,16 +2920,24 @@ function openInv() {
   renderInventory();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-function closeInv() { invOpen = false; invEl.hidden = true; startPlay(); }
+function closeInv() { invOpen = false; invEl.hidden = true; curChest = null; saveSoon(); startPlay(); }
 document.getElementById('invClose').addEventListener('click', closeInv);
 
 // ---- 行動 ----
 function primaryAction() {
   swingHeld();
+  if (riding) return;
   const mh = raycastMob(4.2);
   const bh = raycast(6);
-  if (mh && (!bh || mh.t < bh.t)) { attackMob(mh.mob, mh.dir); return; }
+  const ch = raycastCar(4.5);
+  if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) { attackMob(mh.mob, mh.dir); return; }
+  if (ch && (!bh || ch.t < bh.t)) { pickUpCar(ch.car); return; }
   if (!bh || bh.id === BEDROCK) return;
+  if (bh.id === CHEST) {
+    const k = bh.x + ',' + bh.y + ',' + bh.z;
+    for (const it of chests[k] || []) if (it) spawnDrop(it, bh.x + 0.5, bh.y + 0.5, bh.z + 0.5);
+    delete chests[k];
+  }
   if (setBlock(bh.x, bh.y, bh.z, AIR)) {
     burst(bh.x, bh.y, bh.z, bh.id);
     Sound.breakBlock(bh.id);
@@ -2520,13 +2951,25 @@ function primaryAction() {
   }
 }
 function secondaryAction() {
+  if (riding) { exitCar(); return; }
   const mh = raycastMob(4.2);
   const bh = raycast(6);
-  if (mh && (!bh || mh.t < bh.t)) {
-    if (mh.mob.T.villager) { talkTo(mh.mob); return; }
-    if (mh.mob.T.animal) { tame(mh.mob); return; }
-  }
+  const ch = raycastCar(4.5);
   const s = inv[selected];
+  if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) {
+    if (mh.mob.T.villager) { talkTo(mh.mob); return; }
+    if (mh.mob.T.animal) {
+      if (s && s.id === PETFOOD) {
+        tame(mh.mob); takeItem(PETFOOD, 1); Sound.eat();
+        hearts(mh.mob.pos.x, mh.mob.pos.y + mh.mob.h, mh.mob.pos.z, 6);
+        say(mh.mob, 'おいしい！ ありがとう！');
+      } else tame(mh.mob);
+      return;
+    }
+  }
+  if (ch && (!bh || ch.t < bh.t)) { enterCar(ch.car); return; }
+  if (bh && (bh.id === SHELF || bh.id === FRIDGE || (bh.id === TABLE && inMarket(bh.x, bh.z)))) { openShop(marketCategory(bh.x, bh.z, bh.id)); return; }
+  if (bh && bh.id === CHEST) { openChest(bh.x, bh.y, bh.z); return; }
   if (!s) return;
   if (s.id === ROD) { castRod(); return; }
   if (s.id === 'ring') { shootRing(s); return; }
@@ -2543,6 +2986,14 @@ function secondaryAction() {
     refreshInventory(); toast(`${itemName(s)}を着た！`); Sound.craft(); saveSoon();
     return;
   }
+  if (s.id === CAR && bh) {
+    const c = createCar(bh.x + bh.nx + 0.5, bh.y + bh.ny + 0.05, bh.z + bh.nz + 0.5, player.yaw + Math.PI, s.mat, null, true);
+    if (collides(c.pos, c.w, c.h)) c.pos.y += 1;
+    inv[selected] = null; refreshInventory();
+    toast(`${itemName(s)}をおいた！ 右クリックで乗れるよ`); Sound.place(PLANKS); saveSoon();
+    return;
+  }
+  if (s.id === PETFOOD) { toast('動物に向けて右クリックであげてね'); return; }
   if (!isBlockItem(s.id) || !bh) return;
   const x = bh.x + bh.nx, y = bh.y + bh.ny, z = bh.z + bh.nz;
   const cur = getBlock(x, y, z);
@@ -2568,7 +3019,7 @@ function onLockError() {
 }
 function startPlay() {
   Sound.init();
-  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false;
+  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false; shopEl.hidden = true; shopOpen = false; curChest = null;
   if (!lockFailed) {
     try {
       const r = canvas.requestPointerLock && canvas.requestPointerLock();
@@ -2586,12 +3037,14 @@ function die() {
   playing = false;
   for (const k in keys) keys[k] = false;
   reelIn();
+  if (riding) exitCar();
   Sound.death(player.pos.x, player.pos.y, player.pos.z);
   deadEl.hidden = false;
   if (document.pointerLockElement) document.exitPointerLock();
 }
 document.getElementById('respawn').addEventListener('click', () => {
-  player.pos.copy(spawnPoint()); player.vel.set(0, 0, 0);
+  riding = null;
+  player.pos.copy(spawnPoint()); player.vel.set(0, 0, 0); player.yaw = 0; player.pitch = -0.1;
   player.hp = 20; player.airTop = player.pos.y; player.invuln = 2;
   for (const m of mobs.slice()) { if (m.T.hostile) removeMob(m); else if (m.pet) m.pos.copy(player.pos); }
   renderHearts();
@@ -2662,9 +3115,12 @@ window.addEventListener('wheel', e => { if (playing) select(selected + (e.deltaY
 
 window.addEventListener('keydown', e => {
   if (invOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeInv(); } return; }
+  if (shopOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeShop(); } return; }
   if (e.code === 'Escape' && playing && lockFailed) { pause(); return; }
   if (!playing) { if (e.code === 'Enter' && deadEl.hidden) startPlay(); return; }
   keys[e.code] = true;
+  if (riding && (e.code === 'ShiftLeft' || e.code === 'ShiftRight')) { exitCar(); return; }
+  if (riding && e.code === 'KeyF') return;
   if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) select(n - 1); }
   if (e.code === 'KeyE') { openInv(); return; }
   if (e.code === 'KeyF') { player.flying = !player.flying; player.vel.y = 0; toast(player.flying ? '飛行モード オン' : '飛行モード オフ'); }
@@ -2679,6 +3135,8 @@ function saveNow() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       seed, edits, time: dayTime, hp: player.hp, inv, equip, picked: [...picked],
+      chests: Object.fromEntries(Object.entries(chests).filter(([, v]) => v.some(Boolean))),
+      cars: cars.filter(c => c.owned).map(c => ({ x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, color: c.color })),
       pets: mobs.filter(m => m.pet).map(m => ({ type: m.type, name: m.name, uid: m.uid })),
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flying: player.flying },
     }));
@@ -2723,6 +3181,8 @@ function newWorld(s, e, saved) {
   for (const m of mobs.slice()) removeMob(m);
   for (const d of drops.slice()) removeDrop(d);
   villageCache.clear(); lootSpawned.clear(); npcSpawned.clear();
+  for (const c of cars.slice()) removeCar(c);
+  carSpawned.clear(); riding = null; market = null; mainKey = null; chests = {};
   reelIn();
   seed = s; edits = e || {};
   if (saved) {
@@ -2732,8 +3192,9 @@ function newWorld(s, e, saved) {
     inv.fill(null);
     (saved.inv || []).forEach((v, i) => { if (i < 36) inv[i] = v; });
     equip.clothes = saved.equip ? saved.equip.clothes : null;
+    chests = saved.chests || {};
   } else {
-    player.pos.copy(spawnPoint()); player.flying = false; player.hp = 20;
+    player.pos.copy(spawnPoint()); player.flying = false; player.hp = 20; player.yaw = 0; player.pitch = -0.1;
     picked = new Set();
     inv.fill(null); equip.clothes = null;
     addItem({ id: TORCH, count: 6 }); addItem({ id: APPLE, count: 3 });
@@ -2745,6 +3206,7 @@ function newWorld(s, e, saved) {
   while (collides(player.pos, player.w, player.h) && player.pos.y < H) player.pos.y += 1;
   player.airTop = player.pos.y;
   if (saved && saved.pets) for (const pt of saved.pets) if (MOBS[pt.type]) createMob(pt.type, player.pos.x + (Math.random() - 0.5) * 2, player.pos.y + 0.5, player.pos.z + (Math.random() - 0.5) * 2, null, pt);
+  if (saved && saved.cars) for (const c of saved.cars) createCar(c.x, c.y + 0.2, c.z, c.yaw, c.color, null, true);
   renderHearts(); refreshInventory();
   saveNow();
 }
@@ -2773,12 +3235,14 @@ function loop(now) {
 
   updateChunks(playing ? 2 : 4);
   if (playing && chunkReady(player.pos.x, player.pos.z)) {
-    physics(dt);
+    if (!riding) physics(dt);
     for (const m of mobs.slice()) updateMob(m, dt);
     updateSpawns(dt);
     updateDrops(dt);
     updateFishing(dt);
     updateShots(dt);
+    updateCars(dt);
+    if (riding) updateRide();
   }
 
   camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
@@ -2819,12 +3283,13 @@ function loop(now) {
     `時刻  ${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${fps} FPS\n` +
     `村人 ${nv}  ペット ${np}  動物 ${mobs.length - nh - nv - np}  敵 ${nh}` +
     (equip.clothes ? `\n服：${itemName(equip.clothes)}` : '') +
-    (player.flying ? '\n飛行モード' : '');
+    (player.flying ? '\n飛行モード' : '') +
+    (riding ? '\n車を運転中：W/S 前・うしろ  A/D ハンドル  Shift おりる' : '');
 
   renderer.render(scene, camera);
 }
 requestAnimationFrame(loop);
 
-window.__cubeland = { player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
+window.__cubeland = { cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
 })();
 </script>
