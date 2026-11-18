@@ -3398,11 +3398,37 @@ function updateCars(dt) {
     if (inW) { v.y += (2 - v.y) * Math.min(1, dt * 3); c.speed *= Math.pow(0.4, dt); } else v.y -= 28 * dt;
     v.y = Math.max(v.y, -40);
     const bumped = stepEntity(c, dt);
-    // 1マスの段差なら自動でのぼる
-    if (bumped && c.onGround && Math.abs(c.speed) > 0.3) {
-      const sg = Math.sign(c.speed), t = c.pos.clone();
-      t.y += 1.05; t.x += Math.sin(c.yaw) * 0.45 * sg; t.z += Math.cos(c.yaw) * 0.45 * sg;
-      if (!collides(t, c.w, c.h)) c.pos.y += 1.05; else c.speed *= 0.5;
+    // 段差は6マスまで自動でのぼる
+    if (bumped && Math.abs(c.speed) > 0.3) {
+      const sg = Math.sign(c.speed);
+      let climbed = false;
+      for (let k = 1; k <= 6 && !climbed; k++) {
+        const t = c.pos.clone();
+        t.y += k + 0.05; t.x += Math.sin(c.yaw) * 0.5 * sg; t.z += Math.cos(c.yaw) * 0.5 * sg;
+        if (!collides(t, c.w, c.h)) { c.pos.y += k + 0.05; climbed = true; }
+      }
+      if (!climbed) c.speed *= 0.5;
+    }
+    // はまって動けないときは、よいしょと持ち上げる
+    if (c === riding) {
+      const moved = Math.hypot(c.pos.x - (c.lastX ?? c.pos.x), c.pos.z - (c.lastZ ?? c.pos.z));
+      c.lastX = c.pos.x; c.lastZ = c.pos.z;
+      c.stuckT = (keys.KeyW || keys.KeyS) && moved < 0.02 ? (c.stuckT || 0) + dt : 0;
+      if (c.stuckT > 1.1) {
+        c.stuckT = 0;
+        const sg = keys.KeyS ? -1 : 1;
+        let done = false;
+        for (const dist2 of [2, 3.5, 5]) {
+          for (let k = 0; k <= 14 && !done; k++) {
+            const t = new THREE.Vector3(c.pos.x + Math.sin(c.yaw) * dist2 * sg, Math.floor(c.pos.y) + k + 0.05, c.pos.z + Math.cos(c.yaw) * dist2 * sg);
+            if (!collides(t, c.w, c.h) && isSolid(getBlock(Math.floor(t.x), Math.floor(t.y) - 1, Math.floor(t.z)))) { c.pos.copy(t); done = true; }
+          }
+          if (done) break;
+        }
+        if (!done) { c.yaw += Math.PI; if (c === riding) player.yaw += Math.PI; let k = 0; while (collides(c.pos, c.w, c.h) && k++ < 20) c.pos.y += 1; }
+        c.vel.set(0, 0, 0);
+        toast('よいしょ！');
+      }
     }
     if (c.pos.y < -5) { c.pos.y = 80; v.set(0, 0, 0); }
     c.g.position.copy(c.pos); c.g.rotation.y = c.yaw;
