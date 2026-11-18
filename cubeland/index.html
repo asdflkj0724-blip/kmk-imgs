@@ -265,7 +265,7 @@ const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANKS=7, GLASS=
   COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34,
   CHEST=35, SHELF=36, FLOOR=37, SIGN=38, BED=39, SOFA=40, BOOKSHELF=41, TV=42, FRIDGE=43, TABLE=44,
   WOOL_P=45, WOOL_B=46, WOOL_Y=47, TEDDY=48, BALL=49, GAMEBOX=50, ROAD=51, ROAD_LINE=52, LAVA=53,
-  COOKIE_W=54, CHOCO_R=55, FROSTING=56, CANDY_ST=57, WAFER=58, GUMDROP=59, LOLLI=60;
+  COOKIE_W=54, CHOCO_R=55, FROSTING=56, CANDY_ST=57, WAFER=58, GUMDROP=59, LOLLI=60, SIDEWALK=61, CROSSWALK=62;
 const GEAR_LOOT = [
   { id: 'sword', mat: 'diamond' }, { id: 'sword', mat: 'gold' }, { id: 'sword', mat: 'diamond', deco: 'gold' }, { id: 'sword', mat: 'gold', deco: 'diamond' },
   { id: 'clothes', mat: 'diamond' }, { id: 'clothes', mat: 'gold' }, { id: 'clothes', mat: 'gold', deco: 'diamond' }, { id: 'clothes', mat: 'diamond', deco: 'emerald' },
@@ -330,6 +330,8 @@ const BLOCKS = {
   [ROAD]:    { name: '道路',         tex: [56, 56, 56], snd: 'stone' },
   [ROAD_LINE]:{ name: '道路（白線）', tex: [57, 57, 57], snd: 'stone' },
   [LAVA]:    { name: 'マグマ',       tex: [58, 58, 58], snd: 'sand' },
+  [SIDEWALK]:{ name: '歩道', tex: [66, 66, 66], snd: 'stone' },
+  [CROSSWALK]:{ name: '横断歩道', tex: [67, 67, 67], snd: 'stone' },
   [COOKIE_W]:{ name: 'クッキーのかべ', tex: [59, 59, 59], snd: 'sand' },
   [CHOCO_R]: { name: 'チョコの屋根', tex: [60, 60, 60], snd: 'sand' },
   [FROSTING]:{ name: 'アイシング',   tex: [61, 61, 61], snd: 'sand' },
@@ -338,7 +340,7 @@ const BLOCKS = {
   [GUMDROP]: { name: 'グミ',         tex: [64, 64, 64], snd: 'sand' },
   [LOLLI]:   { name: 'キャンディの花', tex: [65, 65, 65], snd: 'glass' },
 };
-const TILE_COUNT = 66;
+const TILE_COUNT = 68;
 const ITEMS = {
   [STICK]: '棒', [COAL]: '石炭', [IRON_INGOT]: '鉄インゴット', [GOLD]: '金', [SILVER]: '銀',
   [EMERALD]: 'エメラルド', [DIAMOND]: 'ダイヤモンド', [STRING]: '糸', [FISH]: 'さかな',
@@ -665,6 +667,10 @@ const shadeHex = (hex, v) => shadeC(hexRGB(hex), v);
   const dome = (t, cx, cy, r, col) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const dx = x - cx, dy = y - cy; if (dy <= 0 ? dx * dx + dy * dy <= r * r : (dy <= 1 && Math.abs(dx) <= r)) px(t, x, y, shadeHex(col, 0.85 + rnd() * 0.25)); } px(t, cx - 1, cy - r + 1, '#ffffff'); };
   dome(64, 4, 13, 3.5, '#ff4f7b'); dome(64, 11, 13, 3.5, '#5ccf7a'); dome(64, 8, 9, 3, '#ffd23a');
   // ペロペロキャンディ（十字ブロック）
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    px(66, x, y, x % 8 === 7 || y % 8 === 7 ? '#a9adb6' : shadeC([206, 208, 214], 0.95 + rnd() * 0.06));
+    px(67, x, y, (x >> 2) % 2 ? '#f4f4f4' : shadeC([62, 64, 70], 0.88 + rnd() * 0.2));
+  }
   for (let y = 9; y < 16; y++) px(65, 7, y, '#ffffff');
   for (let y = 0; y < 10; y++) for (let x = 2; x < 13; x++) { const dx = x - 7.5, dy = y - 4.5, d = Math.hypot(dx, dy); if (d < 5) px(65, x, y, (Math.floor(d * 1.3 + Math.atan2(dy, dx) * 1.2) % 2) ? '#ff4f9a' : '#fff0f6'); }
 })();
@@ -944,7 +950,7 @@ function buildVolcano(v, ox, oz, data) {
 }
 // 道路の高さ：駐車場から1マスずつなめらかに地面へつなぐ
 function roadY(v, z) {
-  const d = z - (v.cz + 18), th = Math.max(SEA + 1, heightAt(v.cx, z));
+  const d = z - (v.cz + 46), th = Math.max(SEA + 1, heightAt(v.cx, z));
   return v.h + Math.max(-d, Math.min(d, th - v.h));
 }
 const HAIR = ['#4a2f23', '#f2d16b', '#f19ac0', '#2a2430', '#b06a3c', '#9ec9f0', '#c9a2f0'];
@@ -970,7 +976,7 @@ function villageAt(gx, gz) {
     const main = isMainCell(gx, gz);
     v = { cx, cz, h, houses: [], lone: false, key, main };
     if (main) market = { cx, cz, f: h, home: { x0: cx + 23, x1: cx + 41, z0: cz + 21, z1: cz + 35, door: cx + 31 } };
-    const n = main ? 8 : 4 + Math.floor(hash(gx, gz, seed + 603) * 4);
+    const n = main ? 0 : 4 + Math.floor(hash(gx, gz, seed + 603) * 4);
     const types = ['wood', 'brick', 'white', 'wood', 'white', 'brick', 'old'];
     for (let i = 0; i < n; i++) {
       const s = seed + 610 + i * 7;
@@ -1028,6 +1034,15 @@ function buildHouse(hs, set, setIfAir) {
   }
   const door = { N: [x, z0], S: [x, z1], W: [x0, z], E: [x1, z] }[hs.door];
   set(door[0], f + 1, door[1], AIR); set(door[0], f + 2, door[1], AIR);
+  // 入り口の前は、地面まで1段ずつの坂道にする（段差で入れないことがないように）
+  const [ddx, ddz] = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] }[hs.door];
+  for (let k = 1; k <= 6; k++) {
+    const X = door[0] + ddx * k, Z = door[1] + ddz * k;
+    const th = heightAt(X, Z), y = f + Math.max(-(k - 1), Math.min(k - 1, th - f));
+    for (let Y = y + 1; Y <= y + 4; Y++) set(X, Y, Z, AIR);
+    for (let Y = y - 1; Y >= Math.min(th, y - 2); Y--) set(X, Y, Z, DIRT);
+    set(X, y, Z, old ? DIRT : COBBLE);
+  }
   let top = f + 4;
   for (let k = 0; k < 10; k++) {
     const rx0 = x0 - 1 + k, rx1 = x1 + 1 - k, rz0 = z0 - 1 + k, rz1 = z1 + 1 - k, Y = f + 4 + k;
@@ -1062,9 +1077,70 @@ function buildHouse(hs, set, setIfAir) {
   }
 }
 
+// スーパーのまわりの町：道路・歩道・横断歩道・公園・ビル
+function buildCity(v, set, ox, oz) {
+  const { cx, cz, h: f } = v;
+  const area = (xa, xb, za, zb, fn) => {
+    for (let X = Math.max(xa, ox); X <= Math.min(xb, ox + CS - 1); X++) for (let Z = Math.max(za, oz); Z <= Math.min(zb, oz + CS - 1); Z++) fn(X, Z);
+  };
+  // 町の中はぜんぶ同じ高さにそろえる（段差なし）
+  area(cx - 30, cx + 54, cz - 40, cz + 57, (X, Z) => {
+    const th = heightAt(X, Z);
+    for (let Y = f + 1; Y <= f + 24; Y++) set(X, Y, Z, AIR);
+    for (let Y = f - 1; Y >= Math.min(th, f - 3); Y--) set(X, Y, Z, DIRT);
+    set(X, f, Z, GRASS);
+  });
+  const isRoad = (X, Z) =>
+    (Z >= cz - 28 && Z <= cz - 24 && X >= cx - 25 && X <= cx + 50) || (Z >= cz + 41 && Z <= cz + 45 && X >= cx - 25 && X <= cx + 50) ||
+    (X >= cx - 25 && X <= cx - 21 && Z >= cz - 28 && Z <= cz + 45) || (X >= cx + 46 && X <= cx + 50 && Z >= cz - 28 && Z <= cz + 45) ||
+    (X >= cx - 2 && X <= cx + 2 && Z >= cz + 19 && Z <= cz + 57);
+  area(cx - 30, cx + 54, cz - 40, cz + 57, (X, Z) => {
+    if (isRoad(X, Z)) {
+      const crossing = Z >= cz + 41 && Z <= cz + 45 && (Math.abs(X - cx) === 4 || Math.abs(X - cx) === 5);
+      const lineNS = X === cx || X === cx - 23 || X === cx + 48, lineEW = Z === cz - 26 || Z === cz + 43;
+      set(X, f, Z, crossing ? CROSSWALK : ((lineNS && Z % 3 !== 0) || (lineEW && X % 3 !== 0)) && !(Z >= cz + 41 && Z <= cz + 45 && Math.abs(X - cx) <= 2) ? ROAD_LINE : ROAD);
+      set(X, f - 1, Z, COBBLE);
+      return;
+    }
+    let near = false;
+    for (let dx = -1; dx <= 1 && !near; dx++) for (let dz = -1; dz <= 1; dz++) if (isRoad(X + dx, Z + dz)) { near = true; break; }
+    if (near) set(X, f, Z, SIDEWALK);
+  });
+  // 公園（噴水と木と花）
+  const pcx = cx - 12, pcz = cz + 30;
+  area(pcx - 8, pcx + 8, pcz - 8, pcz + 8, (X, Z) => {
+    const d = Math.hypot(X - pcx, Z - pcz);
+    if (d <= 2.2) { set(X, f, Z, WATER); set(X, f - 1, Z, COBBLE); }
+    else if (d <= 3.3) { set(X, f, Z, COBBLE); set(X, f + 1, Z, MOSSY); }
+    else if (Math.abs(X - pcx) <= 1 || Math.abs(Z - pcz) <= 1) set(X, f, Z, SIDEWALK);
+    else { const q = hash3(X, f, Z, seed + 990); if (q < 0.18) set(X, f + 1, Z, q < 0.09 ? FLOWER_R : FLOWER_Y); }
+  });
+  for (const [tx, tz] of [[pcx - 6, pcz - 6], [pcx + 6, pcz - 6], [pcx - 6, pcz + 6], [pcx + 6, pcz + 6]]) {
+    area(tx - 2, tx + 2, tz - 2, tz + 2, (X, Z) => {
+      if (X === tx && Z === tz) for (let Y = f + 1; Y <= f + 3; Y++) set(X, Y, Z, LOG);
+      for (let Y = f + 4; Y <= f + 5; Y++) if (Math.abs(X - tx) + Math.abs(Z - tz) <= 3) set(X, Y, Z, LEAVES);
+    });
+  }
+  // ビル（道路の外側）
+  const builds = [];
+  for (const [i, bx] of [[0, cx - 26], [1, cx - 14], [2, cx - 2], [3, cx + 10], [4, cx + 22], [5, cx + 34], [6, cx + 46]]) builds.push([bx, cz - 39, 9, 8, i]);
+  for (const [i, bx] of [[7, cx - 26], [8, cx - 14], [9, cx + 8], [10, cx + 20], [11, cx + 32], [12, cx + 44]]) builds.push([bx, cz + 48, 9, 8, i]);
+  const walls = [PLASTER, BRICK, WOOL_B, WOOL_P, WOOL_Y, PLASTER, BRICK];
+  for (const [bx, bz, w, d, i] of builds) {
+    const hgt = 8 + Math.floor(hash(i, 7, seed + 991) * 10), wall = walls[i % walls.length], front = bz < cz ? bz + d - 1 : bz;
+    area(bx, bx + w - 1, bz, bz + d - 1, (X, Z) => {
+      const edge = X === bx || X === bx + w - 1 || Z === bz || Z === bz + d - 1;
+      set(X, f, Z, SIDEWALK);
+      if (edge) for (let Y = f + 1; Y <= f + hgt; Y++) set(X, Y, Z, (Y - f) % 3 !== 0 && (X + Z) % 2 === 0 ? GLASS : wall);
+      set(X, f + hgt + 1, Z, ROOF_B);
+      if (Z === front && Math.abs(X - (bx + 4)) <= 0) { set(X, f + 1, Z, AIR); set(X, f + 2, Z, AIR); }
+    });
+  }
+}
+
 function buildMarket(v, set) {
   const { cx, cz, h: f } = v;
-  const x0 = cx - 17, x1 = cx + 17, z0 = cz - 10, z1 = cz + 10, top = f + 7;
+  const x0 = cx - 17, x1 = cx + 17, z0 = cz - 18, z1 = cz + 10, top = f + 7;
   for (let X = x0 - 1; X <= x1 + 1; X++) for (let Z = z0 - 1; Z <= z1 + 1; Z++) {
     const th = heightAt(X, Z);
     for (let Y = f + 1; Y <= f + 20; Y++) set(X, Y, Z, AIR);
@@ -1094,6 +1170,7 @@ function buildMarket(v, set) {
   // 店の中（たなは低くして、上の商品が見えるように）
   for (let X = cx - 9; X <= cx + 9; X++) set(X, f + 1, z0 + 1, FRIDGE);
   for (const rz of [-5, -2, 1]) for (let X = cx - 9; X <= cx + 9; X++) { if (Math.abs(X - cx) < 2) continue; set(X, f + 1, cz + rz, SHELF); }
+  for (let X = cx - 16; X <= cx - 7; X++) set(X, f + 1, cz - 10, SHELF);
   for (let X = cx - 9; X <= cx - 5; X++) set(X, f + 1, cz + 5, TABLE);
   // 駐車場
   for (let X = x0 - 1; X <= x1 + 1; X++) for (let Z = z1 + 2; Z <= z1 + 8; Z++) {
@@ -1103,7 +1180,7 @@ function buildMarket(v, set) {
   }
   set(cx, f, z1 + 1, ROAD); set(cx - 1, f, z1 + 1, ROAD); set(cx + 1, f, z1 + 1, ROAD);
   for (const X of [x0 - 1, x1 + 1]) { set(X, f + 1, z1 + 8, LOG); set(X, f + 2, z1 + 8, LOG); set(X, f + 3, z1 + 8, LANTERN); }
-  for (let Z = z1 + 9; Z <= z1 + 90; Z++) {
+  for (let Z = z1 + 9; Z <= z1 + 46; Z++) {
     const rh = roadY(v, Z);
     for (let X = cx - 2; X <= cx + 2; X++) {
       for (let Y = rh + 1; Y <= rh + 6; Y++) set(X, Y, Z, AIR);
@@ -1254,9 +1331,10 @@ function generateChunk(cx, cz) {
   for (let gz = g0z - 1; gz <= g0z + 1; gz++) for (let gx = g0x - 1; gx <= g0x + 1; gx++) {
     const v = villageAt(gx, gz);
     if (!v) continue;
-    const reach = v.main ? 110 : 48;
+    const reach = v.main ? 140 : 48;
     if (Math.abs(v.cx - (ox + 8)) > reach || Math.abs(v.cz - (oz + 8)) > reach) continue;
     if (v.main) {
+      buildCity(v, set, ox, oz);
       buildMarket(v, set);
       buildMikkunHouse(v, set);
       if (inChunk(v.cx + 4, v.cz + 17) && !friendKeys.has('kyanny')) npcs.push({ key: 'kyanny', kind: 'friend', name: 'きゃにーちゃん', look: KYANNY_LOOK, x: v.cx + 4.5, y: v.h + 1.05, z: v.cz + 17.5, home: { x: v.cx + 4.5, z: v.cz + 16.5 } });
@@ -1282,6 +1360,9 @@ function generateChunk(cx, cz) {
     const pz = v.main ? v.cz + 16 : v.cz;
     if (!v.lone && inChunk(v.cx, pz)) {
       for (let i = 0; i < 3; i++) npcs.push({ key: 'v' + v.key + ':' + i, x: v.cx + 0.5 + (i - 1), y: v.h + 1.05, z: pz + 0.5, home: { x: v.cx + 0.5, z: pz + 0.5 }, radius: v.main ? 12 : 15 });
+    }
+    if (v.main) for (const [i, px2, pz2] of [[0, v.cx - 12, v.cz + 30], [1, v.cx - 8, v.cz + 34], [2, v.cx - 15, v.cz + 26], [3, v.cx + 10, v.cz + 30]]) {
+      if (inChunk(px2, pz2)) npcs.push({ key: 'c' + v.key + ':' + i, x: px2 + 0.5, y: v.h + 1.05, z: pz2 + 0.5, home: { x: px2 + 0.5, z: pz2 + 0.5 }, radius: 10 });
     }
   }
   for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
@@ -1937,6 +2018,20 @@ function addItem(item) {
   }
   refreshInventory();
   return n;
+}
+// もらった物をすぐ手に持つ（手もちの列がいっぱいなら、今持っている物とかばんの中を入れかえる）
+function holdItem(item) {
+  const same = s => s && s.id === item.id && (s.mat || null) === (item.mat || null) && (s.deco || null) === (item.deco || null);
+  let idx = -1;
+  for (let i = 35; i >= 0; i--) if (same(inv[i])) { idx = i; if (i < 9) break; }
+  if (idx < 0) return;
+  if (idx >= 9) {
+    const empty = inv.slice(0, 9).findIndex(v => !v);
+    const to = empty >= 0 ? empty : selected;
+    const t = inv[to]; inv[to] = inv[idx]; inv[idx] = t; idx = to;
+  }
+  select(idx);
+  refreshInventory();
 }
 function countItem(id) { let n = 0; for (const s of inv) if (s && s.id === id) n += s.count; return n; }
 function takeItem(id, n) {
@@ -2853,6 +2948,76 @@ const PROPS = {
     for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; mk(SG(0.13), 0x4caf50, Math.cos(a) * 0.1, 0.42 + (i % 3) * 0.08, Math.sin(a) * 0.1, g); }
     mk(SG(0.14), 0x5ccf5a, 0, 0.62, 0, g);
   } },
+  desk: { name: 'つくえ', cat: 'furn', build(g) {
+    mk(BX(1.1, 0.06, 0.55), 0xe8c48a, 0, 0.72, 0, g); mk(BX(0.36, 0.66, 0.5), 0xf4e2c4, 0.34, 0.36, 0, g);
+    for (let i = 0; i < 3; i++) mk(SG(0.025), 0xff8ab8, 0.34, 0.15 + i * 0.2, 0.26, g);
+    mk(CY(0.03, 0.03, 0.7), 0xb07a45, -0.48, 0.35, -0.2, g); mk(CY(0.03, 0.03, 0.7), 0xb07a45, -0.48, 0.35, 0.2, g);
+    mk(CY(0.06, 0.08, 0.03), 0x5a6cf0, -0.35, 0.765, -0.12, g); mk(CY(0.012, 0.012, 0.25), 0x5a6cf0, -0.35, 0.89, -0.12, g); mk(CO(0.09, 0.1), 0xfff2b0, -0.3, 1.02, -0.08, g, { e: 0.9 });
+    mk(BX(0.22, 0.04, 0.16), 0x3b8cff, 0.05, 0.77, 0.05, g); mk(BX(0.2, 0.04, 0.15), 0xff4f6b, 0.05, 0.81, 0.05, g);
+  } },
+  bookcase: { name: '本だな', cat: 'furn', build(g) {
+    mk(BX(1.0, 1.6, 0.05), 0xb07a45, 0, 0.8, -0.18, g); mk(BX(0.05, 1.6, 0.4), 0xc89a62, -0.5, 0.8, 0, g); mk(BX(0.05, 1.6, 0.4), 0xc89a62, 0.5, 0.8, 0, g);
+    for (let k = 0; k < 5; k++) mk(BX(1.0, 0.04, 0.4), 0xc89a62, 0, 0.02 + k * 0.39, 0, g);
+    const cols = [0xff4f6b, 0x3b8cff, 0xffd23a, 0x5ccf7a, 0xa98bff, 0xff9e3d];
+    for (let k = 0; k < 4; k++) for (let i = 0; i < 7; i++) mk(BX(0.1, 0.26 + (i % 3) * 0.03, 0.26), cols[(i + k) % cols.length], -0.36 + i * 0.12, 0.18 + k * 0.39, 0.02, g);
+  } },
+  wardrobe: { name: 'クローゼット', cat: 'furn', build(g) {
+    mk(BX(0.95, 1.8, 0.55), 0xfff0f6, 0, 0.9, 0, g); mk(BX(0.02, 1.6, 0.01), 0xe0a8c0, 0, 0.92, 0.28, g);
+    mk(SG(0.035), 0xffd23a, -0.07, 1.0, 0.29, g); mk(SG(0.035), 0xffd23a, 0.07, 1.0, 0.29, g);
+    mk(BX(1.02, 0.08, 0.6), 0xff9ec7, 0, 1.84, 0, g); mk(SG(0.08), 0xff6fae, 0, 1.95, 0.1, g);
+  } },
+  rug: { name: 'まるいラグ', cat: 'furn', build(g) {
+    mk(CY(0.95, 0.95, 0.02, 32), 0xff9ec7, 0, 0.01, 0, g); mk(CY(0.65, 0.65, 0.025, 32), 0xffd6e7, 0, 0.012, 0, g); mk(CY(0.3, 0.3, 0.03, 32), 0xffffff, 0, 0.015, 0, g);
+  } },
+  dresser: { name: 'ドレッサー', cat: 'furn', build(g) {
+    mk(BX(0.8, 0.7, 0.4), 0xffffff, 0, 0.35, 0, g); mk(BX(0.6, 0.7, 0.04), 0xffd6e7, 0, 1.05, -0.16, g);
+    mk(BX(0.5, 0.6, 0.02), 0xbfe8ff, 0, 1.05, -0.13, g, { e: 0.8 }); mk(SG(0.03), 0xff8ab8, -0.2, 0.5, 0.21, g); mk(SG(0.03), 0xff8ab8, 0.2, 0.5, 0.21, g);
+    mk(CY(0.04, 0.04, 0.12), 0xff6fae, 0.25, 0.76, 0.05, g); mk(SG(0.04), 0xffd23a, -0.25, 0.74, 0.05, g);
+  } },
+  piano: { name: 'ピアノ', cat: 'furn', build(g) {
+    mk(BX(1.2, 1.0, 0.45), 0x1d1d22, 0, 0.5, -0.1, g); mk(BX(1.1, 0.06, 0.25), 0xffffff, 0, 0.73, 0.22, g);
+    for (let i = 0; i < 8; i++) if (i % 7 !== 2 && i % 7 !== 6) mk(BX(0.05, 0.05, 0.13), 0x1d1d22, -0.45 + i * 0.13, 0.77, 0.17, g);
+    mk(BX(0.6, 0.06, 0.3), 0x1d1d22, 0, 0.45, 0.65, g); for (const x of [-0.25, 0.25]) mk(CY(0.03, 0.03, 0.42), 0x1d1d22, x, 0.21, 0.65, g);
+  } },
+  dress: { name: 'ワンピース', cat: 'clothes', build(g) {
+    mk(CY(0.18, 0.2, 0.04), 0xdddddd, 0, 0.02, 0, g); mk(CY(0.02, 0.02, 1.2), 0xdddddd, 0, 0.6, 0, g);
+    mk(CO(0.32, 0.6), 0xff8ab8, 0, 0.75, 0, g); mk(BX(0.3, 0.28, 0.16), 0xff9ec7, 0, 1.15, 0, g);
+    mk(SG(0.05), 0xffffff, -0.06, 1.2, 0.09, g); mk(SG(0.05), 0xffffff, 0.06, 1.2, 0.09, g); mk(TO(0.3, 0.02), 0xffffff, 0, 0.48, 0, g, { rx: HALF_PI });
+  } },
+  tshirt: { name: 'Tシャツ', cat: 'clothes', build(g) {
+    [0x3b8cff, 0xffd23a, 0x5ccf7a, 0xff4f6b].forEach((c, i) => mk(BX(0.38, 0.06, 0.3), c, 0, 0.03 + i * 0.065, 0, g));
+    mk(SG(0.05), 0xffffff, 0, 0.27, 0.05, g, { s: [1, 0.3, 1] });
+  } },
+  hat: { name: 'むぎわらぼうし', cat: 'clothes', build(g) {
+    mk(CY(0.28, 0.28, 0.02, 32), 0xf2d27a, 0, 0.01, 0, g); mk(CY(0.13, 0.15, 0.14, 24), 0xf2d27a, 0, 0.08, 0, g);
+    mk(CY(0.152, 0.152, 0.04, 24), 0xff4f6b, 0, 0.05, 0, g); mk(SG(0.05), 0xff4f6b, 0.14, 0.07, 0.06, g);
+  } },
+  shoes: { name: 'くつ', cat: 'clothes', build(g) {
+    for (const x of [-0.08, 0.08]) { mk(BX(0.1, 0.07, 0.22), 0xff6fae, x, 0.035, -0.02, g); mk(SG(0.05), 0xff6fae, x, 0.04, 0.09, g, { s: [1, 0.7, 1] }); mk(BX(0.11, 0.02, 0.23), 0xffffff, x, 0.01, 0, g); }
+  } },
+  mannequin: { name: 'マネキン（ドレス）', cat: 'clothes', build(g) {
+    mk(CY(0.2, 0.22, 0.04), 0xdddddd, 0, 0.02, 0, g); mk(CY(0.025, 0.025, 0.7), 0xbbbbbb, 0, 0.35, 0, g);
+    mk(CO(0.3, 0.55), 0xa98bff, 0, 0.9, 0, g); mk(CY(0.12, 0.15, 0.35), 0xc9b2ff, 0, 1.3, 0, g); mk(SG(0.1), 0xf4e2d0, 0, 1.58, 0, g);
+    mk(TO(0.13, 0.02), 0xffd23a, 0, 1.42, 0, g, { rx: HALF_PI });
+  } },
+  rack: { name: '洋服ラック', cat: 'clothes', build(g) {
+    for (const x of [-0.5, 0.5]) { mk(CY(0.02, 0.02, 1.4), 0xcccccc, x, 0.7, 0, g); mk(BX(0.06, 0.04, 0.4), 0xcccccc, x, 0.02, 0, g); }
+    mk(CY(0.015, 0.015, 1.0), 0xcccccc, 0, 1.38, 0, g, { rz: HALF_PI });
+    [0xff4f6b, 0x3b8cff, 0xffd23a, 0x5ccf7a, 0xff9ec7].forEach((c, i) => { mk(BX(0.06, 0.55, 0.36), c, -0.36 + i * 0.18, 1.06, 0, g); mk(BX(0.06, 0.08, 0.5), c, -0.36 + i * 0.18, 1.3, 0, g); });
+  } },
+  signal: { name: '信号', cat: 'deco', build(g) {
+    mk(CY(0.06, 0.06, 2.6), 0x666a70, 0, 1.3, 0, g); mk(BX(0.3, 0.8, 0.25), 0x26282c, 0, 2.7, 0, g);
+    g.userData.lights = [mk(SG(0.09), 0x30d050, 0, 2.95, 0.13, g, { e: 0.2 }), mk(SG(0.09), 0xffc020, 0, 2.7, 0.13, g, { e: 0.2 }), mk(SG(0.09), 0xff3030, 0, 2.45, 0.13, g, { e: 0.2 })];
+  } },
+  streetlamp: { name: '街灯', cat: 'deco', build(g) {
+    mk(CY(0.07, 0.09, 3.2), 0x3a3e46, 0, 1.6, 0, g); mk(BX(0.08, 0.08, 0.6), 0x3a3e46, 0, 3.15, 0.25, g);
+    mk(CY(0.18, 0.25, 0.18), 0x3a3e46, 0, 3.05, 0.55, g); mk(SG(0.13), 0xfff3c0, 0, 2.95, 0.55, g, { e: 1 });
+  } },
+  bench: { name: 'ベンチ', cat: 'deco', build(g) {
+    for (let i = 0; i < 3; i++) mk(BX(1.3, 0.05, 0.12), 0xc89a62, 0, 0.45, -0.16 + i * 0.15, g);
+    for (let i = 0; i < 2; i++) mk(BX(1.3, 0.12, 0.05), 0xc89a62, 0, 0.62 + i * 0.16, -0.25, g);
+    for (const x of [-0.55, 0.55]) mk(BX(0.08, 0.45, 0.45), 0x3a3e46, x, 0.22, -0.05, g);
+  } },
   biglolli: { name: '大きなペロペロキャンディ', cat: 'deco', build(g) {
     mk(CY(0.03, 0.03, 1.4), 0xffffff, 0, 0.7, 0, g); mk(CY(0.42, 0.42, 0.1), 0xff6fae, 0, 1.6, 0, g, { rx: HALF_PI });
     mk(TO(0.3, 0.05), 0xffffff, 0, 1.6, 0.05, g); mk(TO(0.16, 0.05), 0x7fd8ff, 0, 1.6, 0.055, g); mk(SG(0.07), 0xffd23a, 0, 1.6, 0.06, g);
@@ -2894,6 +3059,8 @@ scene.add(hemiLight, dirLight);
 // 置いたもの（みっくんの家などに飾れる）とお店の商品
 const props = [];
 const displays = [];
+const signals = [];
+let signalT = 0;
 function addPropObject(kind, x, y, z, yaw, opts = {}) {
   const g = makeProp(kind);
   g.position.set(x, y, z); g.rotation.y = yaw || 0;
@@ -2923,7 +3090,7 @@ function raycastProp(maxDist) {
 function takeDisplay(rec) {
   const item = rec.vehicle ? { id: CAR, mat: rec.vehicle, count: 1 } : { id: 'prop', mat: rec.kind, count: 1 };
   if (addItem(item) > 0) { toast('かばんがいっぱい！'); return; }
-  logPickup(item); toast(rec.vehicle ? `${itemName(item)}をもらった！ 外で右クリックすると置いて乗れるよ` : `${PROPS[rec.kind].name}をもらった！`); Sound.gift();
+  logPickup(item); holdItem(item); toast(rec.vehicle ? `${itemName(item)}をもらった！ 外で右クリックすると置いて乗れるよ` : `${PROPS[rec.kind].name}をもらった！`); Sound.gift();
   for (let i = 0; i < 6; i++) spawnParticle(rec.x, rec.y + 0.3, rec.z, new THREE.Color([0xffd23a, 0xff8ab8, 0x7fd8ff][i % 3]), 1.2, true);
   if (!rec.vehicle) { rec.g.scale.setScalar(1.25); setTimeout(() => rec.g.scale.setScalar(1), 150); }
   saveSoon();
@@ -2970,7 +3137,7 @@ function addVehicleDisplay(color, x, y, z) {
 function ensureDisplays() {
   if (!market || displays.length) return;
   const { cx, cz, f, home } = market;
-  for (const [x, z] of [[cx - 17, cz - 10], [cx + 17, cz + 10], [home.x1, home.z1], [home.x0, home.z0]]) if (!chunkReady(x, z)) return;
+  for (const [x, z] of [[cx - 17, cz - 18], [cx + 17, cz + 10], [cx - 25, cz + 45], [cx + 50, cz - 28], [home.x1, home.z1], [home.x0, home.z0]]) if (!chunkReady(x, z)) return;
   for (const rz of [-5, -2, 1]) for (const side of ['L', 'R']) {
     const list = SHELF_GOODS[rz + side];
     let i = 0;
@@ -2980,13 +3147,28 @@ function ensureDisplays() {
     }
   }
   const drinks = SHELF_GOODS['-5R'];
-  for (let x = cx - 9, i = 0; x <= cx + 9; x++, i++) addPropObject(drinks[i % drinks.length], x + 0.5, f + 2, cz - 9 + 0.5, 0, { display: true });
+  for (let x = cx - 9, i = 0; x <= cx + 9; x++, i++) addPropObject(drinks[i % drinks.length], x + 0.5, f + 2, cz - 17 + 0.5, 0, { display: true });
   ['cake', 'pudding', 'cake', 'donut', 'icecream'].forEach((k, i) => addPropObject(k, cx - 8.5 + i, f + 2, cz + 5.5, 0, { display: true }));
   [['sofa', 3.8, 6.6], ['table', 3.8, 4.0], ['chair', 5.3, 4.0], ['tv', 6.6, 3.6], ['bed', 8.4, 5.6], ['floorlamp', 9.2, 3.4], ['plant', 9.3, 8.4], ['plant', 2.6, 8.4]].forEach(([k, dx, dz]) =>
     addPropObject(k, cx + dx, f + 1, cz + dz, 0, { display: true }));
   // のりもの売り場（回る台の上に）
   [['truck', -13.5, -6.2], ['bike', -13.5, -1.4], ['pink', -13.5, 3.2], ['white', -13.5, 7.4],
    ['police', 13.5, -6.2], ['fire', 13.5, -0.8], ['red', 13.5, 4.6]].forEach(([c, dx, dz]) => addVehicleDisplay(c, cx + dx, f + 1, cz + dz));
+  // 洋服売り場（左おく）
+  [['mannequin', -15.5, -16.2], ['mannequin', -13.5, -16.2], ['mannequin', -11.5, -16.2], ['rack', -15, -13], ['rack', -11.5, -13], ['dress', -8.5, -16.2]].forEach(([k, dx, dz]) =>
+    addPropObject(k, cx + dx, f + 1, cz + dz, 0, { display: true }));
+  ['tshirt', 'hat', 'shoes', 'dress', 'tshirt', 'hat', 'shoes', 'tshirt', 'hat', 'shoes'].forEach((k, i) => addPropObject(k, cx - 15.5 + i, f + 2, cz - 9.5, 0, { display: true }));
+  // 家具・インテリア売り場（おく）：リビング・寝室・子ども部屋
+  [['rug', -0.5, -12.5, 0], ['sofa', -0.5, -14.5, 0], ['table', -0.5, -12.4, 0], ['tv', -0.5, -10.2, Math.PI], ['plant', 2.6, -15.5, 0], ['floorlamp', -3.6, -15.5, 0],
+   ['bed', 6, -13.5, 0], ['wardrobe', 9.2, -16.2, 0], ['dresser', 9.2, -11.4, Math.PI], ['rug', 6, -10.6, 0],
+   ['desk', 13.6, -16, 0], ['chair', 13.6, -15, Math.PI], ['bookcase', 16, -12.6, -HALF_PI], ['piano', 13.4, -10.8, Math.PI]].forEach(([k, dx, dz, yaw]) =>
+    addPropObject(k, cx + dx, f + 1, cz + dz, yaw, { display: true }));
+  // 町の信号・街灯・ベンチ
+  for (const [dx, dz] of [[-3.5, 39.5], [3.5, 39.5], [-3.5, 46.5], [3.5, 46.5], [-19.5, -22.5], [44.5, -22.5], [-19.5, 39.5], [44.5, 39.5]])
+    signals.push(addPropObject('signal', cx + dx, f + 1, cz + dz, dz > 40 ? 0 : Math.PI, { deco: true }));
+  for (let dx = -18; dx <= 44; dx += 10) { addPropObject('streetlamp', cx + dx + 0.5, f + 1, cz - 22.5, Math.PI, { deco: true }); addPropObject('streetlamp', cx + dx + 0.5, f + 1, cz + 39.5, 0, { deco: true }); }
+  for (let dz = -14; dz <= 36; dz += 10) { addPropObject('streetlamp', cx - 19.5, f + 1, cz + dz + 0.5, HALF_PI, { deco: true }); addPropObject('streetlamp', cx + 44.5, f + 1, cz + dz + 0.5, -HALF_PI, { deco: true }); }
+  for (const [dx, dz, yaw] of [[-12, 25.6, 0], [-12, 34.4, Math.PI], [-16.4, 30, HALF_PI], [-7.6, 30, -HALF_PI]]) addPropObject('bench', cx + dx + 0.5, f + 1, cz + dz + 0.5, yaw, { deco: true });
   addPropObject('biglolli', home.door - 1.5, f + 1, home.z0 - 2.5, 0, { deco: true, scale: 1.5 });
   addPropObject('biglolli', home.door + 3.5, f + 1, home.z0 - 2.5, 0, { deco: true, scale: 1.5 });
   addPropObject('bigcake', home.x1 + 3, f + 1, home.z0 + 3.5, 0, { deco: true, scale: 1.7 });
@@ -3006,7 +3188,7 @@ function ensureDisplays() {
     plate.position.set(home.door + 1, f + 4.5, home.z0 - 0.04); plate.rotation.y = Math.PI;
     scene.add(plate); displays.push({ kind: 'plate', g: plate, deco: true });
   }
-  const L = [['おかし・たべもの', -5.5, 3.3, -4.5], ['のみもの', 6.5, 3.3, -4.5], ['おもちゃ', -5.5, 3.3, -1.5], ['おもちゃ', 6.5, 3.3, -1.5],
+  const L = [['洋服', -11.5, 3.6, -13], ['家具・インテリア', 6, 3.6, -13], ['おかし・たべもの', -5.5, 3.3, -4.5], ['のみもの', 6.5, 3.3, -4.5], ['おもちゃ', -5.5, 3.3, -1.5], ['おもちゃ', 6.5, 3.3, -1.5],
     ['おやつ', -5.5, 3.3, 1.5], ['プレゼント', 6.5, 3.3, 1.5], ['家具', 6, 3.3, 5], ['のりもの売り場', -13.5, 4.6, 0.5], ['のりもの売り場', 13.5, 4.6, 0.5], ['ちゅうしゃじょう', 0.5, 3.6, 15.5]];
   sectionEls = L.map(([text, dx, dy, dz]) => {
     const el = document.createElement('div'); el.className = 'bubble section'; el.textContent = text; el.hidden = true;
@@ -3015,6 +3197,7 @@ function ensureDisplays() {
   });
 }
 function clearDisplays() {
+  signals.length = 0;
   for (const r of displays.slice()) removePropObject(r);
   sectionEls.forEach(s => s.el.remove()); sectionEls = [];
 }
@@ -3205,14 +3388,15 @@ const SHOP = [
   { key: 'pet', name: 'ペットのごはん', items: [[PETFOOD, 8], [BALL, 2], [TEDDY, 1]] },
   { key: 'toy', name: 'おもちゃ・ゲーム', items: [...['teddy', 'robot', 'ball', 'train', 'balloon', 'blocks', 'minicar', 'game'].map(k => [{ id: 'prop', mat: k }, 2]), [ROD, 1]] },
   { key: 'acc', name: 'アクセサリー', items: [[CHEST, 2], [{ id: 'ring', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'ring', mat: 'silver', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'diamond', deco: 'gold' }, 1], [{ id: 'ring', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'silver' }, 1], [DIAMOND, 2], [EMERALD, 2]] },
-  { key: 'furn', name: '家具', items: [...['sofa', 'bed', 'table', 'chair', 'tv', 'floorlamp', 'plant'].map(k => [{ id: 'prop', mat: k }, 2]), [BED, 2], [SOFA, 4], [TABLE, 4], [BOOKSHELF, 4], [TV, 1], [FRIDGE, 2], [CHEST, 2], [LAMP, 8], [LANTERN, 8], [TORCH, 16], [WOOL_P, 16], [WOOL_B, 16], [WOOL_Y, 16], [FLOWER_R, 8], [FLOWER_Y, 8]] },
+  { key: 'clothes', name: '洋服', items: ['dress', 'tshirt', 'hat', 'shoes', 'mannequin', 'rack'].map(k => [{ id: 'prop', mat: k }, 2]) },
+  { key: 'furn', name: '家具', items: [...['sofa', 'bed', 'table', 'chair', 'tv', 'floorlamp', 'plant', 'desk', 'bookcase', 'wardrobe', 'rug', 'dresser', 'piano'].map(k => [{ id: 'prop', mat: k }, 2]), [BED, 2], [SOFA, 4], [TABLE, 4], [BOOKSHELF, 4], [TV, 1], [FRIDGE, 2], [CHEST, 2], [LAMP, 8], [LANTERN, 8], [TORCH, 16], [WOOL_P, 16], [WOOL_B, 16], [WOOL_Y, 16], [FLOWER_R, 8], [FLOWER_Y, 8]] },
   { key: 'car', name: '車・バイク', items: [[{ id: CAR, mat: 'truck' }, 1], [{ id: CAR, mat: 'fire' }, 1], [{ id: CAR, mat: 'police' }, 1], [{ id: CAR, mat: 'bike' }, 1], [{ id: CAR, mat: 'red' }, 1], [{ id: CAR, mat: 'blue' }, 1], [{ id: CAR, mat: 'yellow' }, 1], [{ id: CAR, mat: 'pink' }, 1], [{ id: CAR, mat: 'white' }, 1]] },
   { key: 'gear', name: '剣・服', items: [[{ id: 'sword', mat: 'diamond' }, 1], [{ id: 'sword', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'clothes', mat: 'diamond' }, 1], [{ id: 'clothes', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'clothes', mat: 'cloth', deco: 'diamond' }, 1]] },
   { key: 'build', name: 'ブロック', items: [[PLANKS, 32], [BRICK, 32], [PLASTER, 32], [GLASS, 16], [ROOF_R, 32], [ROOF_B, 32], [GOLD_BLOCK, 8], [SILVER_BLOCK, 8], [EMERALD_BLOCK, 8], [DIAMOND_BLOCK, 8], [ROAD, 32], [CLOUD, 16], [COOKIE_W, 32], [CHOCO_R, 32], [FROSTING, 32], [CANDY_ST, 16], [WAFER, 32], [GUMDROP, 16], [LOLLI, 16]] },
 ];
 let shopOpen = false, shopTab = 'food';
 const shopEl = document.getElementById('shop');
-const inMarket = (x, z) => market && Math.abs(x - market.cx) <= 17 && Math.abs(z - market.cz) <= 10;
+const inMarket = (x, z) => market && Math.abs(x - market.cx) <= 17 && z - market.cz >= -18 && z - market.cz <= 10;
 function marketCategory(x, z, id) {
   if (id === FRIDGE || !market) return 'food';
   const rz = z - market.cz, left = x < market.cx;
@@ -3248,7 +3432,8 @@ function renderShop() {
       const left = addItem(Object.assign({}, item));
       if (left >= item.count) { toast('かばんがいっぱい！'); return; }
       logPickup(Object.assign({}, item, { count: item.count - left }));
-      toast(`${itemName(item)}をもらった！`);
+      holdItem(item);
+      toast(`${itemName(item)}をもらった！ 手に持ったよ`);
       Sound.gift(); saveSoon();
     });
     card.append(iconCopy(item), nm, btn);
@@ -3748,7 +3933,7 @@ document.getElementById('play').addEventListener('click', startPlay);
 function inTown(x, z) {
   if (!market) return false;
   const { cx, cz, home: h } = market;
-  return (x >= cx - 18 && x <= cx + 18 && z >= cz - 11 && z <= cz + 18) || (x >= cx + 19 && x <= h.x1 + 2 && z >= cz + 15 && z <= h.z1 + 2);
+  return (x >= cx - 30 && x <= cx + 54 && z >= cz - 40 && z <= cz + 57) || (x >= cx + 19 && x <= h.x1 + 2 && z >= cz + 15 && z <= h.z1 + 2);
 }
 function isPlayerPlaced(x, y, z) {
   const ccx = Math.floor(x / CS), ccz = Math.floor(z / CS), e = edits[ckey(ccx, ccz)];
@@ -4009,6 +4194,10 @@ function loop(now) {
     if (vis) { se.el.style.left = ((tmpV.x + 1) / 2 * W) + 'px'; se.el.style.top = ((1 - tmpV.y) / 2 * Hh) + 'px'; }
   }
   for (const r of displays) if (r.spin) r.g.rotation.y += dt * 0.45;
+  // 信号：青→黄→赤
+  signalT = (signalT + dt) % 12;
+  const sigState = signalT < 5 ? 0 : signalT < 6.5 ? 1 : 2;
+  for (const sg of signals) sg.g.userData.lights.forEach((m, i) => m.material.emissive.setScalar(0).add(new THREE.Color(m.material.color).multiplyScalar(i === sigState ? 1 : 0.12)));
   hemiLight.intensity = 0.45 + 0.55 * daylight; dirLight.intensity = 0.5 * daylight;
   // 道案内（スーパーとみっくんの家の方向）
   const navEl = document.getElementById('nav');
