@@ -111,6 +111,15 @@
   #nav { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; background: var(--shade); border: 2px solid var(--edge); border-radius: 6px; padding: 4px 12px; font-size: 14px; pointer-events: none; white-space: nowrap; }
   #nav .arr { display: inline-block; color: var(--gold); margin-right: 4px; transition: transform .1s; }
   .bubble.section { background: #ffd25a; border-color: #6b3f12; font-size: 13px; padding: 2px 10px; }
+  .worlds { margin-bottom: 16px; }
+  .worlds-head { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  #worldList { display: grid; gap: 6px; max-height: 190px; overflow-y: auto; }
+  .world { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 2px solid var(--edge); border-radius: 4px; padding: 5px 8px; }
+  .world.cur { border-color: var(--gold); }
+  .world .wn { flex: 1; min-width: 0; font-size: 15px; }
+  .world .wd { font-size: 12px; color: var(--muted); }
+  .world button { font-size: 13px; padding: 5px 10px; }
+  .world button.del { background: #3a2a30; color: #ffb3b3; border-bottom-color: #22161a; }
   .shopnote { margin: 0 0 12px; color: var(--gold); font-size: 15px; }
   #shopTabs { flex-wrap: wrap; }
   .shopgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
@@ -166,11 +175,15 @@
       <button class="toggle" id="tSfx" aria-pressed="true">効果音</button>
       <button class="toggle" id="tEnemy" aria-pressed="false" hidden>敵が出る</button>
     </div>
+    <div class="worlds">
+      <div class="worlds-head">せかいをえらぶ</div>
+      <div id="worldList"></div>
+    </div>
     <div class="actions">
       <button id="play">あそぶ</button>
       <button id="warp" class="ghost">スーパーの前へワープ（H）</button>
       <button id="warpHome" class="ghost">みっくんの家へワープ（J）</button>
-      <button id="reset" class="ghost">新しい世界をつくる</button>
+      <button id="reset" class="ghost">＋ 新しい世界をつくる</button>
     </div>
     <div id="note"></div>
   </div>
@@ -1337,7 +1350,7 @@ function generateChunk(cx, cz) {
       buildCity(v, set, ox, oz);
       buildMarket(v, set);
       buildMikkunHouse(v, set);
-      if (inChunk(v.cx + 4, v.cz + 17) && !friendKeys.has('kyanny')) npcs.push({ key: 'kyanny', kind: 'friend', name: 'きゃにーちゃん', look: KYANNY_LOOK, x: v.cx + 4.5, y: v.h + 1.05, z: v.cz + 17.5, home: { x: v.cx + 4.5, z: v.cz + 16.5 } });
+      if (inChunk(v.cx + 21, v.cz + 19) && !friendKeys.has('kyanny')) npcs.push({ key: 'kyanny', kind: 'friend', name: 'きゃにーちゃん', look: KYANNY_LOOK, x: v.cx + 21.5, y: v.h + 1.05, z: v.cz + 19.5, home: { x: v.cx + 21.5, z: v.cz + 19.5 } });
       const staff = [[v.cx - 4, v.cz + 3], [v.cx + 4, v.cz - 3]];
       staff.forEach(([x, z], i) => { if (inChunk(x, z)) npcs.push({ key: 'm' + v.key + ':' + i, x: x + 0.5, y: v.h + 1.05, z: z + 0.5, home: { x: x + 0.5, z: z + 0.5 }, radius: 5 }); });
       [[v.cx - 10, 'truck'], [v.cx - 6, 'red'], [v.cx - 2, 'police'], [v.cx + 2, 'blue'], [v.cx + 6, 'yellow'], [v.cx + 10, 'bike']].forEach(([x, col], i) => {
@@ -1357,7 +1370,7 @@ function generateChunk(cx, cz) {
         }
       }
     }
-    const pz = v.main ? v.cz + 16 : v.cz;
+    const pz = v.main ? v.cz + 30 : v.cz;
     if (!v.lone && inChunk(v.cx, pz)) {
       for (let i = 0; i < 3; i++) npcs.push({ key: 'v' + v.key + ':' + i, x: v.cx + 0.5 + (i - 1), y: v.h + 1.05, z: pz + 0.5, home: { x: v.cx + 0.5, z: pz + 0.5 }, radius: v.main ? 12 : 15 });
     }
@@ -2599,6 +2612,17 @@ function updateMob(m, dt) {
       if (dist <= 1.8 && m.happyT <= 0) { m.happyT = 1.2; hearts(p.x, p.y + m.h, p.z, 1); }
     } else wantSpeed = m.moving ? T.speed : 0;
   }
+  // 運転中の車の前からは、さっとよける
+  if (riding && !T.hostile) {
+    const c = riding, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sg = Math.sign(c.speed) || 1;
+    const rx = p.x - c.pos.x, rz = p.z - c.pos.z, ahead = (rx * fx + rz * fz) * sg, side = rx * fz - rz * fx;
+    if (ahead > -1.5 && ahead < 10 && Math.abs(side) < c.w + 1.8 && Math.abs(dy) < 3) {
+      const s2 = side >= 0 ? 1 : -1;
+      m.targetYaw = Math.atan2(fz * s2, -fx * s2); m.yaw = m.targetYaw;
+      wantSpeed = Math.max(wantSpeed, 4.5); m.moving = true; m.think = 1;
+      if (T.hop) m.hopCD = Math.min(m.hopCD, 0);
+    }
+  }
   m.yaw += angleTo(m.yaw, m.targetYaw) * Math.min(1, dt * 6);
 
   if (T.hop) {
@@ -3349,6 +3373,13 @@ function updateCars(dt) {
       const steer = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
       const turn = steer * dt * 1.9 * Math.max(-1, Math.min(1, c.speed / 5));
       c.yaw += turn; player.yaw += turn;
+      // 前に人や動物がいたら、ひかないようにブレーキ
+      for (const m of mobs) {
+        if (m.T.hostile || !m.g.visible) continue;
+        const rx = m.pos.x - c.pos.x, rz = m.pos.z - c.pos.z, sg = Math.sign(c.speed) || 1;
+        const ahead = (rx * Math.sin(c.yaw) + rz * Math.cos(c.yaw)) * sg, side = Math.abs(rx * Math.cos(c.yaw) - rz * Math.sin(c.yaw));
+        if (ahead > 0 && ahead < 2.4 + c.w && side < c.w + m.w + 0.3 && Math.abs(m.pos.y - c.pos.y) < 2) { c.speed *= Math.pow(0.02, dt); if (Math.abs(c.speed) < 0.5) c.speed = 0; }
+      }
       // ぶつかった敵はやっつける
       c.bumpT -= dt;
       if (Math.abs(c.speed) > 4 && c.bumpT <= 0) for (const m of mobs) {
@@ -3362,7 +3393,12 @@ function updateCars(dt) {
     if (inW) { v.y += (2 - v.y) * Math.min(1, dt * 3); c.speed *= Math.pow(0.4, dt); } else v.y -= 28 * dt;
     v.y = Math.max(v.y, -40);
     const bumped = stepEntity(c, dt);
-    if (bumped && c.onGround && Math.abs(c.speed) > 0.5) v.y = 6.8;
+    // 1マスの段差なら自動でのぼる
+    if (bumped && c.onGround && Math.abs(c.speed) > 0.3) {
+      const sg = Math.sign(c.speed), t = c.pos.clone();
+      t.y += 1.05; t.x += Math.sin(c.yaw) * 0.45 * sg; t.z += Math.cos(c.yaw) * 0.45 * sg;
+      if (!collides(t, c.w, c.h)) c.pos.y += 1.05; else c.speed *= 0.5;
+    }
     if (c.pos.y < -5) { c.pos.y = 80; v.set(0, 0, 0); }
     c.g.position.copy(c.pos); c.g.rotation.y = c.yaw;
     for (const wpv of c.wheels) wpv.rotation.x += c.speed * dt / 0.3;
@@ -3961,16 +3997,9 @@ function warpHome() {
 document.getElementById('warpHome').addEventListener('click', () => { warpHome(); startPlay(); });
 document.getElementById('reset').addEventListener('click', () => {
   const btn = document.getElementById('reset');
-  if (btn.dataset.confirm !== '1') {
-    btn.dataset.confirm = '1'; btn.textContent = 'もう一度押すとリセット';
-    note.textContent = '今の世界・もちもの・ペットは消えます。';
-    setTimeout(() => { btn.dataset.confirm = ''; btn.textContent = '新しい世界をつくる'; note.textContent = ''; }, 3000);
-    return;
-  }
-  btn.dataset.confirm = ''; btn.textContent = '新しい世界をつくる';
   const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
-  newWorld((Math.random() * 1e9) | 0, {}, null, next);
-  note.textContent = `${THEME_INFO[next].name}をつくりました！ もう一度押すと、また別の世界になります。`;
+  createWorld(next);
+  note.textContent = `${THEME_INFO[next].name}をつくりました！ 前の世界は「せかいをえらぶ」からいつでももどれます。`;
 });
 
 const settings = { bgm: true, sfx: true, enemies: true };
@@ -4044,9 +4073,66 @@ window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; }
 
 // ================= 保存 =================
 let saveTimer = null;
+// ================= いくつもの世界 =================
+const WORLDS_KEY = 'cubeland-worlds-v1';
+const worldKey = id => 'cubeland-world-' + id;
+let worlds = [], currentWorldId = null;
+try { worlds = JSON.parse(localStorage.getItem(WORLDS_KEY) || '[]'); } catch (e) { worlds = []; }
+function saveWorldList() { try { localStorage.setItem(WORLDS_KEY, JSON.stringify(worlds)); } catch (e) {} }
+function fmtDate(t) { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function renderWorldList() {
+  const el = document.getElementById('worldList');
+  if (!el) return;
+  el.innerHTML = '';
+  for (const w of worlds.slice().sort((a, b) => b.last - a.last)) {
+    const row = document.createElement('div'); row.className = 'world' + (w.id === currentWorldId ? ' cur' : '');
+    const nm = document.createElement('div'); nm.className = 'wn';
+    nm.textContent = w.name; const dd = document.createElement('div'); dd.className = 'wd'; dd.textContent = (w.id === currentWorldId ? 'いま遊んでいる世界・' : '') + 'さいごに遊んだ日 ' + fmtDate(w.last); nm.append(dd);
+    row.append(nm);
+    if (w.id !== currentWorldId) {
+      const go = document.createElement('button'); go.textContent = 'この世界へ';
+      go.addEventListener('click', () => { loadWorld(w.id); note.textContent = `「${w.name}」にもどりました！`; });
+      const del = document.createElement('button'); del.className = 'del'; del.textContent = 'けす';
+      del.addEventListener('click', () => {
+        if (del.dataset.c !== '1') { del.dataset.c = '1'; del.textContent = 'ほんとに？'; setTimeout(() => { del.dataset.c = ''; del.textContent = 'けす'; }, 3000); return; }
+        worlds = worlds.filter(x => x.id !== w.id); saveWorldList();
+        try { localStorage.removeItem(worldKey(w.id)); } catch (e) {}
+        renderWorldList();
+      });
+      row.append(go, del);
+    }
+    el.append(row);
+  }
+}
+function loadWorld(id) {
+  if (currentWorldId) saveNow();
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(worldKey(id)) || 'null'); } catch (e) {}
+  currentWorldId = id;
+  const w = worlds.find(x => x.id === id);
+  if (w) { w.last = Date.now(); saveWorldList(); }
+  if (data && typeof data.seed === 'number' && data.player) {
+    dayTime = 0.42;
+    player.hp = typeof data.hp === 'number' && data.hp > 0 ? data.hp : 20;
+    newWorld(data.seed, data.edits, data, data.theme);
+  } else newWorld(w ? w.seed : (Math.random() * 1e9) | 0, {}, null, w ? w.theme : 'meadow');
+  renderWorldList();
+}
+function createWorld(themeName) {
+  if (currentWorldId) saveNow();
+  const n = worlds.filter(w => w.theme === themeName).length + 1;
+  const w = { id: 'w' + Date.now(), name: `${THEME_INFO[themeName].name} ${n}`, theme: themeName, seed: (Math.random() * 1e9) | 0, last: Date.now() };
+  worlds.push(w); saveWorldList();
+  currentWorldId = w.id;
+  newWorld(w.seed, {}, null, themeName);
+  renderWorldList();
+}
 function saveNow() {
+  if (!currentWorldId) return;
+  const w = worlds.find(x => x.id === currentWorldId);
+  if (w) { w.last = Date.now(); saveWorldList(); }
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
+    localStorage.setItem(worldKey(currentWorldId), JSON.stringify({
       seed, theme, edits, time: dayTime, hp: player.hp, inv, equip, picked: [...picked],
       chests: Object.fromEntries(Object.entries(chests).filter(([, v]) => v.some(Boolean))),
       props: props.map(r => ({ kind: r.kind, x: r.x, y: r.y, z: r.z, yaw: r.yaw })),
@@ -4144,16 +4230,22 @@ function newWorld(s, e, saved, themeName) {
   saveNow();
 }
 
-let saved = null;
-try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
-if (saved && typeof saved.seed === 'number' && saved.player) {
-  dayTime = typeof saved.time === 'number' ? saved.time : 0.3;
-  if (typeof saved.hp === 'number' && saved.hp > 0) player.hp = saved.hp;
-  newWorld(saved.seed, saved.edits, saved, saved.theme);
-  note.textContent = '前回の世界を読み込みました。';
-} else {
-  newWorld(seed, {}, null);
+// 前のバージョンのセーブを、最初の世界として引きつぐ
+if (!worlds.length) {
+  let old = null;
+  try { old = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) {}
+  if (old && typeof old.seed === 'number' && old.player) {
+    const th = THEME_INFO[old.theme] ? old.theme : 'meadow';
+    worlds.push({ id: 'w1', name: `${THEME_INFO[th].name} 1`, theme: th, seed: old.seed, last: Date.now() });
+    try { localStorage.setItem(worldKey('w1'), JSON.stringify(old)); } catch (e) {}
+    saveWorldList();
+  }
 }
+if (worlds.length) {
+  const latest = worlds.slice().sort((a, b) => b.last - a.last)[0];
+  loadWorld(latest.id);
+  note.textContent = `「${latest.name}」のつづきから遊べます。`;
+} else createWorld('meadow');
 document.getElementById('loading').hidden = true;
 
 // ================= メインループ =================
