@@ -122,6 +122,9 @@
   .world .wd { font-size: 12px; color: var(--muted); }
   .world button { font-size: 13px; padding: 5px 10px; }
   .world button.del { background: #3a2a30; color: #ffb3b3; border-bottom-color: #22161a; }
+  .tvbox { width: min(760px, 100%); }
+  #tvBig { width: 100%; height: auto; aspect-ratio: 16 / 9; display: block; border: 8px solid #1d1d22; border-radius: 10px; background: #000; margin: 6px 0 12px; }
+  #tvCh { flex-wrap: wrap; }
   .shopnote { margin: 0 0 12px; color: var(--gold); font-size: 15px; }
   #shopTabs { flex-wrap: wrap; }
   .shopgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
@@ -214,7 +217,7 @@
         <p class="hint">アイテムをクリックで選んで、別のわくをクリックすると入れかえます。服を選んで「着ている服」のわくをクリックすると着られます。下の段が手にもつ列です。</p>
       </section>
       <section class="panel" id="chestPanel" hidden>
-        <h3>チェスト</h3>
+        <h3 id="chestTitle">チェスト</h3>
         <div id="chestGrid" class="grid"></div>
         <p class="hint">アクセサリーや宝物をしまっておけます。かばんのアイテムを選んで、チェストのわくをクリックすると入ります。</p>
       </section>
@@ -252,6 +255,14 @@
     <p class="shopnote">ぜんぶ無料！ 好きなものを好きなだけもらってね。</p>
     <div class="tabs" id="shopTabs" role="tablist"></div>
     <div id="shopGrid" class="shopgrid"></div>
+  </div>
+</div>
+
+<div id="tvView" class="overlay" hidden>
+  <div class="inv tvbox">
+    <div class="invhead"><h2>テレビ</h2><button id="tvClose" class="ghost">とじる（E）</button></div>
+    <canvas id="tvBig" width="640" height="360"></canvas>
+    <div class="tabs" id="tvCh"></div>
   </div>
 </div>
 
@@ -1958,6 +1969,7 @@ const Sound = (() => {
       else if (type === 'bike') tone(520, 0.18, { type: 'square', vol: 0.07, lp: 1800 });
       else { tone(392, 0.28, { type: 'sawtooth', vol: 0.07, lp: 1500 }); tone(494, 0.28, { type: 'sawtooth', vol: 0.06, lp: 1500 }); }
     },
+    tvNote(f) { tone(f, 0.3, { type: 'triangle', vol: 0.07 }); },
     love() { arp([659, 880, 1047], 0.09, 0.09, 'sine'); },
     voice(type, x, y, z) {
       const v = near(x, y, z); if (v <= 0.02) return;
@@ -2642,6 +2654,16 @@ function updateMob(m, dt) {
       hurtPlayer(T.dmg, p);
       if (m.arms) m.swing = 0.35;
     }
+  } else if (m.pet && m.homeRec) {
+    // 小屋でくらしているペット
+    const hr = m.homeRec, hx = hr.x - p.x, hz = hr.z - p.z, hd = Math.hypot(hx, hz);
+    if (hd > 40) { p.set(hr.x + 0.8, hr.y + 0.2, hr.z + 0.8); v.set(0, 0, 0); }
+    else if (hd > (T.big ? 3 : 1.6)) { m.targetYaw = Math.atan2(hx, hz); wantSpeed = Math.max(T.speed * 1.5, 2.5); }
+    else {
+      if (m.think <= 0) { m.think = 3 + Math.random() * 3; m.moving = Math.random() < 0.3; m.targetYaw = m.yaw + (Math.random() - 0.5) * 2; }
+      wantSpeed = m.moving ? T.speed * 0.4 : 0;
+      if (m.happyT <= 0 && Math.random() < dt * 0.06) { hearts(p.x, p.y + m.h, p.z, 1); m.happyT = 1; }
+    }
   } else if (m.pet) {
     // ペット：飼い主についていく。遠すぎたらワープ
     const fp = followPoint(m), fdx = fp.x - p.x, fdz = fp.z - p.z, fd = Math.hypot(fdx, fdz);
@@ -2845,7 +2867,7 @@ function dismount() {
   player.pos.set(m.pos.x, m.pos.y + m.T.seat + 0.5, m.pos.z); player.airTop = player.pos.y;
 }
 function teleportPet(m) {
-  if (m.T.swim) return; // ネッシーは海にいる
+  if (m.T.swim || m.homeRec) return; // ネッシーは海に、小屋のペットは小屋にいる
   const P = player.pos;
   for (let i = 0; i < 8; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -3128,8 +3150,7 @@ const PROPS = {
   } },
   tv: { name: 'テレビ', cat: 'furn', build(g) {
     mk(BX(0.9, 0.35, 0.4), 0x6b4a2a, 0, 0.18, 0, g); mk(BX(0.9, 0.52, 0.06), 0x1d1d22, 0, 0.66, 0, g);
-    mk(BX(0.82, 0.44, 0.01), 0x5fb0ff, 0, 0.66, 0.035, g, { e: 0.9 }); mk(SG(0.08), 0xffe14d, -0.15, 0.7, 0.04, g, { e: 1, s: [1, 1, 0.2] });
-    mk(BX(0.15, 0.1, 0.01), 0x5ccf7a, 0.18, 0.58, 0.04, g, { e: 1 });
+    g.userData.screen = mk(new THREE.PlaneGeometry(0.82, 0.44), 0x5fb0ff, 0, 0.66, 0.032, g, { e: 0.9 });
   } },
   floorlamp: { name: 'スタンドライト', cat: 'furn', build(g) {
     mk(CY(0.15, 0.18, 0.04), 0xdddddd, 0, 0.02, 0, g); mk(CY(0.02, 0.02, 1.2), 0xdddddd, 0, 0.62, 0, g);
@@ -3197,6 +3218,37 @@ const PROPS = {
     mk(CY(0.015, 0.015, 1.0), 0xcccccc, 0, 1.38, 0, g, { rz: HALF_PI });
     [0xff4f6b, 0x3b8cff, 0xffd23a, 0x5ccf7a, 0xff9ec7].forEach((c, i) => { mk(BX(0.06, 0.55, 0.36), c, -0.36 + i * 0.18, 1.06, 0, g); mk(BX(0.06, 0.08, 0.5), c, -0.36 + i * 0.18, 1.3, 0, g); });
   } },
+  fridge: { name: 'れいぞうこ', cat: 'furn', storage: true, build(g) {
+    mk(BX(0.8, 1.8, 0.7), 0xf6f8fb, 0, 0.9, 0, g); mk(BX(0.81, 0.03, 0.71), 0xc8ced8, 0, 1.2, 0, g);
+    mk(BX(0.05, 0.45, 0.05), 0xaab2be, 0.3, 1.5, 0.37, g); mk(BX(0.05, 0.6, 0.05), 0xaab2be, 0.3, 0.75, 0.37, g);
+    [[0xff4f6b, -0.2, 1.45], [0xffd23a, 0.05, 1.6], [0x5ccf7a, -0.15, 0.9], [0x3b8cff, 0.0, 0.7]].forEach(([c, x, y]) => mk(SG(0.05), c, x, y, 0.36, g, { s: [1, 1, 0.4] }));
+  } },
+  doghouse: { name: 'いぬ小屋', cat: 'pethouse', build(g) {
+    mk(BX(1.1, 0.8, 1.1), 0xd9734a, 0, 0.4, 0, g);
+    mk(BX(0.7, 0.06, 1.25), 0xb8452a, -0.3, 0.98, 0, g, { rz: 0.75 }); mk(BX(0.7, 0.06, 1.25), 0xb8452a, 0.3, 0.98, 0, g, { rz: -0.75 });
+    mk(CY(0.26, 0.26, 0.02, 24), 0x3a2010, 0, 0.36, 0.56, g, { rx: HALF_PI, e: 0 }); mk(BX(0.5, 0.36, 0.02), 0x3a2010, 0, 0.18, 0.56, g, { e: 0 });
+    mk(BX(0.36, 0.12, 0.02), 0xffe14d, 0, 0.72, 0.57, g); mk(TO(0.12, 0.03), 0xffffff, 0.4, 0.04, 0.75, g, { rx: HALF_PI });
+  } },
+  cattower: { name: 'キャットタワー', cat: 'pethouse', build(g) {
+    mk(CY(0.5, 0.5, 0.08, 24), 0xf2d6b0, 0, 0.04, 0, g);
+    for (const [x, z, h] of [[-0.25, -0.2, 1.4], [0.25, 0.15, 0.9]]) mk(CY(0.07, 0.07, h), 0xe8c48a, x, h / 2, z, g);
+    mk(CY(0.32, 0.32, 0.06, 24), 0xff9ec7, 0.25, 0.92, 0.15, g); mk(CY(0.34, 0.34, 0.06, 24), 0xff9ec7, -0.25, 1.42, -0.2, g);
+    mk(BX(0.5, 0.4, 0.45), 0xff9ec7, -0.1, 0.32, -0.05, g); mk(CY(0.13, 0.13, 0.02, 20), 0x3a2010, -0.1, 0.3, 0.18, g, { rx: HALF_PI, e: 0 });
+    mk(SG(0.06), 0xffd23a, 0.3, 0.84, 0.35, g);
+  } },
+  hutch: { name: 'うさぎ小屋', cat: 'pethouse', build(g) {
+    mk(BX(1.2, 0.08, 0.8), 0xc89a62, 0, 0.04, 0, g); mk(BX(1.2, 0.6, 0.05), 0xc89a62, 0, 0.34, -0.38, g);
+    mk(BX(0.05, 0.6, 0.8), 0xc89a62, -0.58, 0.34, 0, g); mk(BX(0.05, 0.6, 0.8), 0xc89a62, 0.58, 0.34, 0, g);
+    mk(BX(1.3, 0.08, 0.9), 0x6fbf5a, 0, 0.68, 0, g);
+    for (let i = 0; i < 7; i++) mk(CY(0.012, 0.012, 0.58), 0xdddddd, -0.48 + i * 0.16, 0.36, 0.38, g);
+    mk(CO(0.04, 0.22), 0xff9e3d, 0.2, 0.12, 0.05, g, { rz: HALF_PI }); mk(SG(0.04), 0x5ccf3a, 0.32, 0.12, 0.05, g);
+  } },
+  bighut: { name: 'どうぶつ小屋（大・恐竜も入れる）', cat: 'pethouse', build(g) {
+    mk(BX(3.0, 2.2, 3.0), 0xe8a060, 0, 1.1, 0, g);
+    mk(BX(1.9, 0.1, 3.3), 0xc0392b, -0.8, 2.6, 0, g, { rz: 0.55 }); mk(BX(1.9, 0.1, 3.3), 0xc0392b, 0.8, 2.6, 0, g, { rz: -0.55 });
+    mk(BX(1.3, 1.6, 0.03), 0x5a3a1e, 0, 0.8, 1.51, g, { e: 0.1 }); mk(BX(0.08, 1.6, 0.04), 0xffffff, 0, 0.8, 1.53, g); mk(BX(1.3, 0.08, 0.04), 0xffffff, 0, 0.8, 1.53, g);
+    mk(SG(0.18), 0xffd23a, 0, 2.15, 1.52, g, { s: [1, 1, 0.3] });
+  } },
   signal: { name: '信号', cat: 'deco', build(g) {
     mk(CY(0.06, 0.06, 2.6), 0x666a70, 0, 1.3, 0, g); mk(BX(0.3, 0.8, 0.25), 0x26282c, 0, 2.7, 0, g);
     g.userData.lights = [mk(SG(0.09), 0x30d050, 0, 2.95, 0.13, g, { e: 0.2 }), mk(SG(0.09), 0xffc020, 0, 2.7, 0.13, g, { e: 0.2 }), mk(SG(0.09), 0xff3030, 0, 2.45, 0.13, g, { e: 0.2 })];
@@ -3257,7 +3309,7 @@ function addPropObject(kind, x, y, z, yaw, opts = {}) {
   const g = makeProp(kind);
   g.position.set(x, y, z); g.rotation.y = yaw || 0;
   if (opts.scale) g.scale.setScalar(opts.scale);
-  const rec = { kind, x, y, z, yaw: yaw || 0, g, display: !!opts.display, deco: !!opts.deco };
+  const rec = { kind, x, y, z, yaw: yaw || 0, g, display: !!opts.display, deco: !!opts.deco, uid: opts.uid || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)) };
   g.traverse(o => { o.userData.rec = rec; });
   scene.add(g);
   (opts.display || opts.deco ? displays : props).push(rec);
@@ -3288,6 +3340,10 @@ function takeDisplay(rec) {
   saveSoon();
 }
 function pickUpProp(rec) {
+  for (const m of mobs) if (m.homeRec === rec) m.homeRec = null;
+  if (rec.tvOn) tvTurnOff(rec);
+  const sk = 'p:' + rec.uid;
+  if (chests[sk]) { for (const it of chests[sk]) if (it) addItem(it); delete chests[sk]; }
   const item = { id: 'prop', mat: rec.kind, count: 1 };
   if (addItem(item) > 0) { toast('かばんがいっぱい！'); return; }
   logPickup(item); Sound.pop(); removePropObject(rec); saveSoon();
@@ -3353,8 +3409,10 @@ function ensureDisplays() {
   // 家具・インテリア売り場（おく）：リビング・寝室・子ども部屋
   [['rug', -0.5, -12.5, 0], ['sofa', -0.5, -14.5, 0], ['table', -0.5, -12.4, 0], ['tv', -0.5, -10.2, Math.PI], ['plant', 2.6, -15.5, 0], ['floorlamp', -3.6, -15.5, 0],
    ['bed', 6, -13.5, 0], ['wardrobe', 9.2, -16.2, 0], ['dresser', 9.2, -11.4, Math.PI], ['rug', 6, -10.6, 0],
-   ['desk', 13.6, -16, 0], ['chair', 13.6, -15, Math.PI], ['bookcase', 16, -12.6, -HALF_PI], ['piano', 13.4, -10.8, Math.PI]].forEach(([k, dx, dz, yaw]) =>
+   ['fridge', 1.2, -16.3, 0], ['desk', 13.6, -16, 0], ['chair', 13.6, -15, Math.PI], ['bookcase', 16, -12.6, -HALF_PI], ['piano', 13.4, -10.8, Math.PI]].forEach(([k, dx, dz, yaw]) =>
     addPropObject(k, cx + dx, f + 1, cz + dz, yaw, { display: true }));
+  // ペット用品売り場（入り口の左）
+  [['doghouse', -8.3, 7.6, 0], ['cattower', -5.6, 7.6, 0], ['hutch', -3.3, 8.2, 0]].forEach(([k, dx, dz, yaw]) => addPropObject(k, cx + dx, f + 1, cz + dz, yaw, { display: true }));
   // 町の信号・街灯・ベンチ
   for (const [dx, dz] of [[-3.5, 39.5], [3.5, 39.5], [-3.5, 46.5], [3.5, 46.5], [-19.5, -22.5], [44.5, -22.5], [-19.5, 39.5], [44.5, 39.5]])
     signals.push(addPropObject('signal', cx + dx, f + 1, cz + dz, dz > 40 ? 0 : Math.PI, { deco: true }));
@@ -3380,7 +3438,7 @@ function ensureDisplays() {
     plate.position.set(home.door + 1, f + 4.5, home.z0 - 0.04); plate.rotation.y = Math.PI;
     scene.add(plate); displays.push({ kind: 'plate', g: plate, deco: true });
   }
-  const L = [['洋服', -11.5, 3.6, -13], ['家具・インテリア', 6, 3.6, -13], ['おかし・たべもの', -5.5, 3.3, -4.5], ['のみもの', 6.5, 3.3, -4.5], ['おもちゃ', -5.5, 3.3, -1.5], ['おもちゃ', 6.5, 3.3, -1.5],
+  const L = [['ペット用品', -5.8, 3.3, 7.6], ['洋服', -11.5, 3.6, -13], ['家具・インテリア', 6, 3.6, -13], ['おかし・たべもの', -5.5, 3.3, -4.5], ['のみもの', 6.5, 3.3, -4.5], ['おもちゃ', -5.5, 3.3, -1.5], ['おもちゃ', 6.5, 3.3, -1.5],
     ['おやつ', -5.5, 3.3, 1.5], ['プレゼント', 6.5, 3.3, 1.5], ['家具', 6, 3.3, 5], ['のりもの売り場', -13.5, 4.6, 0.5], ['のりもの売り場', 13.5, 4.6, 0.5], ['ちゅうしゃじょう', 0.5, 3.6, 15.5]];
   sectionEls = L.map(([text, dx, dy, dz]) => {
     const el = document.createElement('div'); el.className = 'bubble section'; el.textContent = text; el.hidden = true;
@@ -3615,11 +3673,11 @@ const SHOP = [
   { key: 'food', name: '食べ物・おやつ', items: [...['cake', 'donut', 'burger', 'pudding', 'strawberry', 'icecream', 'candy', 'choco'].map(k => [{ id: 'prop', mat: k }, 4]), [ONIGIRI, 4], [BREAD, 4], [COOKIE, 8], [APPLE, 8], [FISH, 4]] },
   { key: 'drink', name: '飲み物', items: ['juice', 'milk', 'soda', 'berrymilk'].map(k => [{ id: 'prop', mat: k }, 4]) },
   { key: 'present', name: 'プレゼント', items: ['present', 'present2', 'present3'].map(k => [{ id: 'prop', mat: k }, 3]) },
-  { key: 'pet', name: 'ペットのごはん', items: [[PETFOOD, 8], [BALL, 2], [TEDDY, 1]] },
+  { key: 'pet', name: 'ペット用品', items: [[{ id: 'prop', mat: 'doghouse' }, 1], [{ id: 'prop', mat: 'cattower' }, 1], [{ id: 'prop', mat: 'hutch' }, 1], [{ id: 'prop', mat: 'bighut' }, 1], [PETFOOD, 8], [BALL, 2]] },
   { key: 'toy', name: 'おもちゃ・ゲーム', items: [...['teddy', 'robot', 'ball', 'train', 'balloon', 'blocks', 'minicar', 'game'].map(k => [{ id: 'prop', mat: k }, 2]), [ROD, 1]] },
   { key: 'acc', name: 'アクセサリー', items: [[CHEST, 2], [{ id: 'ring', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'ring', mat: 'silver', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'diamond', deco: 'gold' }, 1], [{ id: 'ring', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'ring', mat: 'silver' }, 1], [DIAMOND, 2], [EMERALD, 2]] },
   { key: 'clothes', name: '洋服', items: ['dress', 'tshirt', 'hat', 'shoes', 'mannequin', 'rack'].map(k => [{ id: 'prop', mat: k }, 2]) },
-  { key: 'furn', name: '家具', items: [...['sofa', 'bed', 'table', 'chair', 'tv', 'floorlamp', 'plant', 'desk', 'bookcase', 'wardrobe', 'rug', 'dresser', 'piano'].map(k => [{ id: 'prop', mat: k }, 2]), [BED, 2], [SOFA, 4], [TABLE, 4], [BOOKSHELF, 4], [TV, 1], [FRIDGE, 2], [CHEST, 2], [LAMP, 8], [LANTERN, 8], [TORCH, 16], [WOOL_P, 16], [WOOL_B, 16], [WOOL_Y, 16], [FLOWER_R, 8], [FLOWER_Y, 8]] },
+  { key: 'furn', name: '家具', items: [...['fridge', 'sofa', 'bed', 'table', 'chair', 'tv', 'floorlamp', 'plant', 'desk', 'bookcase', 'wardrobe', 'rug', 'dresser', 'piano'].map(k => [{ id: 'prop', mat: k }, 2]), [BED, 2], [SOFA, 4], [TABLE, 4], [BOOKSHELF, 4], [TV, 1], [FRIDGE, 2], [CHEST, 2], [LAMP, 8], [LANTERN, 8], [TORCH, 16], [WOOL_P, 16], [WOOL_B, 16], [WOOL_Y, 16], [FLOWER_R, 8], [FLOWER_Y, 8]] },
   { key: 'car', name: '車・バイク', items: [[{ id: CAR, mat: 'truck' }, 1], [{ id: CAR, mat: 'fire' }, 1], [{ id: CAR, mat: 'police' }, 1], [{ id: CAR, mat: 'bike' }, 1], [{ id: CAR, mat: 'red' }, 1], [{ id: CAR, mat: 'blue' }, 1], [{ id: CAR, mat: 'yellow' }, 1], [{ id: CAR, mat: 'pink' }, 1], [{ id: CAR, mat: 'white' }, 1]] },
   { key: 'gear', name: '剣・服', items: [[{ id: 'sword', mat: 'diamond' }, 1], [{ id: 'sword', mat: 'gold', deco: 'diamond' }, 1], [{ id: 'clothes', mat: 'diamond' }, 1], [{ id: 'clothes', mat: 'gold', deco: 'emerald' }, 1], [{ id: 'clothes', mat: 'cloth', deco: 'diamond' }, 1]] },
   { key: 'build', name: 'ブロック', items: [[PLANKS, 32], [BRICK, 32], [PLASTER, 32], [GLASS, 16], [ROOF_R, 32], [ROOF_B, 32], [GOLD_BLOCK, 8], [SILVER_BLOCK, 8], [EMERALD_BLOCK, 8], [DIAMOND_BLOCK, 8], [ROAD, 32], [CLOUD, 16], [COOKIE_W, 32], [CHOCO_R, 32], [FROSTING, 32], [CANDY_ST, 16], [WAFER, 32], [GUMDROP, 16], [LOLLI, 16]] },
@@ -3672,12 +3730,108 @@ function renderShop() {
 }
 document.getElementById('shopClose').addEventListener('click', closeShop);
 
+// ================= テレビ =================
+const TV_CHANNELS = ['にこにこアニメ', 'どうぶつチャンネル', 'ほしぞら', 'きゃにーちゃんのうた'];
+const tvCanvas = document.createElement('canvas'); tvCanvas.width = 320; tvCanvas.height = 180;
+const tvTex = new THREE.CanvasTexture(tvCanvas);
+const tvMat = new THREE.MeshBasicMaterial({ map: tvTex });
+let tvChannel = 0, tvOpen = false, tvT = 0, tvNoteT = 0;
+const tvOnRecs = new Set();
+function drawTV(dt) {
+  tvT += dt;
+  const g = tvCanvas.getContext('2d'), W = 320, H = 180, t = tvT;
+  const face = (x, y, r, col, mouthOpen) => {
+    g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    const blink = Math.sin(t * 2.3 + x) > 0.96;
+    g.fillStyle = '#2b2233';
+    if (blink) { g.fillRect(x - r * 0.45, y - r * 0.15, r * 0.3, 2); g.fillRect(x + r * 0.15, y - r * 0.15, r * 0.3, 2); }
+    else { g.beginPath(); g.arc(x - r * 0.3, y - r * 0.15, r * 0.12, 0, Math.PI * 2); g.arc(x + r * 0.3, y - r * 0.15, r * 0.12, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#ffa3b5'; g.beginPath(); g.arc(x - r * 0.55, y + r * 0.15, r * 0.12, 0, Math.PI * 2); g.arc(x + r * 0.55, y + r * 0.15, r * 0.12, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#c0425a'; g.lineWidth = 2; g.beginPath();
+    if (mouthOpen) { g.fillStyle = '#c0425a'; g.arc(x, y + r * 0.25, r * 0.18, 0, Math.PI); g.fill(); } else { g.arc(x, y + r * 0.15, r * 0.25, 0.2, Math.PI - 0.2); g.stroke(); }
+  };
+  const title = txt => { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, H - 26, W, 26); g.fillStyle = '#ffffff'; g.font = 'bold 16px sans-serif'; g.textAlign = 'center'; g.fillText(txt, W / 2, H - 8); };
+  if (tvChannel === 0) {
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#8fd3ff'); gr.addColorStop(1, '#d8f2ff'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    ['#ff4b4b', '#ff9a3c', '#ffe14d', '#5ccf5a', '#4aa8ff', '#a96bff'].forEach((c, i) => { g.strokeStyle = c; g.lineWidth = 6; g.beginPath(); g.arc(W / 2, H + 20, 150 - i * 7, Math.PI, 0); g.stroke(); });
+    g.fillStyle = '#6fd06a'; g.fillRect(0, H - 40, W, 40);
+    [['#ff8ab8', 60, 0], ['#ffd23a', 160, 1.2], ['#7fd8ff', 260, 2.4]].forEach(([c, x, ph]) => face(x, H - 62 - Math.abs(Math.sin(t * 3 + ph)) * 50, 22, c, Math.sin(t * 6 + ph) > 0));
+    title('にこにこアニメ');
+  } else if (tvChannel === 1) {
+    g.fillStyle = '#bfe8ff'; g.fillRect(0, 0, W, H); g.fillStyle = '#7cd36b'; g.fillRect(0, H - 60, W, 60);
+    const x = W / 2 + Math.sin(t) * 60, y = H - 80;
+    g.save(); g.translate(x, y); g.rotate(Math.sin(t * 2) * 0.15);
+    g.fillStyle = '#8a5a32'; g.beginPath(); g.ellipse(-32, -18, 12, 24, -0.3, 0, Math.PI * 2); g.ellipse(32, -18, 12, 24, 0.3, 0, Math.PI * 2); g.fill();
+    face(0, 0, 36, '#d9a066', Math.sin(t * 5) > 0.3); g.restore();
+    for (let i = 0; i < 5; i++) { const hy = H - ((t * 30 + i * 40) % H); g.fillStyle = '#ff5c8a'; g.font = '18px sans-serif'; g.fillText('♥', 30 + i * 60 + Math.sin(t + i) * 8, hy); }
+    title('どうぶつチャンネル：いぬのポチくん');
+  } else if (tvChannel === 2) {
+    g.fillStyle = '#0d1440'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 40; i++) { const sx = (i * 73) % W, sy = (i * 41) % (H - 30), a = 0.4 + 0.6 * Math.abs(Math.sin(t * 2 + i)); g.fillStyle = `rgba(255,255,220,${a})`; g.fillRect(sx, sy, 2, 2); }
+    g.fillStyle = '#fff3b0'; g.beginPath(); g.arc(250, 50, 24, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0d1440'; g.beginPath(); g.arc(262, 44, 22, 0, Math.PI * 2); g.fill();
+    const k = (t * 0.6) % 1; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2; g.beginPath(); g.moveTo(20 + k * 200, 20 + k * 60); g.lineTo(5 + k * 200, 12 + k * 60); g.stroke();
+    title('ほしぞら：ながれぼしに おねがいしよう');
+  } else {
+    g.fillStyle = '#ffd6e7'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 6; i++) { g.fillStyle = ['#ff4f9a', '#7f6bff', '#ffb020'][i % 3]; g.font = '22px sans-serif'; g.fillText(i % 2 ? '♪' : '♫', (i * 57 + t * 40) % W, 40 + Math.sin(t * 2 + i) * 20); }
+    g.fillStyle = '#ff9ec7'; g.beginPath(); g.arc(W / 2, 100, 48, Math.PI, 0); g.fill(); g.fillRect(W / 2 - 58, 92, 20, 60); g.fillRect(W / 2 + 38, 92, 20, 60);
+    g.beginPath(); g.moveTo(W / 2 - 40, 62); g.lineTo(W / 2 - 30, 40); g.lineTo(W / 2 - 18, 60); g.moveTo(W / 2 + 40, 62); g.lineTo(W / 2 + 30, 40); g.lineTo(W / 2 + 18, 60); g.fill();
+    face(W / 2, 106, 38, '#ffe1cc', Math.sin(t * 7) > 0);
+    g.fillStyle = '#ffe14d'; g.fillRect(W / 2 - 30, 70, 10, 10);
+    title('♪ きゃにーちゃんのうた ♪');
+    if (tvOpen) { tvNoteT -= dt; if (tvNoteT <= 0) { tvNoteT = 0.36; const sc = [523, 587, 659, 784, 880, 784, 659, 587]; Sound.tvNote(sc[Math.floor(t / 0.36) % sc.length]); } }
+  }
+  tvTex.needsUpdate = true;
+}
+function tvTurnOn(rec) { const sc = rec.g.userData.screen; if (sc) { sc.userData.oldMat = sc.material; sc.material = tvMat; } rec.tvOn = true; tvOnRecs.add(rec); }
+function tvTurnOff(rec) { const sc = rec.g.userData.screen; if (sc && sc.userData.oldMat) sc.material = sc.userData.oldMat; rec.tvOn = false; tvOnRecs.delete(rec); }
+function renderTVChannels() {
+  const el = document.getElementById('tvCh'); el.innerHTML = '';
+  TV_CHANNELS.forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.setAttribute('aria-selected', i === tvChannel ? 'true' : 'false'); b.addEventListener('click', () => { tvChannel = i; Sound.click && Sound.click(); renderTVChannels(); }); el.append(b); });
+  const off = document.createElement('button'); off.textContent = 'テレビをけす'; off.addEventListener('click', () => { for (const r of [...tvOnRecs]) tvTurnOff(r); closeTV(); }); el.append(off);
+}
+function openTV(rec) {
+  if (!rec.tvOn) tvTurnOn(rec);
+  tvOpen = true; playing = false;
+  for (const k in keys) keys[k] = false;
+  document.getElementById('tvView').hidden = false;
+  renderTVChannels();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function closeTV() { tvOpen = false; document.getElementById('tvView').hidden = true; startPlay(); }
+document.getElementById('tvClose').addEventListener('click', closeTV);
+
 // ================= チェスト =================
 let chests = {}, curChest = null;
-function openChest(x, y, z) {
+function openChest(x, y, z, title) {
   const k = x + ',' + y + ',' + z;
+  openStorage(k, title || 'チェスト');
+}
+function openStorage(k, title) {
   curChest = chests[k] || (chests[k] = new Array(18).fill(null));
+  document.getElementById('chestTitle').textContent = title;
   openInv();
+}
+// 置いた家具をつかう（テレビ・冷蔵庫・ペットの小屋）
+function interactProp(rec) {
+  const P = PROPS[rec.kind] || {};
+  if (rec.kind === 'tv') { openTV(rec); return true; }
+  if (P.storage) { Sound.place(PLANKS); openStorage('p:' + rec.uid, 'れいぞうこ（食べ物や飲み物をしまえるよ）'); return true; }
+  if (P.cat === 'pethouse') {
+    const inside = mobs.filter(m => m.homeRec === rec);
+    if (inside.length) {
+      inside.forEach(m => { m.homeRec = null; hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 3); });
+      toast(`${inside.map(m => m.name).join('と')}が小屋から出てきた！ またついてくるよ`); Sound.love(); saveSoon(); return true;
+    }
+    const big = rec.kind === 'bighut';
+    const cands = mobs.filter(m => m.pet && !m.homeRec && !m.T.swim && m !== mount && (big || !m.T.big))
+      .sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos)).slice(0, 3);
+    if (!cands.length) { toast(big ? 'ついてきているペットがいないよ' : 'ついてきている小さなペットがいないよ（恐竜は大きな小屋へ）'); return true; }
+    cands.forEach(m => { m.homeRec = rec; m.think = 0; hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 4); say(m, 'ここがおうちだね！'); });
+    toast(`${cands.map(m => m.name).join('と')}が${P.name}でくらすことになった！ もう一度右クリックで出てくるよ`); Sound.love(); saveSoon();
+    return true;
+  }
+  return false;
 }
 
 // ================= 指輪を撃つ =================
@@ -4055,6 +4209,7 @@ function secondaryAction() {
   const s = inv[selected];
   const ph = raycastProp(5);
   if (ph && ph.rec.display && (!bh || ph.t < bh.t + 0.2)) { takeDisplay(ph.rec); return; }
+  if (ph && !ph.rec.display && !ph.rec.deco && (!bh || ph.t < bh.t + 0.2) && interactProp(ph.rec)) return;
   if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) {
     if (mh.mob.T.villager) { talkTo(mh.mob); return; }
     if (mh.mob.T.animal) {
@@ -4070,7 +4225,7 @@ function secondaryAction() {
   }
   if (ch && (!bh || ch.t < bh.t)) { enterCar(ch.car); return; }
   if (bh && (bh.id === SHELF || bh.id === FRIDGE || (bh.id === TABLE && inMarket(bh.x, bh.z)))) { openShop(marketCategory(bh.x, bh.z, bh.id)); return; }
-  if (bh && bh.id === CHEST) { openChest(bh.x, bh.y, bh.z); return; }
+  if (bh && bh.id === CHEST) { openChest(bh.x, bh.y, bh.z, 'チェスト'); return; }
   if (!s) return;
   if (s.id === ROD) { castRod(); return; }
   if (s.id === 'ring') { shootRing(s); return; }
@@ -4132,7 +4287,7 @@ function onLockError() {
 }
 function startPlay() {
   Sound.init();
-  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false; shopEl.hidden = true; shopOpen = false; curChest = null;
+  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false; shopEl.hidden = true; shopOpen = false; curChest = null; document.getElementById('tvView').hidden = true; tvOpen = false;
   if (!lockFailed) {
     try {
       const r = canvas.requestPointerLock && canvas.requestPointerLock();
@@ -4252,6 +4407,7 @@ window.addEventListener('wheel', e => { if (playing) select(selected + (e.deltaY
 
 window.addEventListener('keydown', e => {
   if (invOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeInv(); } return; }
+  if (tvOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeTV(); } return; }
   if (shopOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeShop(); } return; }
   if (e.code === 'Escape' && playing && lockFailed) { pause(); return; }
   if (!playing) { if (e.code === 'Enter' && deadEl.hidden) startPlay(); return; }
@@ -4335,10 +4491,10 @@ function saveNow() {
     localStorage.setItem(worldKey(currentWorldId), JSON.stringify({
       seed, theme, edits, time: dayTime, hp: player.hp, inv, equip, picked: [...picked],
       chests: Object.fromEntries(Object.entries(chests).filter(([, v]) => v.some(Boolean))),
-      props: props.map(r => ({ kind: r.kind, x: r.x, y: r.y, z: r.z, yaw: r.yaw })),
+      props: props.map(r => ({ kind: r.kind, x: r.x, y: r.y, z: r.z, yaw: r.yaw, uid: r.uid })),
       cars: cars.filter(c => c.owned).map(c => ({ x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, color: c.color })),
       friends: mobs.filter(m => m.friend).map(m => ({ key: m.npc.key, name: m.name, look: m.look, kyanny: !!m.kyanny })),
-      pets: mobs.filter(m => m.pet && !m.T.swim).map(m => ({ type: m.type, name: m.name, uid: m.uid })),
+      pets: mobs.filter(m => m.pet && !m.T.swim).map(m => ({ type: m.type, name: m.name, uid: m.uid, home: m.homeRec ? m.homeRec.uid : null })),
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flying: player.flying },
     }));
   } catch (e) {}
@@ -4387,7 +4543,7 @@ function newWorld(s, e, saved, themeName) {
   for (const d of drops.slice()) removeDrop(d);
   villageCache.clear(); lootSpawned.clear(); npcSpawned.clear();
   for (const c of cars.slice()) removeCar(c);
-  clearDisplays(); for (const r of props.slice()) removePropObject(r);
+  clearDisplays(); tvOnRecs.clear(); for (const r of props.slice()) removePropObject(r);
   carSpawned.clear(); riding = null; market = null; mainKey = null; chests = {};
   reelIn();
   seed = s; edits = e || {};
@@ -4423,8 +4579,12 @@ function newWorld(s, e, saved, themeName) {
     const fm = createMob('friend', player.pos.x + (Math.random() - 0.5) * 2, player.pos.y + 0.5, player.pos.z + (Math.random() - 0.5) * 2, { key: f.key, name: f.name, look: f.look, home: null });
     fm.friend = true; fm.kyanny = !!f.kyanny; npcSpawned.add(f.key);
   }
-  if (saved && saved.pets) for (const pt of saved.pets) if (MOBS[pt.type]) createMob(pt.type, player.pos.x + (Math.random() - 0.5) * 2, player.pos.y + 0.5, player.pos.z + (Math.random() - 0.5) * 2, null, pt);
-  if (saved && saved.props) for (const r of saved.props) if (PROPS[r.kind]) addPropObject(r.kind, r.x, r.y, r.z, r.yaw);
+  if (saved && saved.props) for (const r of saved.props) if (PROPS[r.kind]) addPropObject(r.kind, r.x, r.y, r.z, r.yaw, { uid: r.uid });
+  if (saved && saved.pets) for (const pt of saved.pets) if (MOBS[pt.type]) {
+    const hr = pt.home ? props.find(r => r.uid === pt.home) : null;
+    const pm = createMob(pt.type, hr ? hr.x + 0.8 : player.pos.x + (Math.random() - 0.5) * 2, hr ? hr.y + 0.1 : player.pos.y + 0.5, hr ? hr.z + 0.8 : player.pos.z + (Math.random() - 0.5) * 2, null, pt);
+    if (hr) pm.homeRec = hr;
+  }
   if (saved && saved.cars) for (const c of saved.cars) createCar(c.x, c.y + 0.2, c.z, c.yaw, c.color, null, true);
   renderHearts(); refreshInventory();
   saveNow();
@@ -4486,6 +4646,7 @@ function loop(now) {
     if (vis) { se.el.style.left = ((tmpV.x + 1) / 2 * W) + 'px'; se.el.style.top = ((1 - tmpV.y) / 2 * Hh) + 'px'; }
   }
   for (const r of displays) if (r.spin) r.g.rotation.y += dt * 0.45;
+  if (tvOnRecs.size || tvOpen) { drawTV(dt); if (tvOpen) document.getElementById('tvBig').getContext('2d').drawImage(tvCanvas, 0, 0, 640, 360); }
   // 信号：青→黄→赤
   signalT = (signalT + dt) % 12;
   const sigState = signalT < 5 ? 0 : signalT < 6.5 ? 1 : 2;
@@ -4501,7 +4662,9 @@ function loop(now) {
       const ph = raycastProp(5), bh2 = raycast(6), ch2 = raycastCar(5);
       if (ph && (!bh2 || ph.t < bh2.t + 0.2)) {
         const r = ph.rec;
-        text = r.vehicle ? `${itemName({ id: CAR, mat: r.vehicle })}（クリックでもらえる）` : r.display ? `${PROPS[r.kind].name}（クリックでもらえる）` : `${PROPS[r.kind].name}（左クリックでしまう）`;
+        const P2 = PROPS[r.kind] || {};
+        const use = r.kind === 'tv' ? '右クリックでテレビを見る・' : P2.storage ? '右クリックであける・' : P2.cat === 'pethouse' ? '右クリックでペットが入る/出る・' : '';
+        text = r.vehicle ? `${itemName({ id: CAR, mat: r.vehicle })}（クリックでもらえる）` : r.display ? `${P2.name}（クリックでもらえる）` : `${P2.name}（${use}左クリックでしまう）`;
       } else if (ch2 && (!bh2 || ch2.t < bh2.t)) text = `${itemName({ id: CAR, mat: ch2.car.color })}（右クリックで乗る・左クリックでしまう）`;
       else if (bh2 && (bh2.id === SHELF || bh2.id === FRIDGE) && inMarket(bh2.x, bh2.z)) text = 'たな（右クリックでお店の画面）';
     }
@@ -4576,6 +4739,6 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
-window.__cubeland = { heightAt, getBlock, mountOn, getMount: () => mount, displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
+window.__cubeland = { addPropObject, interactProp, heightAt, getBlock, mountOn, getMount: () => mount, displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
 })();
 </script>
