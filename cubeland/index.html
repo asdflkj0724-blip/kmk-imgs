@@ -171,6 +171,7 @@
       <span><kbd>F</kbd></span><span>飛行モード（雲の上まで行けます）</span>
       <span><kbd>H</kbd></span><span>スーパーの前へワープ</span>
       <span><kbd>J</kbd></span><span>みっくんの家へワープ</span>
+      <span><kbd>右クリック</kbd>（恐竜）</span><span>なかよしになる → もう一度で背中にのる（Shiftでおりる）</span>
       <span><kbd>Esc</kbd></span><span>一時停止</span>
     </div>
     <div class="toggles">
@@ -1969,6 +1970,9 @@ const Sound = (() => {
       else if (type === 'panda') tone(160, 0.3, { to: 120, type: 'triangle', vol: 0.12 * v });
       else if (type === 'walker') tone(85, 0.9, { to: 60, type: 'sawtooth', vol: 0.14 * v, lp: 420, attack: 0.15, vibrato: 4 });
       else if (type === 'jelly') tone(240, 0.14, { to: 110, vol: 0.18 * v });
+      else if (type === 'nessie') tone(260, 0.9, { to: 330, type: 'sine', vol: 0.12 * v, vibrato: 4, attack: 0.2 });
+      else if (type === 'ptera') { tone(1100, 0.12, { to: 1500, type: 'triangle', vol: 0.07 * v }); tone(1200, 0.12, { to: 1600, type: 'triangle', vol: 0.06 * v, delay: 0.15 }); }
+      else if (['trex', 'tricera', 'brachio', 'stego'].includes(type)) tone(200, 0.6, { to: 150, type: 'sawtooth', vol: 0.08 * v, lp: 700, attack: 0.1, vibrato: 3 });
       else if (type === 'villager') { const b = 600 + Math.random() * 200; tone(b, 0.1, { vol: 0.07 * v, type: 'triangle' }); tone(b * 1.25, 0.12, { vol: 0.07 * v, type: 'triangle', delay: 0.1 }); }
     },
   };
@@ -2358,6 +2362,82 @@ const MOBS = {
 };
 function shadeNum(n, f) { const c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => Math.min(255, Math.round(v * f))); return (c[0] << 16) | (c[1] << 8) | c[2]; }
 MOBS.friend = { name: 'ともだち', villager: true, friend: true, w: 0.3, h: 1.85, speed: 1.3, build: MOBS.villager.build };
+// ===== ネッシーと恐竜（まるい3Dで、みんな笑顔） =====
+const legP = (m, x, top, z, r, h, col) => { const pv = m.pivot(m.g, x, top, z); mk(CY(r, r * 0.9, h), col, 0, -h / 2, 0, pv); mk(SG(r * 1.15), col, 0, -h + 0.05, r * 0.4, pv, { s: [1, 0.5, 1.3] }); m.legs.push(pv); return pv; };
+const neckChain = (g, from, to, r0, r1, col, n = 7) => { for (let i = 0; i <= n; i++) { const t = i / n; mk(SG(r0 + (r1 - r0) * t), col, from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * (1 - (1 - t) * (1 - t)), from[2] + (to[2] - from[2]) * t, g); } };
+MOBS.nessie = { name: 'ネッシー', animal: true, mount: true, big: true, swim: true, w: 1.5, h: 3.6, speed: 1.4, rideSpeed: 7, seat: 0.75, petNames: ['ネッシー', 'ネッシーちゃん', 'ルル'],
+  build(m) {
+    const G = 0x5fcf8a, B = 0xd8f5c8;
+    mk(SG(1), G, 0, 0.1, 0, m.g, { s: [1.3, 0.7, 2.0] }); mk(SG(1), B, 0, -0.05, 0.1, m.g, { s: [1.15, 0.55, 1.8] });
+    mk(SG(0.5), G, 0, 0.6, -0.8, m.g); mk(SG(0.4), G, 0, 0.5, -1.6, m.g);
+    mk(CO(0.4, 1.8), G, 0, 0.05, -2.7, m.g, { rx: -HALF_PI });
+    for (const [x, z, r] of [[0.5, 0.6, 0.12], [-0.6, -0.3, 0.1], [0.3, -1.2, 0.09], [-0.2, 1.0, 0.1]]) mk(SG(r), 0xa8f0c0, x, 0.75, z, m.g);
+    neckChain(m.g, [0, 0.5, 1.5], [0, 3.0, 2.5], 0.42, 0.3, G);
+    m.head = m.pivot(m.g, 0, 3.25, 2.75);
+    mk(SG(0.48), G, 0, 0, 0, m.head, { s: [1, 0.85, 1.25] });
+    m.face(m.head, 0.66, 0.56, 0, 0.0, 0.58, animalFace(11, { nose: '#2a6a40' }));
+    mk(SG(0.09), 0xffe14d, -0.18, 0.42, 0, m.head); mk(SG(0.09), 0xffe14d, 0.18, 0.42, 0, m.head);
+    for (const [x, z] of [[1.1, 0.8], [-1.1, 0.8], [1.0, -0.9], [-1.0, -0.9]]) mk(BX(0.9, 0.08, 0.45), G, x, -0.05, z, m.g, { rz: x > 0 ? -0.2 : 0.2 });
+  } };
+MOBS.trex = { name: 'ティラノサウルス', animal: true, mount: true, big: true, dino: true, w: 0.9, h: 3.4, speed: 1.3, rideSpeed: 9, seat: 2.15, petNames: ['ティラちゃん', 'ガオくん', 'レックス'],
+  build(m) {
+    const C = 0x8bd36b, L = 0xe8f7c0;
+    mk(SG(1), C, 0, 1.95, 0, m.g, { s: [0.8, 0.9, 1.3] }); mk(SG(0.9), L, 0, 1.75, 0.35, m.g, { s: [0.6, 0.75, 0.9] });
+    mk(CO(0.55, 2.4), C, 0, 1.9, -2.0, m.g, { rx: -HALF_PI + 0.25 });
+    m.head = m.pivot(m.g, 0, 3.0, 1.25);
+    mk(SG(0.62), C, 0, 0, 0.25, m.head, { s: [0.95, 0.8, 1.3] }); mk(SG(0.5), L, 0, -0.3, 0.45, m.head, { s: [0.85, 0.45, 1.1] });
+    m.face(m.head, 0.8, 0.62, 0, 0.05, 1.05, animalFace(11));
+    for (let i = 0; i < 4; i++) mk(CO(0.04, 0.1), 0xffffff, -0.24 + i * 0.16, -0.24, 0.95, m.head, { rx: Math.PI });
+    for (const x of [-0.5, 0.5]) { mk(CY(0.07, 0.06, 0.45), C, x, 1.85, 0.95, m.g, { rx: 1.0 }); }
+    legP(m, -0.48, 1.45, -0.05, 0.3, 1.4, C); legP(m, 0.48, 1.45, -0.05, 0.3, 1.4, C);
+  } };
+MOBS.tricera = { name: 'トリケラトプス', animal: true, mount: true, big: true, dino: true, w: 1.1, h: 2.4, speed: 1.1, rideSpeed: 8, seat: 1.95, petNames: ['トリケラくん', 'ツノちゃん', 'ブルー'],
+  build(m) {
+    const C = 0x6fa8e8, L = 0xbfe0ff;
+    mk(SG(1), C, 0, 1.3, -0.1, m.g, { s: [1.0, 0.8, 1.5] }); mk(CO(0.45, 1.6), C, 0, 1.2, -1.8, m.g, { rx: -HALF_PI });
+    m.head = m.pivot(m.g, 0, 1.35, 1.55);
+    mk(SG(0.6), C, 0, 0, 0.1, m.head, { s: [0.95, 0.85, 1.1] });
+    mk(CY(0.95, 0.95, 0.12, 24), L, 0, 0.45, -0.35, m.head, { rx: HALF_PI - 0.4 });
+    for (let i = 0; i < 7; i++) { const a = Math.PI * (0.1 + i * 0.8 / 6); mk(SG(0.1), 0xffd23a, Math.cos(a) * 0.85, 0.45 + Math.sin(a) * 0.8, -0.45, m.head); }
+    m.face(m.head, 0.78, 0.6, 0, 0, 0.72, animalFace(11));
+    mk(CO(0.1, 0.8), 0xfff8e8, -0.28, 0.55, 0.45, m.head, { rx: 0.9 }); mk(CO(0.1, 0.8), 0xfff8e8, 0.28, 0.55, 0.45, m.head, { rx: 0.9 });
+    mk(CO(0.08, 0.35), 0xfff8e8, 0, 0.2, 0.75, m.head, { rx: 0.7 });
+    for (const [x, z] of [[-0.55, 0.7], [0.55, 0.7], [-0.55, -0.8], [0.55, -0.8]]) legP(m, x, 1.0, z, 0.25, 1.0, C);
+  } };
+MOBS.brachio = { name: 'ブラキオサウルス', animal: true, mount: true, big: true, dino: true, w: 1.3, h: 6.2, speed: 0.9, rideSpeed: 6, seat: 3.2, petNames: ['ブラキちゃん', 'ノッポ', 'ムラサキ'],
+  build(m) {
+    const C = 0xb28be8, L = 0xe2d2ff;
+    mk(SG(1.15), C, 0, 2.6, -0.1, m.g, { s: [1, 0.85, 1.45] }); mk(SG(1), L, 0, 2.35, 0.2, m.g, { s: [0.8, 0.6, 1.1] });
+    mk(CO(0.45, 2.6), C, 0, 2.3, -2.4, m.g, { rx: -HALF_PI + 0.2 });
+    neckChain(m.g, [0, 3.2, 1.2], [0, 5.6, 2.3], 0.5, 0.32, C);
+    m.head = m.pivot(m.g, 0, 5.85, 2.6);
+    mk(SG(0.42), C, 0, 0, 0.1, m.head, { s: [1, 0.85, 1.35] });
+    m.face(m.head, 0.6, 0.48, 0, 0, 0.66, animalFace(11));
+    for (const [x, z] of [[-0.6, 0.9], [0.6, 0.9], [-0.6, -0.9], [0.6, -0.9]]) legP(m, x, 1.9, z, 0.36, 1.9, C);
+  } };
+MOBS.stego = { name: 'ステゴサウルス', animal: true, mount: true, big: true, dino: true, w: 1.0, h: 2.8, speed: 1.0, rideSpeed: 8, seat: 2.05, petNames: ['ステゴくん', 'トゲトゲ', 'イエロー'],
+  build(m) {
+    const C = 0xe8c25a, L = 0xfff0c0;
+    mk(SG(1), C, 0, 1.35, 0, m.g, { s: [0.9, 0.85, 1.55] }); mk(CO(0.4, 1.9), C, 0, 1.15, -2.0, m.g, { rx: -HALF_PI + 0.15 });
+    for (let i = 0; i < 7; i++) { const z = -1.2 + i * 0.4; mk(CO(0.32, 0.6, 4), 0xff8ab8, (i % 2 ? 0.12 : -0.12), 2.2 - Math.abs(z) * 0.25, z, m.g, { s: [0.3, 1, 1] }); }
+    for (const sx of [-1, 1]) mk(CO(0.06, 0.45), 0xfff8e8, sx * 0.18, 1.3, -2.7, m.g, { rz: sx * 0.9 });
+    m.head = m.pivot(m.g, 0, 1.0, 1.7);
+    mk(SG(0.38), C, 0, 0, 0.1, m.head, { s: [0.9, 0.8, 1.3] });
+    m.face(m.head, 0.52, 0.42, 0, 0, 0.6, animalFace(11));
+    for (const [x, z] of [[-0.5, 0.8], [0.5, 0.8], [-0.5, -0.8], [0.5, -0.8]]) legP(m, x, 0.95, z, 0.24, 0.95, C);
+  } };
+MOBS.ptera = { name: 'プテラノドン', animal: true, mount: true, big: true, dino: true, flyer: true, w: 0.9, h: 1.3, speed: 3, rideSpeed: 11, seat: 0.55, petNames: ['プテラちゃん', 'ソラ', 'オレンジ'],
+  build(m) {
+    const C = 0xff9e5a, L = 0xffd9b0;
+    mk(SG(0.45), C, 0, 0.45, 0, m.g, { s: [0.8, 0.7, 1.7] }); mk(SG(0.38), L, 0, 0.35, 0.1, m.g, { s: [0.7, 0.5, 1.4] });
+    m.head = m.pivot(m.g, 0, 0.85, 0.9);
+    mk(SG(0.3), C, 0, 0, 0, m.head, { s: [0.9, 0.85, 1.1] }); mk(CO(0.1, 0.75), 0xffd23a, 0, -0.05, 0.5, m.head, { rx: HALF_PI });
+    mk(CO(0.09, 0.7), C, 0, 0.2, -0.4, m.head, { rx: -HALF_PI - 0.4 });
+    m.face(m.head, 0.42, 0.36, 0, 0.02, 0.3, animalFace(10));
+    m.wings = [];
+    for (const sx of [-1, 1]) { const pv = m.pivot(m.g, sx * 0.3, 0.55, 0); mk(BX(2.2, 0.06, 0.9), 0xff8a40, sx * 1.1, 0, -0.1, pv); mk(BX(1.2, 0.05, 0.6), L, sx * 0.7, -0.02, 0.05, pv); m.wings.push(pv); }
+  } };
+const DINO_TYPES = ['trex', 'tricera', 'brachio', 'stego', 'ptera'];
 const KYANNY_LOOK = { hair: '#ff9ec7', dress: 0xffc4e1, ribbon: 0xff4f7b, long: true, twin: true, ears: true, star: true };
 const KYANNY_TALK = ['きゃにーだよ！ よろしくね♪', 'いっしょに冒険しよ！', 'スーパーのケーキ、おいしいよ！', 'ダイヤ見つけたら見せてね！', 'ペット、かわいいね！', '火山のマグマはあついから気をつけてね', 'きょうもいっぱいあそぼ！'];
 const BOY_NAMES = ['ハルト', 'ソウタ', 'ユウマ', 'リク', 'カイト', 'レン'];
@@ -2435,7 +2515,7 @@ function createMob(type, x, y, z, npc, petInfo) {
   m.pivot = (parent, px, py, pz) => { const g = new THREE.Group(); g.position.set(px, py, pz); parent.add(g); return g; };
   m.limb = (parent, w, h, d, color, px, top, pz) => { const p = m.pivot(parent, px, top, pz); m.part(p, w, h, d, color, 0, -h / 2, 0); return p; };
   T.build(m);
-  const sc = T.villager ? 0.72 : T.animal ? 0.75 : 1;
+  const sc = T.villager ? 0.72 : (T.animal && !T.big) ? 0.75 : 1;
   if (sc !== 1) { m.g.scale.setScalar(sc); m.w *= sc; m.h *= sc; }
   m.targetYaw = m.yaw;
   scene.add(m.g);
@@ -2443,6 +2523,7 @@ function createMob(type, x, y, z, npc, petInfo) {
   return m;
 }
 function removeMob(m) {
+  if (m === mount) mount = null;
   scene.remove(m.g);
   m.mats.forEach(x => x.dispose());
   if (m.bubble) m.bubble.remove();
@@ -2628,7 +2709,13 @@ function updateMob(m, dt) {
       if (T.hop) m.hopCD = Math.min(m.hopCD, 0);
     }
   }
-  m.yaw += angleTo(m.yaw, m.targetYaw) * Math.min(1, dt * 6);
+  if (m === mount) {
+    const fw = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), st = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+    const mx = -Math.sin(player.yaw) * fw + Math.cos(player.yaw) * st, mz = -Math.cos(player.yaw) * fw - Math.sin(player.yaw) * st;
+    if (mx || mz) { m.targetYaw = Math.atan2(mx, mz); wantSpeed = T.rideSpeed; } else wantSpeed = 0;
+    m.moving = wantSpeed > 0;
+  }
+  m.yaw += angleTo(m.yaw, m.targetYaw) * Math.min(1, dt * (m === mount ? 10 : 6));
 
   if (T.hop) {
     m.hopCD -= dt;
@@ -2646,12 +2733,41 @@ function updateMob(m, dt) {
     v.x += (Math.sin(m.yaw) * wantSpeed - v.x) * k;
     v.z += (Math.cos(m.yaw) * wantSpeed - v.z) * k;
   }
-  if (inWater) v.y += (2.2 - v.y) * Math.min(1, dt * 3);
-  else v.y -= 28 * dt;
-  v.y = Math.max(v.y, -40);
   const wasGround = m.onGround;
-  const bumped = stepEntity(m, dt);
-  if (bumped && m.onGround && !T.hop && wantSpeed > 0) v.y = 7.6;
+  let bumped = false;
+  if (T.swim) {
+    // ネッシー：海の上だけを泳ぐ
+    const nx = p.x + v.x * dt, nz = p.z + v.z * dt;
+    const wet = (x, z) => getBlock(Math.floor(x), SEA, Math.floor(z)) === WATER;
+    if (wet(nx + Math.sign(v.x) * 1.2, nz + Math.sign(v.z) * 1.2) && wet(nx, nz)) { p.x = nx; p.z = nz; }
+    else { v.x = 0; v.z = 0; bumped = true; if (m !== mount) { m.targetYaw += Math.PI * (0.6 + Math.random() * 0.6); m.think = 2; } }
+    p.y += (SEA + 0.75 + Math.sin(performance.now() / 700) * 0.06 - p.y) * Math.min(1, dt * 3);
+    v.y = 0; m.onGround = false;
+  } else if (T.flyer) {
+    // プテラノドン：空をとぶ
+    let alt;
+    if (m === mount) alt = keys.Space ? p.y + 6 : p.y - 2.5;
+    else if (m.pet) alt = player.pos.y + 4;
+    else { if (!m.altT || m.altT < performance.now()) { m.altT = performance.now() + 2000; m.alt = Math.max(SEA + 2, columnTop(Math.floor(p.x), Math.floor(p.z))) + 9 + Math.random() * 4; } alt = m.alt; }
+    if (m !== mount && wantSpeed === 0) wantSpeed = T.speed;
+    v.y += ((alt - p.y) * 1.2 - v.y) * Math.min(1, dt * 3);
+    v.y = Math.max(-8, Math.min(8, v.y));
+    bumped = stepEntity(m, dt);
+    if (m.onGround && m === mount && !keys.Space) { v.x *= 0.5; v.z *= 0.5; }
+  } else {
+    if (inWater) v.y += (2.2 - v.y) * Math.min(1, dt * 3);
+    else v.y -= 28 * dt;
+    if (m === mount && keys.Space && m.onGround) v.y = 10;
+    v.y = Math.max(v.y, -40);
+    bumped = stepEntity(m, dt);
+    if (bumped && m.onGround && !T.hop && wantSpeed > 0) {
+      let climbed = false;
+      if (T.big) for (let k = 1; k <= 2 && !climbed; k++) { const t = p.clone(); t.y += k + 0.05; t.x += Math.sin(m.yaw) * 0.5; t.z += Math.cos(m.yaw) * 0.5; if (!collides(t, m.w, m.h)) { p.y += k + 0.05; climbed = true; } }
+      if (!climbed) v.y = 7.6;
+    }
+  }
+  if (m === mount) { player.pos.set(p.x, p.y + T.seat, p.z); player.vel.set(0, 0, 0); player.airTop = player.pos.y; player.headInWater = false; document.getElementById('water').hidden = true; }
+  if (m.wings) { const fl = Math.sin(performance.now() / (m.onGround ? 400 : 140)) * (m.onGround ? 0.15 : 0.6); m.wings[0].rotation.z = fl; m.wings[1].rotation.z = -fl; }
   if (T.hop && m.onGround && !wasGround) { m.squash = 0.2; if (m.type === 'jelly' && Math.random() < 0.5) Sound.voice('jelly', p.x, p.y, p.z); }
   if (p.y < -10) { if (m.pet) teleportPet(m); else { removeMob(m); return; } }
 
@@ -2706,10 +2822,30 @@ function updateMob(m, dt) {
 // ペットや友達は、プレイヤーのうしろ・横をついてくる
 function followPoint(m) {
   const side = ((strHash(m.uid) % 5) - 2) * 0.9;
-  const bx = Math.sin(player.yaw), bz = Math.cos(player.yaw);
-  return { x: player.pos.x + bx * 2.6 + bz * side, z: player.pos.z + bz * 2.6 - bx * side };
+  const bx = Math.sin(player.yaw), bz = Math.cos(player.yaw), back = m.T.big ? 5.5 : 2.6;
+  return { x: player.pos.x + bx * back + bz * side * (m.T.big ? 2 : 1), z: player.pos.z + bz * back - bx * side * (m.T.big ? 2 : 1) };
+}
+let mount = null;
+function mountOn(m) {
+  if (riding) exitCar();
+  mount = m; player.flying = false;
+  if (fishing.active) reelIn();
+  hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 5); Sound.love();
+  say(m, m.type === 'nessie' ? 'のせてあげるよ！ しっかりつかまってね' : 'いっしょにおさんぽしよう！');
+  toast(m.T.swim ? `${m.name}にのった！ W/A/S/Dで海をおよぐ・Shiftでおりる` : `${m.name}にのった！ W/A/S/Dで動く・スペースで${m.T.flyer ? 'とぶ' : 'ジャンプ'}・Shiftでおりる`);
+}
+function dismount() {
+  const m = mount; if (!m) return;
+  mount = null;
+  const sx = Math.cos(m.yaw), sz = -Math.sin(m.yaw), off = m.w + 1.2;
+  for (const s2 of [1, -1]) for (let dy = 2; dy >= -3; dy--) {
+    const x = Math.floor(m.pos.x + sx * off * s2), z = Math.floor(m.pos.z + sz * off * s2), y = Math.floor(m.pos.y) + dy;
+    if (standable(x, y, z)) { player.pos.set(x + 0.5, y + 0.01, z + 0.5); player.airTop = player.pos.y; return; }
+  }
+  player.pos.set(m.pos.x, m.pos.y + m.T.seat + 0.5, m.pos.z); player.airTop = player.pos.y;
 }
 function teleportPet(m) {
+  if (m.T.swim) return; // ネッシーは海にいる
   const P = player.pos;
   for (let i = 0; i < 8; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -2771,7 +2907,7 @@ function updateSpawns(dt) {
     if (m.T.hostile) {
       hostile++;
       if (!settings.enemies || (daylight > 0.7 && m.skyHere > 0.9 && Math.random() < 0.2)) { puff(m.pos.x, m.pos.y, m.pos.z, 10); removeMob(m); }
-    } else if (!m.npc) wild++;
+    } else if (!m.npc && !m.T.big) wild++;
   }
   const strangers = mobs.filter(m => m.T.friend && !m.friend && !m.kyanny).length;
   const friendsN = mobs.filter(m => m.friend).length;
@@ -2784,6 +2920,33 @@ function updateSpawns(dt) {
       if (!s2 || (s2.id !== GRASS && s2.id !== SAND && s2.id !== SNOW && s2.id !== ROAD) || !standable(x, s2.y + 1, z)) continue;
       const fl = randomFriendLook();
       createMob('friend', x + 0.5, s2.y + 1.01, z + 0.5, { key: 'f' + Math.random(), name: fl.name, look: fl.look, home: { x: x + 0.5, z: z + 0.5 } });
+      break;
+    }
+  }
+  // 恐竜とネッシー
+  const dinoN = mobs.filter(m => m.T.dino && !m.pet).length;
+  if (dinoN < 6 && Math.random() < 0.35) {
+    for (let tries = 0; tries < 5; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 24 + Math.random() * 30;
+      const x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (!chunkReady(x, z) || inTown(x, z)) continue;
+      const s2 = surfaceY(x, z);
+      if (!s2 || (s2.id !== GRASS && s2.id !== SAND && s2.id !== SNOW)) continue;
+      const type = DINO_TYPES[Math.random() * DINO_TYPES.length | 0];
+      const y = s2.y + 1.01 + (MOBS[type].flyer ? 9 : 0);
+      if (!MOBS[type].flyer && collides(new THREE.Vector3(x + 0.5, y, z + 0.5), MOBS[type].w, MOBS[type].h)) continue;
+      createMob(type, x + 0.5, y, z + 0.5);
+      break;
+    }
+  }
+  if (mobs.filter(m => m.T.swim).length < 2 && Math.random() < 0.3) {
+    for (let tries = 0; tries < 10; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 18 + Math.random() * 45;
+      const x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (!chunkReady(x, z)) continue;
+      const deep = (xx, zz) => getBlock(xx, SEA, zz) === WATER && getBlock(xx, SEA - 1, zz) === WATER;
+      if (!(deep(x, z) && deep(x + 3, z) && deep(x - 3, z) && deep(x, z + 3) && deep(x, z - 3))) continue;
+      createMob('nessie', x + 0.5, SEA + 0.75, z + 0.5);
       break;
     }
   }
@@ -3856,7 +4019,7 @@ document.getElementById('invClose').addEventListener('click', closeInv);
 // ---- 行動 ----
 function primaryAction() {
   swingHeld();
-  if (riding) return;
+  if (riding || mount) return;
   const mh = raycastMob(4.2);
   const bh = raycast(6);
   const ch = raycastCar(4.5);
@@ -3885,6 +4048,7 @@ function primaryAction() {
 }
 function secondaryAction() {
   if (riding) { exitCar(); return; }
+  if (mount) { dismount(); return; }
   const mh = raycastMob(4.2);
   const bh = raycast(6);
   const ch = raycastCar(4.5);
@@ -3894,6 +4058,8 @@ function secondaryAction() {
   if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) {
     if (mh.mob.T.villager) { talkTo(mh.mob); return; }
     if (mh.mob.T.animal) {
+      if (mh.mob.T.mount && mh.mob.pet) { mountOn(mh.mob); return; }
+      if (mh.mob.T.mount) { tame(mh.mob); toast(`${mh.mob.T.name}の「${mh.mob.name}」となかよしになった！ もう一度右クリックで背中にのれるよ`); return; }
       if (s && s.id === PETFOOD) {
         tame(mh.mob); takeItem(PETFOOD, 1); Sound.eat();
         hearts(mh.mob.pos.x, mh.mob.pos.y + mh.mob.h, mh.mob.pos.z, 6);
@@ -4091,6 +4257,8 @@ window.addEventListener('keydown', e => {
   if (!playing) { if (e.code === 'Enter' && deadEl.hidden) startPlay(); return; }
   keys[e.code] = true;
   if (riding && (e.code === 'ShiftLeft' || e.code === 'ShiftRight')) { exitCar(); return; }
+  if (mount && (e.code === 'ShiftLeft' || e.code === 'ShiftRight')) { dismount(); return; }
+  if (mount && e.code === 'Space') e.preventDefault();
   if (riding && e.code === 'KeyF') return;
   if (riding && e.code === 'Space') { e.preventDefault(); Sound.horn(riding.type); return; }
   if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) select(n - 1); }
@@ -4170,7 +4338,7 @@ function saveNow() {
       props: props.map(r => ({ kind: r.kind, x: r.x, y: r.y, z: r.z, yaw: r.yaw })),
       cars: cars.filter(c => c.owned).map(c => ({ x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, color: c.color })),
       friends: mobs.filter(m => m.friend).map(m => ({ key: m.npc.key, name: m.name, look: m.look, kyanny: !!m.kyanny })),
-      pets: mobs.filter(m => m.pet).map(m => ({ type: m.type, name: m.name, uid: m.uid })),
+      pets: mobs.filter(m => m.pet && !m.T.swim).map(m => ({ type: m.type, name: m.name, uid: m.uid })),
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flying: player.flying },
     }));
   } catch (e) {}
@@ -4293,8 +4461,8 @@ function loop(now) {
 
   updateChunks(playing ? 2 : 4);
   if (playing && chunkReady(player.pos.x, player.pos.z)) {
-    if (!riding) physics(dt);
-    if (!riding && !player.flying && market && inTown(player.pos.x, player.pos.z) && player.pos.y < market.f - 0.5) warpToMarket();
+    if (!riding && !mount) physics(dt);
+    if (!riding && !mount && !player.flying && market && inTown(player.pos.x, player.pos.z) && player.pos.y < market.f - 0.5) warpToMarket();
     for (const m of mobs.slice()) updateMob(m, dt);
     updateSpawns(dt);
     updateDrops(dt);
@@ -4348,7 +4516,12 @@ function loop(now) {
       const rot = Math.atan2(dx * rxv + dz * rzv, dx * fx + dz * fz);
       return `<span><span class="arr" style="transform:rotate(${rot.toFixed(2)}rad)">▲</span>${name} ${d < 3 ? 'ここ！' : Math.round(d) + 'm'}</span>`;
     };
-    navEl.innerHTML = item('スーパー', market.cx + 0.5, market.cz + 11) + item('みっくんの家', market.home.door + 1, market.home.z0);
+    let navHtml = item('スーパー', market.cx + 0.5, market.cz + 11) + item('みっくんの家', market.home.door + 1, market.home.z0);
+    const nearest = f2 => { let best = null, bd = 160; for (const o of mobs) if (f2(o) && o !== mount) { const d = Math.hypot(o.pos.x - player.pos.x, o.pos.z - player.pos.z); if (d < bd) { bd = d; best = o; } } return best; };
+    const ns = nearest(o => o.T.swim), dn = nearest(o => o.T.dino);
+    if (ns) navHtml += item('ネッシー', ns.pos.x, ns.pos.z);
+    if (dn) navHtml += item('恐竜', dn.pos.x, dn.pos.z);
+    navEl.innerHTML = navHtml;
     navEl.hidden = false;
   } else navEl.hidden = true;
   // みっくんの家の看板と「ようこそ」
@@ -4403,6 +4576,6 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
-window.__cubeland = { displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
+window.__cubeland = { heightAt, getBlock, mountOn, getMount: () => mount, displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
 })();
 </script>
