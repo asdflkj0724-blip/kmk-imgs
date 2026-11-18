@@ -255,7 +255,7 @@ const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANKS=7, GLASS=
   GOLD_BLOCK=21, SILVER_BLOCK=22, EMERALD_BLOCK=23, DIAMOND_BLOCK=24,
   COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34,
   CHEST=35, SHELF=36, FLOOR=37, SIGN=38, BED=39, SOFA=40, BOOKSHELF=41, TV=42, FRIDGE=43, TABLE=44,
-  WOOL_P=45, WOOL_B=46, WOOL_Y=47, TEDDY=48, BALL=49, GAMEBOX=50, ROAD=51, ROAD_LINE=52;
+  WOOL_P=45, WOOL_B=46, WOOL_Y=47, TEDDY=48, BALL=49, GAMEBOX=50, ROAD=51, ROAD_LINE=52, LAVA=53;
 const GEAR_LOOT = [
   { id: 'sword', mat: 'diamond' }, { id: 'sword', mat: 'gold' }, { id: 'sword', mat: 'diamond', deco: 'gold' }, { id: 'sword', mat: 'gold', deco: 'diamond' },
   { id: 'clothes', mat: 'diamond' }, { id: 'clothes', mat: 'gold' }, { id: 'clothes', mat: 'gold', deco: 'diamond' }, { id: 'clothes', mat: 'diamond', deco: 'emerald' },
@@ -318,8 +318,9 @@ const BLOCKS = {
   [GAMEBOX]: { name: 'ゲーム機',     tex: [55, 55, 55], snd: 'glass' },
   [ROAD]:    { name: '道路',         tex: [56, 56, 56], snd: 'stone' },
   [ROAD_LINE]:{ name: '道路（白線）', tex: [57, 57, 57], snd: 'stone' },
+  [LAVA]:    { name: 'マグマ',       tex: [58, 58, 58], snd: 'sand' },
 };
-const TILE_COUNT = 58;
+const TILE_COUNT = 59;
 const ITEMS = {
   [STICK]: '棒', [COAL]: '石炭', [IRON_INGOT]: '鉄インゴット', [GOLD]: '金', [SILVER]: '銀',
   [EMERALD]: 'エメラルド', [DIAMOND]: 'ダイヤモンド', [STRING]: '糸', [FISH]: 'さかな',
@@ -328,11 +329,12 @@ const ITEMS = {
 };
 const FOOD = { [FISH]: 4, [APPLE]: 3, [COOKIE]: 2, [ONIGIRI]: 4, [BREAD]: 3, [CAKE]: 6, [ICECREAM]: 2 };
 const DROPS = { [COAL_ORE]: COAL, [GOLD_ORE]: GOLD, [SILVER_ORE]: SILVER, [EMERALD_ORE]: EMERALD, [DIAMOND_ORE]: DIAMOND, [COBWEB]: STRING };
-const LIGHTS = { [LAMP]: 12, [LANTERN]: 11, [TORCH]: 9 };
+const LIGHTS = { [LAMP]: 12, [LANTERN]: 11, [TORCH]: 9, [LAVA]: 9 };
 const CROSS = new Set([COBWEB, TORCH, LANTERN, FLOWER_R, FLOWER_Y, TEDDY, BALL, GAMEBOX]);
 
-const isTransparent = id => id === AIR || id === LEAVES || id === GLASS || id === WATER || id === TABLE || CROSS.has(id);
-const isSolid = id => id !== AIR && id !== WATER && !CROSS.has(id);
+const isTransparent = id => id === AIR || id === LEAVES || id === GLASS || id === WATER || id === LAVA || id === TABLE || CROSS.has(id);
+const isSolid = id => id !== AIR && id !== WATER && id !== LAVA && !CROSS.has(id);
+const isFluid = id => id === WATER || id === LAVA;
 const blocksSky = id => isSolid(id) && id !== LEAVES && id !== GLASS && id !== CLOUD;
 const isBlockItem = id => typeof id === 'number' && id < 100;
 
@@ -414,7 +416,7 @@ function fbm(x, z, s, oct) {
 function heightAt(x, z) {
   const cont = fbm(x / 220, z / 220, seed, 3);
   const hills = fbm(x / 70, z / 70, seed + 7, 4);
-  const mount = Math.max(0, fbm(x / 140, z / 140, seed + 99, 3) - 0.52) * 2.1;
+  const mount = Math.max(0, fbm(x / 140, z / 140, seed + 99, 3) - 0.49) * 2.1;
   const h = 12 + cont * 24 + (hills - 0.5) * 10 + Math.pow(mount, 1.4) * 60;
   return Math.max(2, Math.min(70, Math.floor(h)));
 }
@@ -623,8 +625,47 @@ const shadeHex = (hex, v) => shadeC(hexRGB(hex), v);
   noiseTile(56, [62, 64, 70], 0.25);
   noiseTile(57, [62, 64, 70], 0.25);
   for (let y = 0; y < 10; y++) { px(57, 7, y, '#f4f4f4'); px(57, 8, y, '#e6e6e6'); }
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    const v = vnoise(x / 3, y / 3, 55) + rnd() * 0.1;
+    px(58, x, y, v > 0.62 ? shadeC([255, 226, 110], 1) : v > 0.42 ? shadeC([255, 128, 30], 0.95 + rnd() * 0.1) : shadeC([200, 52, 18], 0.9 + rnd() * 0.1));
+  }
 })();
 
+// ================= 世界のテーマ（新しい世界をつくるたびに変わる） =================
+const THEMES = ['meadow', 'sakura', 'snow', 'desert', 'autumn'];
+const THEME_INFO = {
+  meadow: { name: '草原の世界', grass: [96, 168, 64], leaves: [58, 130, 46], sky: 0x87ceeb },
+  sakura: { name: '桜の世界',   grass: [110, 180, 80], leaves: [255, 170, 205], sky: 0xa9d6f2, petals: true },
+  snow:   { name: '雪の世界',   grass: [236, 244, 250], leaves: [150, 190, 170], sky: 0xc4dcf0, snowy: true },
+  desert: { name: 'さばくの世界', grass: [190, 170, 90], leaves: [90, 140, 50], sky: 0x9fd2f2 },
+  autumn: { name: '紅葉の世界', grass: [150, 160, 70], leaves: [235, 110, 40], sky: 0x8fc4e6, autumn: true },
+};
+let theme = 'meadow';
+function paintTheme(name) {
+  const T = THEME_INFO[name] || THEME_INFO.meadow;
+  const g = atlas.getContext('2d');
+  let r = 777;
+  const rnd = () => { r = (Math.imul(r, 1103515245) + 12345) >>> 0; return (r >>> 8) / 16777216; };
+  const px = (t, x, y, c) => { g.fillStyle = c; g.fillRect(t * TS + x, y, 1, 1); };
+  const dirt = [134, 96, 67];
+  g.clearRect(0, 0, TS * 2, TS); g.clearRect(7 * TS, 0, TS, TS);
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    px(0, x, y, shadeC(T.grass, 0.82 + rnd() * 0.3));
+    px(1, x, y, shadeC(dirt, 0.85 + rnd() * 0.3));
+  }
+  for (let x = 0; x < TS; x++) { const d = 3 + Math.floor(rnd() * 3); for (let y = 0; y < d; y++) px(1, x, y, shadeC(T.grass, 0.8 + rnd() * 0.3)); }
+  if (T.petals) for (let i = 0; i < 6; i++) px(0, rnd() * 16 | 0, rnd() * 16 | 0, '#ffc2dc');
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
+    if (rnd() < 0.12) continue;
+    let c = T.leaves;
+    if (T.autumn && rnd() < 0.35) c = rnd() < 0.5 ? [240, 190, 50] : [200, 50, 40];
+    if (T.snowy && rnd() < 0.35) c = [245, 250, 255];
+    if (T.petals && rnd() < 0.2) c = [255, 230, 240];
+    px(7, x, y, shadeC(c, 0.7 + rnd() * 0.45));
+  }
+  if (typeof texture !== 'undefined') texture.needsUpdate = true;
+  iconCache.clear();
+}
 const texture = new THREE.CanvasTexture(atlas);
 texture.magFilter = THREE.NearestFilter;
 texture.minFilter = THREE.NearestFilter;
@@ -779,6 +820,7 @@ scene.add(highlight);
 // ================= 村と家 =================
 const villageCache = new Map();
 let market = null, mainKey = null;
+let friendKeys = new Set();
 function baseVillageOk(gx, gz) {
   if (hash(gx, gz, seed + 600) >= 0.5) return false;
   const cx = gx * CELL + 24 + Math.floor(hash(gx, gz, seed + 601) * 48);
@@ -796,6 +838,55 @@ function isMainCell(gx, gz) {
     }
   }
   return mainKey === gx + ',' + gz;
+}
+// 火山
+const volcanoCache = new Map();
+function mainCenter() {
+  isMainCell(0, 0);
+  if (mainKey === 'none') return null;
+  const [gx, gz] = mainKey.split(',').map(Number);
+  return { x: gx * CELL + 24 + Math.floor(hash(gx, gz, seed + 601) * 48), z: gz * CELL + 24 + Math.floor(hash(gx, gz, seed + 602) * 48) };
+}
+function volcanoAt(gx, gz) {
+  const key = gx + ',' + gz;
+  if (volcanoCache.has(key)) return volcanoCache.get(key);
+  let v = null;
+  const r = hash(gx, gz, seed + 600);
+  if (r >= 0.75 && r < 0.9) {
+    const cx = gx * CELL + 30 + Math.floor(hash(gx, gz, seed + 801) * 36);
+    const cz = gz * CELL + 30 + Math.floor(hash(gx, gz, seed + 802) * 36);
+    const mc = mainCenter();
+    if (!mc || Math.hypot(mc.x - cx, mc.z - cz) > 75) {
+      const base = Math.max(SEA + 1, heightAt(cx, cz));
+      const R = 18 + Math.floor(hash(gx, gz, seed + 803) * 7);
+      v = { cx, cz, base, R, peak: Math.min(H - 16, base + 24 + Math.floor(hash(gx, gz, seed + 804) * 8)), ang: hash(gx, gz, seed + 805) * Math.PI * 2 };
+    }
+  }
+  volcanoCache.set(key, v);
+  return v;
+}
+function buildVolcano(v, ox, oz, data) {
+  for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
+    const x = ox + lx, z = oz + lz;
+    const dx = x - v.cx, dz = z - v.cz, d = Math.hypot(dx, dz);
+    if (d > v.R) continue;
+    const t = 1 - d / v.R;
+    const ground = heightAt(x, z);
+    const cone = tt => Math.round(v.base + (v.peak - v.base) * Math.pow(tt, 1.1));
+    let top = cone(t) + Math.round((hash(x, z, seed + 806) - 0.5) * 2);
+    const crater = d < 4;
+    const rim = cone(1 - 4.5 / v.R);
+    if (crater) top = rim - 3;
+    if (top <= ground) continue;
+    for (let y = ground + 1; y < H - 12; y++) data[idxOf(lx, y, lz)] = y <= top ? (y > top - 2 && !crater ? (hash(x, z, y) < 0.3 ? COBBLE : STONE) : STONE) : AIR;
+    if (crater) { data[idxOf(lx, top + 1, lz)] = LAVA; data[idxOf(lx, top + 2, lz)] = LAVA; data[idxOf(lx, top + 3, lz)] = AIR; }
+    else {
+      // 斜面を流れるマグマの川
+      const ux = Math.cos(v.ang), uz = Math.sin(v.ang);
+      const along = dx * ux + dz * uz, side = Math.abs(-dx * uz + dz * ux);
+      if (along > 0 && side < 1.1 + along * 0.04) data[idxOf(lx, top, lz)] = LAVA;
+    }
+  }
 }
 // 道路の高さ：駐車場から1マスずつなめらかに地面へつなぐ
 function roadY(v, z) {
@@ -1006,8 +1097,8 @@ function generateChunk(cx, cz) {
   for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
     const wx = ox + lx, wz = oz + lz;
     const h = heightAt(wx, wz);
-    const beach = h <= SEA + 1;
-    const snowy = h > 44 + hash(wx, wz, seed + 5) * 4;
+    const beach = h <= SEA + 1 || (theme === 'desert' && h <= 50);
+    const snowy = (theme === 'snow' && h > SEA + 1) || h > 44 + hash(wx, wz, seed + 5) * 4;
     const caveTop = h > SEA + 3 ? h : h - 5;
     for (let y = 0; y < H; y++) {
       let id = AIR;
@@ -1017,6 +1108,7 @@ function generateChunk(cx, cz) {
       else if (y === h) id = beach ? SAND : snowy ? SNOW : (h > 48 ? STONE : GRASS);
       else if (y <= SEA) id = WATER;
       if (id !== AIR && id !== WATER && id !== BEDROCK && y <= caveTop && y > 1 && isCave(wx, y, wz)) id = AIR;
+      if (id === AIR && y <= 6 && y > 1 && y <= caveTop) id = LAVA;
       if (id === STONE) id = oreAt(wx, y, wz);
       if (id !== AIR) data[idxOf(lx, y, lz)] = id;
     }
@@ -1034,6 +1126,7 @@ function generateChunk(cx, cz) {
     if (hash(tx, tz, seed + 3) > 0.012) continue;
     const forest = fbm(tx / 90, tz / 90, seed + 33, 2);
     if (forest < 0.45 && hash(tx, tz, seed + 4) > 0.25) continue;
+    if (theme === 'desert' && hash(tx, tz, seed + 44) > 0.12) continue;
     const h = heightAt(tx, tz);
     if (h <= SEA + 1 || h > 42) continue;
     if (h > SEA + 3 && isCave(tx, h, tz)) continue;
@@ -1056,6 +1149,10 @@ function generateChunk(cx, cz) {
     for (let y = h + 1; y < top; y++) tset(tx, y, tz, LOG, false);
     tset(tx, h, tz, DIRT, false);
   }
+  for (let gz = Math.floor(oz / CELL) - 1; gz <= Math.floor(oz / CELL) + 1; gz++) for (let gx = Math.floor(ox / CELL) - 1; gx <= Math.floor(ox / CELL) + 1; gx++) {
+    const vol = volcanoAt(gx, gz);
+    if (vol && Math.abs(vol.cx - (ox + 8)) < vol.R + 12 && Math.abs(vol.cz - (oz + 8)) < vol.R + 12) buildVolcano(vol, ox, oz, data);
+  }
   const inChunk = (x, z) => x >= ox && x < ox + CS && z >= oz && z < oz + CS;
   const set = (x, y, z, id) => { if (inChunk(x, z) && y > 0 && y < H) data[idxOf(x - ox, y, z - oz)] = id; };
   const setIfAir = (x, y, z, id) => { if (inChunk(x, z) && y > 0 && y < H && data[idxOf(x - ox, y, z - oz)] === AIR) set(x, y, z, id); };
@@ -1067,6 +1164,7 @@ function generateChunk(cx, cz) {
     if (Math.abs(v.cx - (ox + 8)) > reach || Math.abs(v.cz - (oz + 8)) > reach) continue;
     if (v.main) {
       buildMarket(v, set);
+      if (inChunk(v.cx + 3, v.cz + 11) && !friendKeys.has('kyanny')) npcs.push({ key: 'kyanny', kind: 'friend', name: 'きゃにーちゃん', look: KYANNY_LOOK, x: v.cx + 3.5, y: v.h + 1.05, z: v.cz + 11.5, home: { x: v.cx + 3.5, z: v.cz + 11.5 } });
       const staff = [[v.cx - 4, v.cz + 3], [v.cx + 4, v.cz - 3]];
       staff.forEach(([x, z], i) => { if (inChunk(x, z)) npcs.push({ key: 'm' + v.key + ':' + i, x: x + 0.5, y: v.h + 1.05, z: z + 0.5, home: { x: x + 0.5, z: z + 0.5 }, radius: 5 }); });
       [[v.cx - 7, 'red'], [v.cx + 3, 'blue'], [v.cx + 7, 'yellow']].forEach(([x, col], i) => {
@@ -1114,6 +1212,7 @@ function generateChunk(cx, cz) {
   if (e) for (const k in e) data[+k] = e[k];
   const lights = [];
   for (let i = 0; i < data.length; i++) {
+    if (data[i] === LAVA && hash(i, cx * 31 + cz, seed + 9) > 0.1) continue;
     const r = LIGHTS[data[i]];
     if (r) lights.push([ox + (i % CS), (i / (CS * CS)) | 0, oz + ((i / CS | 0) % CS), r]);
   }
@@ -1243,20 +1342,21 @@ function buildMesh(c) {
       }
       continue;
     }
-    const isW = id === WATER;
+    const isW = id === WATER, isL = id === LAVA;
     const out = isW ? W : S;
-    const waterTop = isW && neighbor(lx, y + 1, lz) !== WATER;
+    const waterTop = (isW || isL) && neighbor(lx, y + 1, lz) !== id;
     for (const f of FACES) {
       const ax = lx + f.dir[0], ay = y + f.dir[1], az = lz + f.dir[2];
       const n = neighbor(ax, ay, az);
       let visible;
       if (isW) visible = n === AIR || (n !== WATER && isTransparent(n) && n !== LEAVES);
+      else if (isL) visible = n !== LAVA && isTransparent(n);
       else if (id === LEAVES) visible = n === AIR || (isTransparent(n) && n !== LEAVES);
       else visible = isTransparent(n) && n !== id;
       if (!visible) continue;
       const tile = def.tex[f.side];
       let sky, lamp;
-      if (id === LAMP) { sky = 1; lamp = 1; }
+      if (id === LAMP || isL) { sky = 1; lamp = 1; }
       else if (id === CLOUD) { sky = 1; lamp = 0; }
       else {
         sky = ay >= H ? 1 : skyLight(ax, ay, az);
@@ -1269,14 +1369,14 @@ function buildMesh(c) {
         out.pos.push(lx + cr[0], vy, lz + cr[2]);
         out.uv.push(U(tile, cr[3]), V(cr[4]));
         let ao = 1;
-        if (f.dir[1] === 1 && !isW) {
+        if (f.dir[1] === 1 && !isW && !isL) {
           const sx = cr[0] ? 1 : -1, sz = cr[2] ? 1 : -1;
           const a = isSolid(neighbor(lx + sx, y + 1, lz)) ? 1 : 0;
           const b = isSolid(neighbor(lx, y + 1, lz + sz)) ? 1 : 0;
           const d = isSolid(neighbor(lx + sx, y + 1, lz + sz)) ? 1 : 0;
           ao = 1 - (a && b ? 3 : a + b + d) * 0.13;
         }
-        out.li.push(sky, lamp, (id === LAMP ? 1.1 : id === CLOUD ? Math.max(0.85, f.shade) : f.shade) * ao);
+        out.li.push(sky, lamp, (id === LAMP || isL ? 1.1 : id === CLOUD ? Math.max(0.85, f.shade) : f.shade) * ao);
       }
       out.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
     }
@@ -1419,7 +1519,10 @@ function physics(dt) {
   const fx0 = Math.floor(p.x), fz0 = Math.floor(p.z);
   const feet = getBlock(fx0, Math.floor(p.y + 0.4), fz0);
   const head = getBlock(fx0, Math.floor(p.y + EYE), fz0);
-  player.inWater = feet === WATER;
+  const inLava = feet === LAVA || getBlock(fx0, Math.floor(p.y + 1.2), fz0) === LAVA;
+  player.lavaT = (player.lavaT || 0) - dt;
+  if (inLava && player.lavaT <= 0) { player.lavaT = 0.6; hurtPlayer(3, null); toast('あつい！ マグマからにげて！'); }
+  player.inWater = feet === WATER || inLava;
   player.headInWater = head === WATER;
   const inWeb = feet === COBWEB || getBlock(fx0, Math.floor(p.y + 1.2), fz0) === COBWEB;
   document.getElementById('water').hidden = !player.headInWater;
@@ -1511,7 +1614,7 @@ function raycast(maxDist) {
   let nx = 0, ny = 0, nz = 0, t = 0;
   while (t <= maxDist) {
     const id = getBlock(x, y, z);
-    if (id !== AIR && id !== WATER) return { x, y, z, nx, ny, nz, id, t };
+    if (id !== AIR && !isFluid(id)) return { x, y, z, nx, ny, nz, id, t };
     if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; nx = -sx; ny = 0; nz = 0; }
     else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; nx = 0; ny = -sy; nz = 0; }
     else { z += sz; t = tmz; tmz += tdz; nx = 0; ny = 0; nz = -sz; }
@@ -1992,8 +2095,10 @@ const MOBS = {
     name: '村人', villager: true, w: 0.3, h: 1.85, speed: 1.0,
     build(m) {
       const L = m.look;
-      m.legs.push(m.limb(m.g, 0.15, 0.55, 0.15, 0xffffff, -0.1, 0.55, 0), m.limb(m.g, 0.15, 0.55, 0.15, 0xffffff, 0.1, 0.55, 0));
-      m.part(m.g, 0.58, 0.32, 0.42, L.dress, 0, 0.62, 0);
+      const legCol = L.boy ? L.pants : 0xffffff;
+      m.legs.push(m.limb(m.g, 0.15, 0.55, 0.15, legCol, -0.1, 0.55, 0), m.limb(m.g, 0.15, 0.55, 0.15, legCol, 0.1, 0.55, 0));
+      if (!L.boy) m.part(m.g, 0.58, 0.32, 0.42, L.dress, 0, 0.62, 0);
+      else m.part(m.g, 0.44, 0.16, 0.26, L.pants, 0, 0.66, 0);
       m.part(m.g, 0.44, 0.42, 0.26, L.dress, 0, 0.95, 0);
       m.part(m.g, 0.16, 0.08, 0.02, L.ribbon, 0, 1.08, 0.135);
       m.arms = [m.limb(m.g, 0.13, 0.46, 0.13, 0xffe1cc, -0.29, 1.14, 0), m.limb(m.g, 0.13, 0.46, 0.13, 0xffe1cc, 0.29, 1.14, 0)];
@@ -2001,10 +2106,19 @@ const MOBS = {
       m.part(m.head, 0.56, 0.56, 0.5, 0xffe1cc, 0, 0.28, 0);
       m.face(m.head, 0.56, 0.56, 0, 0.28, 0.252, villagerFace(L.hair));
       m.part(m.head, 0.6, 0.14, 0.54, L.hair, 0, 0.6, 0);
-      m.part(m.head, 0.6, L.long ? 0.82 : 0.5, 0.1, L.hair, 0, L.long ? 0.18 : 0.33, -0.28);
-      m.part(m.head, 0.06, 0.46, 0.44, L.hair, -0.3, 0.33, -0.02); m.part(m.head, 0.06, 0.46, 0.44, L.hair, 0.3, 0.33, -0.02);
-      m.part(m.head, 0.26, 0.14, 0.08, L.ribbon, 0.2, 0.66, 0.08);
-      m.part(m.head, 0.08, 0.08, 0.09, 0xffffff, 0.2, 0.66, 0.08);
+      if (L.boy) {
+        m.part(m.head, 0.6, 0.36, 0.1, L.hair, 0, 0.42, -0.28);
+        m.part(m.head, 0.06, 0.24, 0.44, L.hair, -0.3, 0.46, -0.02); m.part(m.head, 0.06, 0.24, 0.44, L.hair, 0.3, 0.46, -0.02);
+        if (L.cap) m.part(m.head, 0.64, 0.12, 0.66, L.cap, 0, 0.66, 0.06);
+      } else {
+        m.part(m.head, 0.6, L.long ? 0.82 : 0.5, 0.1, L.hair, 0, L.long ? 0.18 : 0.33, -0.28);
+        m.part(m.head, 0.06, 0.46, 0.44, L.hair, -0.3, 0.33, -0.02); m.part(m.head, 0.06, 0.46, 0.44, L.hair, 0.3, 0.33, -0.02);
+        m.part(m.head, 0.26, 0.14, 0.08, L.ribbon, 0.2, 0.66, 0.08);
+        m.part(m.head, 0.08, 0.08, 0.09, 0xffffff, 0.2, 0.66, 0.08);
+      }
+      if (L.twin) { m.part(m.head, 0.16, 0.62, 0.16, L.hair, -0.38, 0.12, -0.1); m.part(m.head, 0.16, 0.62, 0.16, L.hair, 0.38, 0.12, -0.1); m.part(m.head, 0.12, 0.1, 0.12, L.ribbon, -0.38, 0.44, -0.1); m.part(m.head, 0.12, 0.1, 0.12, L.ribbon, 0.38, 0.44, -0.1); }
+      if (L.ears) { for (const sx of [-1, 1]) { m.part(m.head, 0.14, 0.16, 0.08, L.hair, sx * 0.19, 0.74, 0); m.part(m.head, 0.07, 0.09, 0.02, 0xffb3c6, sx * 0.19, 0.73, 0.045); } }
+      if (L.star) m.part(m.head, 0.12, 0.12, 0.04, 0xffe14d, -0.22, 0.5, 0.26, true);
     },
   },
   walker: {
@@ -2030,6 +2144,22 @@ const MOBS = {
   },
 };
 function shadeNum(n, f) { const c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => Math.min(255, Math.round(v * f))); return (c[0] << 16) | (c[1] << 8) | c[2]; }
+MOBS.friend = { name: 'ともだち', villager: true, friend: true, w: 0.3, h: 1.85, speed: 1.3, build: MOBS.villager.build };
+const KYANNY_LOOK = { hair: '#ff9ec7', dress: 0xffc4e1, ribbon: 0xff4f7b, long: true, twin: true, ears: true, star: true };
+const KYANNY_TALK = ['きゃにーだよ！ よろしくね♪', 'いっしょに冒険しよ！', 'スーパーのケーキ、おいしいよ！', 'ダイヤ見つけたら見せてね！', 'ペット、かわいいね！', '火山のマグマはあついから気をつけてね', 'きょうもいっぱいあそぼ！'];
+const BOY_NAMES = ['ハルト', 'ソウタ', 'ユウマ', 'リク', 'カイト', 'レン'];
+const GIRL_NAMES = ['アオイ', 'ヒナ', 'ユナ', 'サクラ', 'リン', 'ミオ'];
+const FRIEND_TALK = ['いっしょにあそぼ！', 'こっちに何かあるかも！', '敵がきたらまかせて！', 'たのしいね！', 'おなかすいたなー', 'ダイヤさがしにいこう！'];
+function randomFriendLook() {
+  const boy = Math.random() < 0.5;
+  const pick = a => a[Math.random() * a.length | 0];
+  const taken = new Set(mobs.filter(m => m.T.friend).map(m => m.name));
+  const names = (boy ? BOY_NAMES : GIRL_NAMES).filter(n => !taken.has(n));
+  return {
+    name: names.length ? pick(names) : pick(boy ? BOY_NAMES : GIRL_NAMES),
+    look: { boy, hair: pick(HAIR), dress: parseInt(pick(DRESS).slice(1), 16), ribbon: parseInt(pick(RIBBON).slice(1), 16), pants: pick([0x3a5a9a, 0x2d2d3a, 0x6b4a2a, 0x2f6b4a]), long: Math.random() < 0.5, twin: !boy && Math.random() < 0.3, cap: boy && Math.random() < 0.5 ? parseInt(pick(DRESS).slice(1), 16) : 0 },
+  };
+}
 const ANIMALS = ['sheep', 'pig', 'chicken', 'dog', 'cat', 'rabbit', 'panda'];
 const ANIMAL_WEIGHT = { sheep: 2, pig: 2, chicken: 2, dog: 2, cat: 2, rabbit: 2, panda: 1 };
 const mobs = [];
@@ -2059,7 +2189,8 @@ function createMob(type, x, y, z, npc, petInfo) {
     voiceT: 4 + Math.random() * 10, lightT: 0, bright: 1, skyHere: 1, lampHere: 0, legs: [], arms: null, head: null, mats: [],
     g: new THREE.Group(), npc: npc || null, sayT: 0, bubble: null, giftT: 0, greetT: 0, happyT: 0, pet: !!petInfo, name: petInfo ? petInfo.name : '',
   };
-  if (T.villager) {
+  if (T.villager && npc && npc.look) { m.look = npc.look; m.name = npc.name; }
+  else if (T.villager) {
     const h = strHash(npc.key + seed);
     m.look = {
       hair: HAIR[h % HAIR.length], dress: parseInt(DRESS[(h >>> 4) % DRESS.length].slice(1), 16),
@@ -2118,6 +2249,23 @@ function faceToPlayer(m) { m.targetYaw = Math.atan2(player.pos.x - m.pos.x, play
 function talkTo(m) {
   faceToPlayer(m);
   m.moving = false; m.think = 4;
+  if (m.T.friend) {
+    if (!m.friend) {
+      m.friend = true; m.stay = false;
+      hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 8); Sound.love();
+      say(m, m.kyanny ? 'わーい！ きゃにーとお友達になってくれるの？ うれしい！' : `${m.name}だよ。友達になろう！`);
+      toast(`${m.name}と友達になった！`);
+      saveSoon();
+      return;
+    }
+    if (m.giftT > 0 || Math.random() < 0.6) {
+      m.stay = !m.stay;
+      say(m, m.stay ? 'ここでまってるね！' : (m.kyanny ? 'きゃにーもいっしょに行く！' : 'いっしょに行こう！'));
+      if (!m.stay) say(m, m.kyanny ? KYANNY_TALK[Math.random() * KYANNY_TALK.length | 0] : FRIEND_TALK[Math.random() * FRIEND_TALK.length | 0]) ;
+      if (m.stay) m.stayPos = m.pos.clone();
+      return;
+    }
+  }
   if (m.giftT <= 0 && Math.random() < 0.6) {
     m.giftT = 45;
     const g = pickWeighted(GIFTS, x => x[2]);
@@ -2165,7 +2313,8 @@ function populateChunk(c) {
   for (const n of c.npcs) {
     if (npcSpawned.has(n.key)) continue;
     npcSpawned.add(n.key);
-    createMob('villager', n.x, n.y, n.z, n);
+    const nm = createMob(n.kind || 'villager', n.x, n.y, n.z, n);
+    if (n.key === 'kyanny') nm.kyanny = true;
   }
   for (const cd of c.cars || []) {
     if (carSpawned.has(cd.key) || picked.has(cd.key)) continue;
@@ -2205,6 +2354,30 @@ function updateMob(m, dt) {
       if (m.think <= 0) { m.think = 2 + Math.random() * 3; m.moving = Math.random() < 0.25; m.targetYaw = Math.random() < 0.6 ? Math.atan2(dx, dz) : m.yaw + (Math.random() - 0.5) * 2; }
       wantSpeed = m.moving && dist < 2.4 ? T.speed * 0.6 : 0;
       if (m.happyT <= 0 && Math.random() < dt * 0.15) { hearts(p.x, p.y + m.h, p.z, 1); m.happyT = 0.5; }
+    }
+  } else if (T.friend) {
+    // 友達：いっしょに歩いて、敵がいたら戦ってくれる
+    let foe = null, fd = 7;
+    if (m.friend) for (const o of mobs) { if (!o.T.hostile || !o.g.visible) continue; const d = o.pos.distanceTo(p); if (d < fd) { fd = d; foe = o; } }
+    if (foe) {
+      m.targetYaw = Math.atan2(foe.pos.x - p.x, foe.pos.z - p.z);
+      wantSpeed = fd > 1.3 ? 4 : 0;
+      if (fd < 1.8 && m.attackCD <= 0) { m.attackCD = 0.8; m.swing = 0.35; attackMob(foe, new THREE.Vector3(foe.pos.x - p.x, 0, foe.pos.z - p.z).normalize(), 4); }
+    } else if (m.friend && !m.stay) {
+      if (dist > 26 || Math.abs(dy) > 12) teleportPet(m);
+      else if (dist > 3.5) { m.targetYaw = Math.atan2(dx, dz); wantSpeed = dist > 8 ? 5.5 : 3.8; }
+      else { m.targetYaw = Math.atan2(dx, dz); wantSpeed = 0; }
+      if (m.sayT <= 0 && Math.random() < dt * 0.02) say(m, m.kyanny ? KYANNY_TALK[Math.random() * KYANNY_TALK.length | 0] : FRIEND_TALK[Math.random() * FRIEND_TALK.length | 0]);
+    } else {
+      const home = m.stay && m.stayPos ? m.stayPos : (m.npc.home ? new THREE.Vector3(m.npc.home.x, p.y, m.npc.home.z) : null);
+      if (!m.friend && dist < 5 && Math.abs(dy) < 3) {
+        m.targetYaw = Math.atan2(dx, dz); wantSpeed = 0;
+        if (m.greetT <= 0) { m.greetT = 30; say(m, m.kyanny ? 'こんにちは！ きゃにーだよ♪ 話しかけてね！' : `はじめまして！ ${m.name}だよ。話しかけてね！`); }
+      } else if (home && Math.hypot(home.x - p.x, home.z - p.z) > (m.stay ? 3 : 8)) { m.targetYaw = Math.atan2(home.x - p.x, home.z - p.z); wantSpeed = T.speed; }
+      else {
+        if (m.think <= 0) { m.think = 2 + Math.random() * 4; m.moving = Math.random() < 0.5; m.targetYaw = m.yaw + (Math.random() - 0.5) * 3; }
+        wantSpeed = m.moving ? T.speed : 0;
+      }
     }
   } else if (T.villager) {
     if (dist < 4.5 && Math.abs(dy) < 3) {
@@ -2355,7 +2528,7 @@ function surfaceY(x, z) {
   for (let y = CLOUD_Y - 3; y > 0; y--) { const id = getBlock(x, y, z); if (id !== AIR && !CROSS.has(id)) return { y, id }; }
   return null;
 }
-const standable = (x, y, z) => isSolid(getBlock(x, y - 1, z)) && !isSolid(getBlock(x, y, z)) && getBlock(x, y, z) !== WATER && !isSolid(getBlock(x, y + 1, z));
+const standable = (x, y, z) => isSolid(getBlock(x, y - 1, z)) && !isSolid(getBlock(x, y, z)) && !isFluid(getBlock(x, y, z)) && !isFluid(getBlock(x, y - 1, z)) && !isSolid(getBlock(x, y + 1, z));
 function updateSpawns(dt) {
   spawnT -= dt;
   if (spawnT > 0) return;
@@ -2363,7 +2536,7 @@ function updateSpawns(dt) {
   const P = player.pos;
   let wild = 0, hostile = 0;
   for (const m of mobs.slice()) {
-    if (m.pet) continue;
+    if (m.pet || m.friend) continue;
     const d = Math.hypot(m.pos.x - P.x, m.pos.z - P.z);
     if (d > (m.npc ? 85 : 72)) { removeMob(m); continue; }
     if (m.T.hostile) {
@@ -2371,13 +2544,27 @@ function updateSpawns(dt) {
       if (!settings.enemies || (daylight > 0.7 && m.skyHere > 0.9 && Math.random() < 0.2)) { puff(m.pos.x, m.pos.y, m.pos.z, 10); removeMob(m); }
     } else if (!m.npc) wild++;
   }
+  const strangers = mobs.filter(m => m.T.friend && !m.friend && !m.kyanny).length;
+  const friendsN = mobs.filter(m => m.friend).length;
+  if (strangers < 2 && friendsN < 8 && Math.random() < 0.08) {
+    for (let tries = 0; tries < 4; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 16;
+      const x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (!chunkReady(x, z)) continue;
+      const s2 = surfaceY(x, z);
+      if (!s2 || (s2.id !== GRASS && s2.id !== SAND && s2.id !== SNOW && s2.id !== ROAD) || !standable(x, s2.y + 1, z)) continue;
+      const fl = randomFriendLook();
+      createMob('friend', x + 0.5, s2.y + 1.01, z + 0.5, { key: 'f' + Math.random(), name: fl.name, look: fl.look, home: { x: x + 0.5, z: z + 0.5 } });
+      break;
+    }
+  }
   if (wild < 12) {
     for (let tries = 0; tries < 4; tries++) {
       const a = Math.random() * Math.PI * 2, r = 18 + Math.random() * 30;
       const x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
       if (!chunkReady(x, z)) continue;
       const s = surfaceY(x, z);
-      if (!s || (s.id !== GRASS && s.id !== SNOW) || !standable(x, s.y + 1, z)) continue;
+      if (!s || (s.id !== GRASS && s.id !== SNOW && s.id !== SAND) || !standable(x, s.y + 1, z)) continue;
       const type = pickWeighted(ANIMALS, t => ANIMAL_WEIGHT[t]);
       const n = 1 + (Math.random() * 3 | 0);
       for (let i = 0; i < n; i++) createMob(type, x + 0.5 + (Math.random() - 0.5), s.y + 1.01, z + 0.5 + (Math.random() - 0.5));
@@ -2825,6 +3012,8 @@ function renderInventory() {
   const pets = mobs.filter(m => m.pet);
   line(pets.length ? 'ペット' : 'ペットはまだいません（動物を右クリック）', pl);
   pets.forEach(m => line(`・${m.name}（${m.T.name}）`, pl));
+  const fr = mobs.filter(m => m.friend);
+  if (fr.length) { line('友達', pl); fr.forEach(m => line(`・${m.name}${m.stay ? '（おるすばん中）' : ''}`, pl)); }
   drawAvatar();
   const rec = document.getElementById('recipes');
   rec.innerHTML = '';
@@ -2997,7 +3186,7 @@ function secondaryAction() {
   if (!isBlockItem(s.id) || !bh) return;
   const x = bh.x + bh.nx, y = bh.y + bh.ny, z = bh.z + bh.nz;
   const cur = getBlock(x, y, z);
-  if (cur !== AIR && cur !== WATER) return;
+  if (cur !== AIR && !isFluid(cur)) return;
   const overlaps = e => x + 1 > e.pos.x - e.w && x < e.pos.x + e.w && y + 1 > e.pos.y && y < e.pos.y + e.h && z + 1 > e.pos.z - e.w && z < e.pos.z + e.w;
   if (!CROSS.has(s.id) && (overlaps(player) || mobs.some(overlaps))) return;
   if (setBlock(x, y, z, s.id)) {
@@ -3060,8 +3249,9 @@ document.getElementById('reset').addEventListener('click', () => {
     return;
   }
   btn.dataset.confirm = ''; btn.textContent = '新しい世界をつくる';
-  newWorld((Math.random() * 1e9) | 0, {}, null);
-  note.textContent = '新しい世界をつくりました。';
+  const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  newWorld((Math.random() * 1e9) | 0, {}, null, next);
+  note.textContent = `${THEME_INFO[next].name}をつくりました！ もう一度押すと、また別の世界になります。`;
 });
 
 const settings = { bgm: true, sfx: true, enemies: true };
@@ -3134,9 +3324,10 @@ let saveTimer = null;
 function saveNow() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
-      seed, edits, time: dayTime, hp: player.hp, inv, equip, picked: [...picked],
+      seed, theme, edits, time: dayTime, hp: player.hp, inv, equip, picked: [...picked],
       chests: Object.fromEntries(Object.entries(chests).filter(([, v]) => v.some(Boolean))),
       cars: cars.filter(c => c.owned).map(c => ({ x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, color: c.color })),
+      friends: mobs.filter(m => m.friend).map(m => ({ key: m.npc.key, name: m.name, look: m.look, kyanny: !!m.kyanny })),
       pets: mobs.filter(m => m.pet).map(m => ({ type: m.type, name: m.name, uid: m.uid })),
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flying: player.flying },
     }));
@@ -3175,7 +3366,10 @@ function updateSky(dt) {
 }
 
 // ================= 世界の初期化 =================
-function newWorld(s, e, saved) {
+function newWorld(s, e, saved, themeName) {
+  theme = THEME_INFO[themeName] ? themeName : 'meadow';
+  paintTheme(theme);
+  skyDay.setHex(THEME_INFO[theme].sky);
   for (const c of chunks.values()) disposeChunk(c);
   chunks.clear();
   for (const m of mobs.slice()) removeMob(m);
@@ -3185,6 +3379,8 @@ function newWorld(s, e, saved) {
   carSpawned.clear(); riding = null; market = null; mainKey = null; chests = {};
   reelIn();
   seed = s; edits = e || {};
+  friendKeys = new Set(saved && saved.friends ? saved.friends.map(f => f.key) : []);
+  for (const k of friendKeys) npcSpawned.add(k);
   if (saved) {
     player.pos.set(saved.player.x, saved.player.y, saved.player.z);
     player.yaw = saved.player.yaw; player.pitch = saved.player.pitch; player.flying = !!saved.player.flying;
@@ -3205,6 +3401,11 @@ function newWorld(s, e, saved) {
   for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) buildMesh(chunks.get(ckey(pcx + dx, pcz + dz)));
   while (collides(player.pos, player.w, player.h) && player.pos.y < H) player.pos.y += 1;
   player.airTop = player.pos.y;
+  friendKeys = new Set(saved && saved.friends ? saved.friends.map(f => f.key) : []);
+  if (saved && saved.friends) for (const f of saved.friends) {
+    const fm = createMob('friend', player.pos.x + (Math.random() - 0.5) * 2, player.pos.y + 0.5, player.pos.z + (Math.random() - 0.5) * 2, { key: f.key, name: f.name, look: f.look, home: null });
+    fm.friend = true; fm.kyanny = !!f.kyanny; npcSpawned.add(f.key);
+  }
   if (saved && saved.pets) for (const pt of saved.pets) if (MOBS[pt.type]) createMob(pt.type, player.pos.x + (Math.random() - 0.5) * 2, player.pos.y + 0.5, player.pos.z + (Math.random() - 0.5) * 2, null, pt);
   if (saved && saved.cars) for (const c of saved.cars) createCar(c.x, c.y + 0.2, c.z, c.yaw, c.color, null, true);
   renderHearts(); refreshInventory();
@@ -3216,7 +3417,7 @@ try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) 
 if (saved && typeof saved.seed === 'number' && saved.player) {
   dayTime = typeof saved.time === 'number' ? saved.time : 0.3;
   if (typeof saved.hp === 'number' && saved.hp > 0) player.hp = saved.hp;
-  newWorld(saved.seed, saved.edits, saved);
+  newWorld(saved.seed, saved.edits, saved, saved.theme);
   note.textContent = '前回の世界を読み込みました。';
 } else {
   newWorld(seed, {}, null);
@@ -3277,11 +3478,12 @@ function loop(now) {
 
   const hrs = Math.floor(dayTime * 24) % 24, mins = Math.floor((dayTime * 24 * 60) % 60);
   let nh = 0, nv = 0, np = 0;
-  for (const m of mobs) { if (m.T.hostile) nh++; else if (m.T.villager) nv++; else if (m.pet) np++; }
+  let nf = 0;
+  for (const m of mobs) { if (m.T.hostile) nh++; else if (m.friend) nf++; else if (m.T.villager) nv++; else if (m.pet) np++; }
   hud.textContent =
     `座標  X ${player.pos.x.toFixed(1)}  Y ${player.pos.y.toFixed(1)}  Z ${player.pos.z.toFixed(1)}\n` +
     `時刻  ${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}   ${fps} FPS\n` +
-    `村人 ${nv}  ペット ${np}  動物 ${mobs.length - nh - nv - np}  敵 ${nh}` +
+    `友達 ${nf}  村人 ${nv}  ペット ${np}  動物 ${mobs.length - nh - nv - np - nf}  敵 ${nh}` +
     (equip.clothes ? `\n服：${itemName(equip.clothes)}` : '') +
     (player.flying ? '\n飛行モード' : '') +
     (riding ? '\n車を運転中：W/S 前・うしろ  A/D ハンドル  Shift おりる' : '');
@@ -3290,6 +3492,6 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
-window.__cubeland = { cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
+window.__cubeland = { talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
 })();
 </script>
