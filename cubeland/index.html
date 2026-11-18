@@ -85,6 +85,7 @@
   .equip { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 14px; }
   #stats { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .grid { display: grid; grid-template-columns: repeat(9, 48px); gap: 4px; }
+  #bagGrid { max-height: 330px; overflow-y: auto; }
   .grid + .grid { margin-top: 10px; padding-top: 10px; border-top: 2px dashed var(--edge); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; max-width: 470px; }
   .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -108,6 +109,7 @@
   #forgeIcon { width: 72px; height: 72px; image-rendering: pixelated; flex: none; }
   #forgeName { font-size: 16px; margin-bottom: 4px; }
   #forgeStat { font-size: 13px; color: var(--gold); margin-bottom: 6px; }
+  #aimName { position: fixed; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); background: var(--shade); border: 2px solid var(--gold); border-radius: 6px; padding: 3px 10px; font-size: 15px; pointer-events: none; white-space: nowrap; }
   #nav { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; background: var(--shade); border: 2px solid var(--edge); border-radius: 6px; padding: 4px 12px; font-size: 14px; pointer-events: none; white-space: nowrap; }
   #nav .arr { display: inline-block; color: var(--gold); margin-right: 4px; transition: transform .1s; }
   .bubble.section { background: #ffd25a; border-color: #6b3f12; font-size: 13px; padding: 2px 10px; }
@@ -142,6 +144,7 @@
 <div id="blockname"></div>
 <div id="toast"></div>
 <div id="nav" hidden></div>
+<div id="aimName" hidden></div>
 <div id="homeLabel" class="bubble" hidden><b>みっくんのいえ</b></div>
 <canvas id="held" width="16" height="16"></canvas>
 <div id="bottom">
@@ -2022,13 +2025,15 @@ const sameStack = (a, b) => a && b && stackable(a) && a.id === b.id && (a.mat ||
 function addItem(item) {
   let n = item.count;
   const max = stackable(item) ? 64 : 1;
-  for (let i = 0; i < 36 && n > 0; i++) {
+  for (let i = 0; i < inv.length && n > 0; i++) {
     const s = inv[i];
     if (sameStack(s, item) && s.count < max) { const a = Math.min(n, max - s.count); s.count += a; n -= a; }
   }
-  for (let i = 0; i < 36 && n > 0; i++) {
+  for (let i = 0; i < inv.length && n > 0; i++) {
     if (!inv[i]) { const a = Math.min(n, max); inv[i] = Object.assign({}, item, { count: a }); n -= a; }
   }
+  // かばんはいっぱいにならない：足りなければマスがふえる
+  while (n > 0) { const a = Math.min(n, max); inv.push(Object.assign({}, item, { count: a })); n -= a; }
   refreshInventory();
   return n;
 }
@@ -2036,7 +2041,7 @@ function addItem(item) {
 function holdItem(item) {
   const same = s => s && s.id === item.id && (s.mat || null) === (item.mat || null) && (s.deco || null) === (item.deco || null);
   let idx = -1;
-  for (let i = 35; i >= 0; i--) if (same(inv[i])) { idx = i; if (i < 9) break; }
+  for (let i = inv.length - 1; i >= 0; i--) if (same(inv[i])) { idx = i; if (i < 9) break; }
   if (idx < 0) return;
   if (idx >= 9) {
     const empty = inv.slice(0, 9).findIndex(v => !v);
@@ -2048,7 +2053,7 @@ function holdItem(item) {
 }
 function countItem(id) { let n = 0; for (const s of inv) if (s && s.id === id) n += s.count; return n; }
 function takeItem(id, n) {
-  for (let i = 35; i >= 0 && n > 0; i--) {
+  for (let i = inv.length - 1; i >= 0 && n > 0; i--) {
     const s = inv[i];
     if (!s || s.id !== id) continue;
     const a = Math.min(n, s.count); s.count -= a; n -= a;
@@ -3699,7 +3704,8 @@ function renderInventory() {
   }
   const bag = document.getElementById('bagGrid'), hot = document.getElementById('hotGrid');
   bag.innerHTML = ''; hot.innerHTML = '';
-  for (let i = 9; i < 36; i++) { const el = slotEl(inv[i], invPick === i ? 'pick' : ''); el.addEventListener('click', () => clickSlot(i)); bag.append(el); }
+  const total = Math.max(36, Math.ceil((inv.length + 1) / 9) * 9);
+  for (let i = 9; i < total; i++) { const el = slotEl(inv[i] || null, invPick === i ? 'pick' : ''); el.addEventListener('click', () => clickSlot(i)); bag.append(el); }
   for (let i = 0; i < 9; i++) {
     const el = slotEl(inv[i], invPick === i ? 'pick' : (i === selected ? 'sel' : ''));
     const k = document.createElement('span'); k.className = 'key'; k.textContent = i + 1; el.prepend(k);
@@ -4197,14 +4203,14 @@ function newWorld(s, e, saved, themeName) {
     player.pos.set(saved.player.x, saved.player.y, saved.player.z);
     player.yaw = saved.player.yaw; player.pitch = saved.player.pitch; player.flying = !!saved.player.flying;
     picked = new Set(saved.picked || []);
-    inv.fill(null);
-    (saved.inv || []).forEach((v, i) => { if (i < 36) inv[i] = v; });
+    inv.length = 36; inv.fill(null);
+    (saved.inv || []).forEach((v, i) => { inv[i] = v || null; });
     equip.clothes = saved.equip ? saved.equip.clothes : null;
     chests = saved.chests || {};
   } else {
     player.pos.copy(spawnPoint()); player.flying = false; player.hp = 20; player.yaw = 0; player.pitch = -0.1;
     picked = new Set();
-    inv.fill(null); equip.clothes = null;
+    inv.length = 36; inv.fill(null); equip.clothes = null;
     addItem({ id: TORCH, count: 6 }); addItem({ id: APPLE, count: 3 });
   }
   player.vel.set(0, 0, 0);
@@ -4252,7 +4258,7 @@ document.getElementById('loading').hidden = true;
 const hud = document.getElementById('hud');
 const hurtEl = document.getElementById('hurt');
 const tmpV = new THREE.Vector3();
-let wasInHome = false;
+let wasInHome = false, aimT = 0;
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0, moodT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
@@ -4291,6 +4297,22 @@ function loop(now) {
   const sigState = signalT < 5 ? 0 : signalT < 6.5 ? 1 : 2;
   for (const sg of signals) sg.g.userData.lights.forEach((m, i) => m.material.emissive.setScalar(0).add(new THREE.Color(m.material.color).multiplyScalar(i === sigState ? 1 : 0.12)));
   hemiLight.intensity = 0.45 + 0.55 * daylight; dirLight.intensity = 0.5 * daylight;
+  // 見ている物の名前
+  aimT -= dt;
+  if (aimT <= 0) {
+    aimT = 0.1;
+    const an = document.getElementById('aimName');
+    let text = '';
+    if (playing && !riding) {
+      const ph = raycastProp(5), bh2 = raycast(6), ch2 = raycastCar(5);
+      if (ph && (!bh2 || ph.t < bh2.t + 0.2)) {
+        const r = ph.rec;
+        text = r.vehicle ? `${itemName({ id: CAR, mat: r.vehicle })}（クリックでもらえる）` : r.display ? `${PROPS[r.kind].name}（クリックでもらえる）` : `${PROPS[r.kind].name}（左クリックでしまう）`;
+      } else if (ch2 && (!bh2 || ch2.t < bh2.t)) text = `${itemName({ id: CAR, mat: ch2.car.color })}（右クリックで乗る・左クリックでしまう）`;
+      else if (bh2 && (bh2.id === SHELF || bh2.id === FRIDGE) && inMarket(bh2.x, bh2.z)) text = 'たな（右クリックでお店の画面）';
+    }
+    an.textContent = text; an.hidden = !text;
+  }
   // 道案内（スーパーとみっくんの家の方向）
   const navEl = document.getElementById('nav');
   if (market && market.home && !invOpen && !shopOpen) {
