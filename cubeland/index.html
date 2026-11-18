@@ -3085,6 +3085,7 @@ function createCar(x, y, z, yaw, color, key, owned) {
   const V = buildVehicle(color);
   const c = { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), yaw, w: V.w, h: V.h, onGround: false, color, key, owned,
     speed: 0, g: V.g, mats: V.mats, wheels: V.wheels, flash: V.flash, type: V.type, max: V.max, eye: V.eye, lightT: 0, sky: 1, lamp: 0, bumpT: 0, flashT: 0 };
+  c.g.userData.car = c;
   scene.add(c.g);
   cars.push(c);
   return c;
@@ -3095,15 +3096,33 @@ function removeCar(c) {
   const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1);
   if (riding === c) riding = null;
 }
+// 車は見た目どおりの形で当たり判定（地面をクリックしたのに乗ってしまわないように）
+const carRay = new THREE.Raycaster();
 function raycastCar(maxDist) {
-  const o = camera.position, d = new THREE.Vector3(); camera.getWorldDirection(d);
-  let best = null, bt = maxDist;
-  for (const c of cars) {
-    if (c === riding) continue;
-    const t = rayBox(o, d, { x: c.pos.x - 1.1, y: c.pos.y, z: c.pos.z - 1.1 }, { x: c.pos.x + 1.1, y: c.pos.y + 1.45, z: c.pos.z + 1.1 });
-    if (t !== null && t < bt) { bt = t; best = c; }
+  const d = new THREE.Vector3(); camera.getWorldDirection(d);
+  carRay.set(camera.position, d); carRay.far = maxDist;
+  const list = cars.filter(c => c !== riding && c.g.visible).map(c => c.g);
+  const hit = carRay.intersectObjects(list, true)[0];
+  if (!hit) return null;
+  let o = hit.object;
+  while (o && !o.userData.car) o = o.parent;
+  return o ? { car: o.userData.car, t: hit.distance } : null;
+}
+// 車を置く場所：見ている所、とどかなければ目の前の地面
+function placeCarFromItem(s, bh) {
+  let x, y, z;
+  if (bh && bh.t < 7) { x = bh.x + bh.nx + 0.5; y = bh.y + bh.ny; z = bh.z + bh.nz + 0.5; }
+  else {
+    x = player.pos.x - Math.sin(player.yaw) * 3.5; z = player.pos.z - Math.cos(player.yaw) * 3.5; y = null;
+    for (let yy = Math.floor(player.pos.y) + 3; yy >= Math.floor(player.pos.y) - 8; yy--) if (standable(Math.floor(x), yy, Math.floor(z))) { y = yy; break; }
+    if (y === null) { toast('ここには置けないよ。地面の上で右クリックしてね'); return false; }
   }
-  return best ? { car: best, t: bt } : null;
+  if (Math.hypot(x - player.pos.x, z - player.pos.z) < 1.8) { x -= Math.sin(player.yaw) * 2; z -= Math.cos(player.yaw) * 2; }
+  const c = createCar(x, y + 0.05, z, player.yaw + Math.PI, s.mat, null, true);
+  for (let k = 0; k < 4 && collides(c.pos, c.w, c.h); k++) c.pos.y += 1;
+  inv[selected] = null; refreshInventory();
+  toast(`${itemName(s)}をおいた！ 車をクリック（右クリック）で乗れるよ`); Sound.place(PLANKS); saveSoon();
+  return true;
 }
 function enterCar(c) {
   riding = c; c.owned = true;
@@ -3667,13 +3686,7 @@ function secondaryAction() {
     refreshInventory(); toast(`${itemName(s)}を着た！`); Sound.craft(); saveSoon();
     return;
   }
-  if (s.id === CAR && bh) {
-    const c = createCar(bh.x + bh.nx + 0.5, bh.y + bh.ny + 0.05, bh.z + bh.nz + 0.5, player.yaw + Math.PI, s.mat, null, true);
-    if (collides(c.pos, c.w, c.h)) c.pos.y += 1;
-    inv[selected] = null; refreshInventory();
-    toast(`${itemName(s)}をおいた！ 右クリックで乗れるよ`); Sound.place(PLANKS); saveSoon();
-    return;
-  }
+  if (s.id === CAR) { placeCarFromItem(s, bh); return; }
   if (s.id === PETFOOD) { toast('動物に向けて右クリックであげてね'); return; }
   if (!isBlockItem(s.id) || !bh) return;
   const x = bh.x + bh.nx, y = bh.y + bh.ny, z = bh.z + bh.nz;
