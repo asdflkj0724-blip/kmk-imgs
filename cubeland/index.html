@@ -152,6 +152,7 @@
       <span><kbd>スペース</kbd></span><span>ジャンプ / 泳ぐ / 上昇</span>
       <span><kbd>Shift</kbd></span><span>ダッシュ（飛行中は下降）</span>
       <span><kbd>F</kbd></span><span>飛行モード（雲の上まで行けます）</span>
+      <span><kbd>H</kbd></span><span>スーパーの前へワープ</span>
       <span><kbd>Esc</kbd></span><span>一時停止</span>
     </div>
     <div class="toggles">
@@ -161,6 +162,7 @@
     </div>
     <div class="actions">
       <button id="play">あそぶ</button>
+      <button id="warp" class="ghost">スーパーの前へワープ（H）</button>
       <button id="reset" class="ghost">新しい世界をつくる</button>
     </div>
     <div id="note"></div>
@@ -3240,6 +3242,14 @@ document.getElementById('respawn').addEventListener('click', () => {
   startPlay();
 });
 document.getElementById('play').addEventListener('click', startPlay);
+function warpToMarket() {
+  if (riding) riding = null;
+  player.pos.copy(spawnPoint()); player.vel.set(0, 0, 0);
+  player.yaw = 0; player.pitch = 0; player.flying = false; player.airTop = player.pos.y; player.invuln = 1;
+  for (const m of mobs) if (m.pet || (m.friend && !m.stay)) teleportPet(m);
+  toast('スーパーの前にワープ！ まっすぐ進むと入り口だよ');
+}
+document.getElementById('warp').addEventListener('click', () => { warpToMarket(); startPlay(); });
 document.getElementById('reset').addEventListener('click', () => {
   const btn = document.getElementById('reset');
   if (btn.dataset.confirm !== '1') {
@@ -3313,6 +3323,7 @@ window.addEventListener('keydown', e => {
   if (riding && e.code === 'KeyF') return;
   if (e.code.startsWith('Digit')) { const n = +e.code.slice(5); if (n >= 1) select(n - 1); }
   if (e.code === 'KeyE') { openInv(); return; }
+  if (e.code === 'KeyH') { warpToMarket(); return; }
   if (e.code === 'KeyF') { player.flying = !player.flying; player.vel.y = 0; toast(player.flying ? '飛行モード オン' : '飛行モード オフ'); }
   if (e.code === 'Space') e.preventDefault();
 });
@@ -3399,6 +3410,11 @@ function newWorld(s, e, saved, themeName) {
   const pcx = Math.floor(player.pos.x / CS), pcz = Math.floor(player.pos.z / CS);
   for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) ensureData(pcx + dx, pcz + dz);
   for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) buildMesh(chunks.get(ckey(pcx + dx, pcz + dz)));
+  // セーブ位置がスーパーの中や屋根の上なら、お店の前に出す
+  if (saved && market && Math.abs(player.pos.x - market.cx) <= 13 && Math.abs(player.pos.z - market.cz) <= 10) {
+    player.pos.copy(spawnPoint()); player.yaw = 0; player.flying = false;
+  }
+  player.pitch = Math.max(-0.4, Math.min(0.2, player.pitch));
   while (collides(player.pos, player.w, player.h) && player.pos.y < H) player.pos.y += 1;
   player.airTop = player.pos.y;
   friendKeys = new Set(saved && saved.friends ? saved.friends.map(f => f.key) : []);
