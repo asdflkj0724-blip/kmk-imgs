@@ -2164,6 +2164,72 @@
       ],
       "ig_media_id": "18091741100507927",
       "permalink": "https://www.instagram.com/reel/Df1z2oODuEl/"
+    },
+    {
+      "date": "2026-11-18T20:21:37+09:00",
+      "slot": "2026-11-18",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "肩を包むリブニットに、腰で結ぶストライプシャツ。裾からレースがのぞくショートパンツで、甘さをひとさじ。",
+      "text": "肩を包むリブニットに、腰で結ぶストライプシャツ。裾からレースがのぞくショートパンツで、甘さをひとさじ。",
+      "image": "imageye___-_imgi_4_O1CN01OV9nKyglC9L2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "ダウンロード (69).png",
+        "imageye___-_imgi_4_O1CN01OV9nKyglC9L2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01cxyAlkClJQB2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_12_O1CN014wVJjptoChK2vH2e_!!2206542070226.jpg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#レースショートパンツ",
+        "#ショートパンツコーデ",
+        "#ストライプシャツ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "裾から、\nレースがのぞく"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "裾から、\nレースがのぞく",
+          "color": "white",
+          "bad": 0.007,
+          "worst_char": 0.053,
+          "on_face": false,
+          "on_product": 0.997
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.058,
+          "worst_char": 0.155,
+          "on_face": false,
+          "on_product": 0.955
+        }
+      ],
+      "ig_media_id": "17968530717235642",
+      "permalink": "https://www.instagram.com/reel/Df4YrHLCqMo/"
     }
   ],
   "errors": []
