@@ -1,0 +1,2463 @@
+{block:NotLoadItemsPage}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width,user-scalable=no,maximum-scale=1">
+<meta name="format-detection" content="telephone=no">
+<title>{PageTitle}</title>
+{FaviconTag}
+{CanonicalTag}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js" integrity="sha512-STof4xm1wgkfm7heWqFJVn58Hm3EtS31XFaagaa8VMReCXAkQnJZ+jEy8PCC/iT18dFy95WcExNHFTqLyp72eQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+{block:NoIndexPageCategory}
+{block:NoIndexPageSearch}
+{block:IndexPage}
+<!-- スライダー・TOP -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick.min.js" integrity="sha512-HGOnQO9+SP1V92SrtZfjqxxtLmVzqZpjFFekvzZVWoiASSQgSr4cw9Kqd2+l8Llp4Gm0G8GIFJ4ddwZilcdb8A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{/block:IndexPage}
+{/block:NoIndexPageSearch}
+{/block:NoIndexPageCategory}
+
+{block:ItemPage}
+<!-- スライダー・商品ページ -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick.min.js" integrity="sha512-HGOnQO9+SP1V92SrtZfjqxxtLmVzqZpjFFekvzZVWoiASSQgSr4cw9Kqd2+l8Llp4Gm0G8GIFJ4ddwZilcdb8A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{/block:ItemPage}
+
+<!-- テーマcss -->
+<style>
+:root {
+    --font-clr: {color:FontClr Color};
+    --clr-red: {color:FontRed Color};
+    --accent-clr: {color:AccentClr Color};
+    --accent-font-clr: {color:AccentFontClr Color};
+    --header-bg: {color:HeadBg Color};
+    --main-menu-clr: {color:HeadClr Color};
+    --item-bg-clr: {color:ItemsBgClr Color};
+    --item-clr: {color:ItemsClr Color};
+    --mv-font-clr: {color:MvClr Color};
+    --concept-bg-clr: {color:ConceptBg Color};
+    --concept-font-clr: {color:ConceptClr Color};
+    --concept-bg-clr2: {color:CloseBg Color};
+    --concept-font-clr2: {color:CloseClr Color};
+}
+</style>
+<link rel="stylesheet" href="https://basefile.akamaized.net/hayadesign-base-shop/659e03f9d18c5/sanitize.css" media="all">
+<link rel="stylesheet" href="https://basefile.akamaized.net/hayadesign-base-shop/68df4a0bddb10/tailor.css" media="all">
+{block:text-CustomCss_Text}
+<link rel="stylesheet" href="{text:CustomCss Text}" media="all"><!-- 追加CSS -->
+{/block:text-CustomCss_Text}
+
+<!-- ===== 輝く未来教育 カスタムデザイン（テーマCSSより後に読み込んで上書き） ===== -->
+<style>
+:root {
+  --kmk-navy: #1B3A6B;      /* 信頼感のある紺 */
+  --kmk-navy-dark: #122848;
+  --kmk-blue-bg: #F2F7FD;   /* 薄い水色の背景 */
+  --kmk-orange: #FF7A00;    /* 行動をうながすオレンジ */
+  --kmk-orange-dark: #D65F00;
+  --kmk-yellow: #FFE14D;    /* マーカー・バッジ */
+  --kmk-red: #E53935;       /* 強調文字 */
+  --kmk-text: #333333;
+
+  /* テーマ既存の色変数も上書き */
+  --font-clr: var(--kmk-text);
+  --clr-red: var(--kmk-red);
+  --accent-clr: var(--kmk-orange);
+  --accent-font-clr: #FFFFFF;
+  --header-bg: #FFFFFF;
+  --main-menu-clr: var(--kmk-navy);
+  --concept-bg-clr: var(--kmk-navy);
+  --concept-font-clr: #FFFFFF;
+  --concept-bg-clr2: var(--kmk-navy);
+  --concept-font-clr2: #FFFFFF;
+}
+
+body { color: var(--kmk-text); }
+
+/* ---------- SNSバー（ヘッダー上） ---------- */
+.sns-bar {
+  background: var(--kmk-navy);
+  padding: 6px 0;
+  width: 100%;
+}
+.sns-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 20px;
+}
+.sns-message {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+.sns-icons-wrapper { display: flex; gap: 14px; align-items: center; }
+.sns-icon {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 4px; text-decoration: none; transition: all .3s ease;
+}
+.sns-icon > svg {
+  width: 40px; height: 40px; border-radius: 50%; padding: 8px;
+  color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: all .3s ease;
+}
+.sns-name { font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap; }
+.sns-icon:hover > svg { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,.25); }
+.sns-icon.instagram > svg { background: linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); }
+.sns-icon.tiktok > svg { background: linear-gradient(135deg,#000 0%,#00f2ea 100%); }
+.sns-icon.youtube > svg { background: #FF0000; }
+@media (max-width: 768px) {
+  .sns-bar-inner { justify-content: center; gap: 12px; padding: 0 12px; }
+  .sns-message { font-size: 12px; }
+  .sns-icons-wrapper { gap: 8px; }
+  .sns-icon > svg { width: 32px; height: 32px; padding: 6px; }
+  .sns-name { display: none; }
+}
+
+/* ---------- ヘッダー ---------- */
+header { border-bottom: 3px solid var(--kmk-navy); }
+header .header-nav nav li a { color: var(--kmk-navy); font-weight: 700; }
+header .header-nav nav li a.nav-cta {
+  background: var(--kmk-orange);
+  color: #fff !important;
+  padding: .5em 1.2em;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--kmk-orange-dark);
+}
+header .header-nav nav li a.nav-cta:hover { opacity: .9; }
+
+/* ---------- 見出し ---------- */
+.item-wrapper h2.ttl,
+.ttl-h1,
+.about-wrap h2 {
+  color: var(--kmk-navy) !important;
+  position: relative;
+  padding-bottom: .5em;
+}
+.item-wrapper h2.ttl::after,
+.ttl-h1::after {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 4px;
+  background: var(--kmk-orange);
+  border-radius: 2px;
+  margin: .4em auto 0;
+}
+
+/* ---------- ボタン（立体的なオレンジ） ---------- */
+.btn a,
+.btn-type-a .btn a,
+.btn-type-b .btn a {
+  background: linear-gradient(180deg, #FF9a3c 0%, var(--kmk-orange) 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 0 var(--kmk-orange-dark);
+  font-weight: 700;
+  transition: transform .15s, box-shadow .15s;
+}
+.btn a:hover {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--kmk-orange-dark);
+  opacity: 1;
+}
+
+/* ---------- コンセプト・クロージング ---------- */
+.concept .box { border-top: 5px solid var(--kmk-orange); }
+.concept .main-catch { font-weight: 700; }
+
+/* ---------- トピックス ---------- */
+.infomation .info-list { background: var(--kmk-blue-bg); border-left: 5px solid var(--kmk-navy); }
+.infomation .info-date { color: var(--kmk-orange); font-weight: 700; }
+
+/* ---------- 文字装飾（商品説明・ブログでも使えます） ---------- */
+.marker { background: linear-gradient(transparent 60%, var(--kmk-yellow) 60%); font-weight: 700; }
+.red { color: var(--kmk-red) !important; font-weight: 700; }
+
+/* ---------- お問い合わせ帯（全ページ共通） ---------- */
+.kmk-cta {
+  background: linear-gradient(135deg, var(--kmk-navy) 0%, #2A5298 100%);
+  color: #fff;
+  text-align: center;
+  padding: 56px 20px;
+  margin-top: 40px;
+}
+.kmk-cta .kmk-cta-badge {
+  display: inline-block;
+  background: var(--kmk-yellow);
+  color: var(--kmk-navy);
+  font-weight: 700;
+  font-size: 14px;
+  padding: .3em 1.2em;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.kmk-cta .kmk-cta-title {
+  font-size: clamp(22px, 4.5vw, 32px);
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.kmk-cta .kmk-cta-title em {
+  font-style: normal;
+  color: var(--kmk-yellow);
+}
+.kmk-cta .kmk-cta-text { font-size: 15px; line-height: 1.8; margin: 0 0 28px; opacity: .95; }
+.kmk-cta .kmk-cta-points {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  list-style: none; padding: 0; margin: 0 0 28px;
+}
+.kmk-cta .kmk-cta-points li {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 6px;
+  padding: .4em 1em;
+  font-size: 14px;
+  font-weight: 700;
+}
+.kmk-cta .kmk-cta-points li::before { content: "✓ "; color: var(--kmk-yellow); }
+.kmk-cta-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+  background: linear-gradient(180deg, #FF9a3c 0%, var(--kmk-orange) 100%);
+  color: #fff !important;
+  font-size: clamp(16px, 3.8vw, 20px);
+  font-weight: 700;
+  text-decoration: none;
+  padding: 1em 2.4em;
+  border-radius: 999px;
+  box-shadow: 0 5px 0 var(--kmk-orange-dark), 0 8px 20px rgba(0,0,0,.25);
+  transition: transform .15s, box-shadow .15s;
+  max-width: 100%;
+}
+.kmk-cta-btn:hover {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--kmk-orange-dark), 0 4px 10px rgba(0,0,0,.25);
+}
+.kmk-cta .kmk-cta-mail { margin-top: 16px; font-size: 13px; opacity: .85; word-break: break-all; }
+.kmk-cta .kmk-cta-mail a { color: #fff; }
+
+/* ---------- 追従お問い合わせボタン ---------- */
+.kmk-float-cta {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 900;
+  display: flex; align-items: center; gap: .4em;
+  background: var(--kmk-orange);
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  padding: .9em 1.6em;
+  border-radius: 999px;
+  box-shadow: 0 4px 0 var(--kmk-orange-dark), 0 6px 16px rgba(0,0,0,.25);
+}
+.kmk-float-cta:hover { opacity: .92; }
+@media (max-width: 768px) {
+  .kmk-float-cta {
+    left: 0; right: 0; bottom: 0;
+    justify-content: center;
+    border-radius: 0;
+    padding: 1em;
+    font-size: 16px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+  }
+  body { padding-bottom: 60px; }
+}
+
+/* ---------- フッター ---------- */
+footer { background: var(--kmk-navy-dark); color: #fff; }
+footer a, footer small { color: #fff !important; }
+</style>
+
+<!-- テーマjs -->
+<script src="https://basefile.akamaized.net/hayadesign-base-shop/67ee17b238cb5/tailor.js"></script>
+<!-- Google fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville&family=Cormorant:wght@700&family=Josefin+Slab&family=Lato:wght@400;700&family=Monoton&family=Oswald:wght@700&family=Playball&family=M+PLUS+1:wght@400;500;600&family=M+PLUS+Rounded+1c:wght@400;500;700&family=IBM+Plex+Sans+JP:wght@300&family=Noto+Sans+JP&family=Noto+Serif+JP&family=Sawarabi+Mincho&display=swap" rel="stylesheet">
+
+<!-- GA -->
+{GoogleAnalyticsTag}
+
+{block:Hidden}
+<!-- ※※※※※※※※※　BASEシステム用記述　※※※※※※※※※ -->
+<meta name="BASE-Theme-Name" content="Tailor（テーラー）">
+<meta name="BASE-Theme-Version" content="9">
+<!--▽▽▽ ユーザー設定項目：基本 ▽▽▽-->
+<!-- ベースカラー -->
+<meta name="color:FontClr Color" content="#333333" label="文字色">
+<meta name="color:FontRed Color" content="#E53935" label="文字色（注目色）">
+<meta name="color:AccentClr Color" content="#FF7A00" label="アクセントカラー">
+<meta name="color:AccentFontClr Color" content="#FFFFFF" label="アクセントカラー適応箇所の文字色">
+<!-- フォント -->
+<meta name="select:Font Select" content="gothic" title="ゴシック体" label="本文フォント">
+<meta name="select:Font Select" content="mincho" title="明朝体" label="本文フォント">
+<meta name="select:LogoFont Select" content="logo-lib" title="Libre Baskerville" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-lato" title="Lato bold" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-cor" title="Cormorant Bold" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-pla" title="Playball" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-osw" title="Oswald Bold" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-jos" title="Josefin Slab Regular" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-mon" title="Monoton" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-mp" title="M PLUS 1p" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-saw" title="Sawarabi Mincho" label="ロゴフォント">
+<meta name="select:LogoFont Select" content="logo-mpr" title="M PLUS Rounded" label="ロゴフォント">
+<meta name="select:TitleFont Select" content="ff-lib" title="Libre Baskerville" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-lato" title="Lato bold" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-cor" title="Cormorant Bold" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-pla" title="Playball" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-osw" title="Oswald Bold" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-jos" title="Josefin Slab Regular" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-mon" title="Monoton" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-mp" title="M PLUS 1p" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-saw" title="Sawarabi Mincho" label="見出しフォント">
+<meta name="select:TitleFont Select" content="ff-mpr" title="M PLUS Rounded" label="見出しフォント">
+<!-- 共通フォーマット -->
+<meta name="if:Round If" content="1" label="角丸デザイン">
+<meta name="select:ContWidth Select" content="w-1200" title="最大1200px" label="コンテンツ幅（PCview）">
+<meta name="select:ContWidth Select" content="w-free" title="ウィンドウ幅" label="コンテンツ幅（PCview）">
+<meta name="select:BtnDesign Select" content="btn-type-a" title="デザインA（色ベタ）" label="ボタンデザイン">
+<meta name="select:BtnDesign Select" content="btn-type-b" title="デザインB（ライン）" label="ボタンデザイン">
+<meta name="select:LightMode Select" content="light-mode" title="ライトモード（白背景）" label="アイコン表示">
+<meta name="select:LightMode Select" content="dark-mode" title="ダークモード（黒背景）" label="アイコン表示">
+<!--▽▽▽ ユーザー設定項目：メニュー ▽▽▽-->
+<!-- メニューデザイン -->
+<meta name="select:HeadType Select" content="head-bg-tra" title="透過" label="【メニュー】ヘッダー背景">
+<meta name="select:HeadType Select" content="head-bg-clr" title="色指定" label="【メニュー】ヘッダー背景">
+<meta name="color:HeadBg Color" content="#FFFFFF" label="【メニュー】ナビゲーション背景色">
+<meta name="color:HeadClr Color" content="#1B3A6B" label="【メニュー】ナビゲーション文字色">
+<meta name="if:MenuSide If" content="1" label="【メニュー】サイド表示（PCview）">
+<meta name="if:MenuBurger If" content="1" label="【メニュー】ハンバーガー表示（PCview）">
+<!-- メニュー表記 -->
+<meta name="text:MenuHome Text" content="Home" label="【メニュー】「Home」名称">
+<meta name="text:MenuAbout Text" content="About" label="【メニュー】「About」名称">
+<meta name="text:MenuBlog Text" content="Blog" label="【メニュー】「Blog」名称">
+<meta name="text:MenuMembership Text" content="Membership" label="【メニュー】「Membership」名称">
+<meta name="text:MenuCommunity Text" content="Community" label="【メニュー】「Community」名称">
+<meta name="text:MenuContact Text" content="お問い合わせ" label="【メニュー】「Contact」名称">
+<meta name="text:FootMenuTtl Text" content="はじめての方へ" label="【メニュー】フッター追加メニュー名">
+<meta name="text:FootMenuUrl Text" content="https://example.com/" label="【メニュー】フッター追加メニューURL">
+<meta name="select:MenuLang Select" content="menu-ENG-lower" title="英語（例：Information）" label="【メニュー】その他メニュー表記フォーマット">
+<meta name="select:MenuLang Select" content="menu-ENG-upper" title="英語（例：INFORMATION）" label="【メニュー】その他メニュー表記フォーマット">
+<meta name="select:MenuLang Select" content="menu-JP" title="日本語（例：店舗情報）" label="【メニュー】その他メニュー表記フォーマット">
+<!-- コピーライト -->
+<meta name="text:FootCopyright Text" content="" label="【メニュー】コピーライト表記">
+<!--▽▽▽ ユーザー設定項目：お問い合わせ ▽▽▽-->
+<meta name="text:ContactMail Text" content="kagayakumiraikyouiku@gmail.com" label="【お問い合わせ】送信先メールアドレス">
+<meta name="text:CtaTitle Text" content="まずはお気軽にご相談ください" label="【お問い合わせ】帯の見出し">
+<meta name="text:CtaText Text" content="学習の悩み・進路のご相談など、どんなことでもお気軽にどうぞ。担当者より丁寧にご返信いたします。" label="【お問い合わせ】帯の説明文">
+<meta name="text:CtaBtn Text" content="メールで無料相談する" label="【お問い合わせ】ボタンの文字">
+<!--▽▽▽ ユーザー設定項目：一覧表示 ▽▽▽-->
+<!-- 構成 -->
+<meta name="select:ItemsColSp Select" content="1" title="1カラム" label="【一覧】カラム数（SPview）">
+<meta name="select:ItemsColSp Select" content="2" title="2カラム" label="【一覧】カラム数（SPview）">
+<meta name="select:ItemsColSp Select" content="3" title="3カラム" label="【一覧】カラム数（SPview）">
+<meta name="select:ItemsColPc Select" content="3" title="3カラム" label="【一覧】カラム数（PCview）">
+<meta name="select:ItemsColPc Select" content="4" title="4カラム" label="【一覧】カラム数（PCview）">
+<meta name="select:Gap Select" content="gap-on" title="溝あり" label="【一覧】溝（余白）">
+<meta name="select:Gap Select" content="gap-off" title="溝無し" label="【一覧】溝（余白）">
+<!-- カラー -->
+<meta name="select:ItemsBg Select" content="item-bg-tra" title="透過" label="【一覧】アイテム背景">
+<meta name="select:ItemsBg Select" content="item-bg-clr" title="色指定" label="【一覧】アイテム背景">
+<meta name="color:ItemsBgClr Color" content="#FFFFFF" label="【一覧】アイテム背景色">
+<meta name="color:ItemsClr Color" content="inherit" label="【一覧】アイテム文字色">
+<!-- 画像 -->
+<meta name="select:ItemsImgRatio Select" content="img-sq" title="正方形" label="【一覧】アイテム画像サイズ比率">
+<meta name="select:ItemsImgRatio Select" content="img-la-gold" title="横（1.618:1）" label="【一覧】アイテム画像サイズ比率">
+<meta name="select:ItemsImgRatio Select" content="img-la-screen" title="横（4:3）" label="【一覧】アイテム画像サイズ比率">
+<meta name="select:ItemsImgRatio Select" content="img-pt-gold" title="タテ（1:1.618）" label="【一覧】アイテム画像サイズ比率">
+<meta name="select:ItemsImgRatio Select" content="img-pt-screen" title="タテ（3:4）" label="【一覧】アイテム画像サイズ比率">
+<!--▽▽▽ ユーザー設定項目：クロージング ▽▽▽-->
+<meta name="if:CloseDisplay If" content="1" label="▼▼▼クロージング表示▼▼▼">
+<meta name="image:CloseImg Image" content="" label="クロージング背景画像">
+<meta name="select:CloseType Select" content="close-bg-tra" title="透過" label="クロージング文字背景">
+<meta name="select:CloseType Select" content="close-bg-clr" title="色指定" label="クロージング文字背景">
+<meta name="color:CloseBg Color" content="#1B3A6B" label="クロージング文字背景色">
+<meta name="color:CloseClr Color" content="#FFFFFF" label="クロージング文字色">
+<meta name="text:CloseTitle Text" content="クロージング見出し" label="クロージング見出し">
+<meta name="text:CloseText Text" content="紹介テキストを入力できます" label="クロージングサブテキスト">
+<meta name="text:CloseBtn Text" content="View more" label="クロージングボタン表記">
+<meta name="text:CloseUrl Text" content="https://example.com/" label="クロージングリンクURL">
+<!--▽▽▽ ユーザー設定項目：上級者向け ▽▽▽-->
+<meta name="text:CustomCss Text" content="" title="アップロード済の外部CSSのURLを入力してください" label="【※上級者向け】追加CSS">
+<!--▽▽▽ ユーザー設定項目：TOPページ ▽▽▽-->
+<!-- MVデザイン -->
+<meta name="if:MvDisplay If" content="1" label="▼▼▼メインビジュアル表示▼▼▼" data-group="home">
+<meta name="select:MvType Select" content="mv-slide" title="スライダー" label="MV種類" data-group="home">
+<meta name="select:MvType Select" content="mv-fix" title="固定（静止画）" label="MV種類" data-group="home">
+<meta name="select:MvDesign Select" content="mv-type-a" title="デザインA" label="MVデザイン" data-group="home">
+<meta name="select:MvDesign Select" content="mv-type-b" title="デザインB" label="MVデザイン" data-group="home">
+<meta name="select:MvDesign Select" content="mv-type-c" title="デザインC" label="MVデザイン" data-group="home">
+<meta name="select:MvDesign Select" content="mv-type-d" title="デザインD" label="MVデザイン" data-group="home">
+<meta name="color:MvClr Color" content="#1B3A6B" label="MV文字色" data-group="home">
+<!-- MV内容 -->
+<meta name="text:MvTitle1 Text" content="MV見出し①" label="◆MV①タイトル" data-group="home">
+<meta name="text:MvText1 Text" content="紹介テキストを入力できます" label="◆MV①サブテキスト" data-group="home">
+<meta name="text:MvUrl1 Text" content="https://example.com/" label="◆MV①URL" data-group="home">
+<meta name="image:MvImg1 Image" content="" label="◆MV①画像" data-group="home">
+<meta name="text:MvTitle2 Text" content="MV見出し②" label="☆MV②タイトル" data-group="home">
+<meta name="text:MvText2 Text" content="紹介テキストを入力できます" label="☆MV②サブテキスト" data-group="home">
+<meta name="text:MvUrl2 Text" content="https://example.com/" label="☆MV②URL" data-group="home">
+<meta name="image:MvImg2 Image" content="" label="☆MV②画像" data-group="home">
+<meta name="text:MvTitle3 Text" content="MV見出し③" label="△MV③タイトル" data-group="home">
+<meta name="text:MvText3 Text" content="紹介テキストを入力できます" label="△MV③サブテキスト" data-group="home">
+<meta name="text:MvUrl3 Text" content="https://example.com/" label="△MV③URL" data-group="home">
+<meta name="image:MvImg3 Image" content="" label="△MV③画像" data-group="home">
+<!-- バナー -->
+<meta name="if:BnrDisplay If" content="1" label="▼▼▼キャンペーンバナー表示▼▼▼" data-group="home">
+<meta name="image:BnrImgSp Image" content="" label="バナー画像（SPview）" data-group="home">
+<meta name="image:BnrImgPc Image" content="" label="バナー画像（PCview）" data-group="home">
+<meta name="text:BnrUrl Text" content="https://example.com/" label="バナーリンクURL" data-group="home">
+<!-- コンセプトデザイン -->
+<meta name="if:ConceptDisplay If" content="1" label="▼▼▼コンセプト表示▼▼▼" data-group="home">
+<meta name="image:ConceptImg Image" content="" label="コンセプト背景画像" data-group="home">
+<meta name="select:ConceptType Select" content="concept-bg-tra" title="透過" label="コンセプト文字背景" data-group="home">
+<meta name="select:ConceptType Select" content="concept-bg-clr" title="色指定" label="コンセプト文字背景" data-group="home">
+<meta name="color:ConceptBg Color" content="#1B3A6B" label="コンセプト文字背景色" data-group="home">
+<meta name="color:ConceptClr Color" content="#FFFFFF" label="コンセプト文字色" data-group="home">
+<!-- コンセプト内容 -->
+<meta name="text:ConceptTitle Text" content="コンセプト見出し" label="コンセプト見出し" data-group="home">
+<meta name="text:ConceptText Text" content="紹介テキストを入力できます" label="コンセプトサブテキスト" data-group="home">
+<meta name="text:ConceptBtn Text" content="View more" label="コンセプトボタン表記" data-group="home">
+<meta name="text:ConceptUrl Text" content="https://example.com/" label="コンセプトリンクURL" data-group="home">
+<!-- ランキング -->
+<meta name="if:RankDisplay If" content="1" label="▼▼▼ランキング表示▼▼▼" data-group="home">
+<meta name="text:RankTitle Text" content="Ranking" label="ランキング見出し" data-group="home">
+<meta name="text:RankNo1 Text" content="" label="1位：商品ID" data-group="home">
+<meta name="text:RankNo2 Text" content="" label="2位：商品ID" data-group="home">
+<meta name="text:RankNo3 Text" content="" label="3位：商品ID" data-group="home">
+<meta name="text:RankNo4 Text" content="" label="4位：商品ID" data-group="home">
+<meta name="text:RankNo5 Text" content="" label="5位：商品ID" data-group="home">
+<!-- Pickupカテゴリ -->
+<meta name="if:TopCateDisplay If" content="1" label="▼▼▼Pickupカテゴリ表示▼▼▼" data-group="home">
+<meta name="text:TopCateId Text" content="" label="カテゴリID" data-group="home">
+<!-- 商品一覧 -->
+<meta name="if:ItemsDisplay If" content="1" label="▼▼▼商品一覧表示▼▼▼" data-group="home">
+<meta name="text:ItemsTitle Text" content="New Items" label="商品一覧見出し" data-group="home">
+<!-- ブログ -->
+<meta name="if:BlogDisplay If" content="1" label="▼▼▼ブログ表示▼▼▼" data-group="home">
+<meta name="select:BlogType Select" content="blog-img" title="画像あり" label="ブログ表示デザイン" data-group="home">
+<meta name="select:BlogType Select" content="blog-txt" title="テキスト" label="ブログ表示デザイン" data-group="home">
+<!-- トピックス -->
+<meta name="if:TopicsDisplay If" content="1" label="▼▼▼トピックス表示▼▼▼" data-group="home">
+<meta name="text:TopicsTitle Text" content="Topics" label="トピックス見出し" data-group="home">
+<meta name="text:Topics1Date Text" content="2023.1.1" label="トピックス①更新日" data-group="home">
+<meta name="text:Topics1 Text" content="お知らせ情報を入力してください" label="トピックス①内容" data-group="home">
+<meta name="text:Topics2Date Text" content="" label="トピックス②更新日" data-group="home">
+<meta name="text:Topics2 Text" content="" label="トピックス②内容" data-group="home">
+<meta name="text:Topics3Date Text" content="" label="トピックス③更新日" data-group="home">
+<meta name="text:Topics3 Text" content="" label="トピックス③内容" data-group="home">
+<!-- 埋め込みコード -->
+<meta name="if:InstagramDisplay If" content="0" label="▼▼▼埋め込みコード表示▼▼▼" data-group="home">
+<meta name="text:InstagramCodeTitle Text" content="Instagram" label="埋め込みコード用見出し" data-group="home">
+<meta name="text:InstagramCode Text" content="" label="埋め込みコード" data-group="home">
+<!-- TOP表示順 -->
+<meta name="select:TopNumRnak Select" content="1" title="1番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumRnak Select" content="2" title="2番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumRnak Select" content="3" title="3番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumRnak Select" content="4" title="4番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumRnak Select" content="5" title="5番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumRnak Select" content="6" title="6番目" label="▼【表示順】ランキング" data-group="home">
+<meta name="select:TopNumCate Select" content="1" title="1番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumCate Select" content="2" title="2番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumCate Select" content="3" title="3番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumCate Select" content="4" title="4番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumCate Select" content="5" title="5番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumCate Select" content="6" title="6番目" label="▼【表示順】Pickupカテゴリ" data-group="home">
+<meta name="select:TopNumItems Select" content="1" title="1番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumItems Select" content="2" title="2番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumItems Select" content="3" title="3番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumItems Select" content="4" title="4番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumItems Select" content="5" title="5番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumItems Select" content="6" title="6番目" label="▼【表示順】商品一覧" data-group="home">
+<meta name="select:TopNumBlog Select" content="1" title="1番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumBlog Select" content="2" title="2番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumBlog Select" content="3" title="3番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumBlog Select" content="4" title="4番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumBlog Select" content="5" title="5番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumBlog Select" content="6" title="6番目" label="▼【表示順】ブログ" data-group="home">
+<meta name="select:TopNumTopics Select" content="1" title="1番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumTopics Select" content="2" title="2番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumTopics Select" content="3" title="3番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumTopics Select" content="4" title="4番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumTopics Select" content="5" title="5番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumTopics Select" content="6" title="6番目" label="▼【表示順】トピックス" data-group="home">
+<meta name="select:TopNumInstagram Select" content="1" title="1番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<meta name="select:TopNumInstagram Select" content="2" title="2番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<meta name="select:TopNumInstagram Select" content="3" title="3番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<meta name="select:TopNumInstagram Select" content="4" title="4番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<meta name="select:TopNumInstagram Select" content="5" title="5番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<meta name="select:TopNumInstagram Select" content="6" title="6番目" label="▼【表示順】埋め込みコードエリア" data-group="home">
+<!--▽▽▽ ユーザー設定項目：ABOUTページ ▽▽▽-->
+<!-- MV -->
+<meta name="if:AboutMvDisplay If" content="1" label="▼▼▼メインビジュアル表示▼▼▼" data-group="about">
+<meta name="image:AboutMvImg Image" content="" label="メインビジュアル画像" data-group="about">
+<!-- コンセプト -->
+<meta name="if:AboutConDisplay If" content="1" label="▼▼▼コンセプト表示▼▼▼" data-group="about">
+<meta name="text:AboutConTitle Text" content="Concept" label="コンセプト見出し" data-group="about">
+<meta name="image:AboutConImg Image" content="" label="コンセプト画像" data-group="about">
+<meta name="text:AboutConText Text" content="紹介テキストを入力できます" label="コンセプトテキスト" data-group="about">
+<!-- 店舗情報 -->
+<meta name="if:ShopDisplay If" content="1" label="▼▼▼店舗情報表示▼▼▼" data-group="about">
+<meta name="text:ShopName1 Text" content="店舗名①" label="◆店舗①店舗名" data-group="about">
+<meta name="image:ShopImg1 Image" content="" label="◆店舗①店舗画像" data-group="about">
+<meta name="text:ShopAdd1 Text" content="" label="◆店舗①所在地" data-group="about">
+<meta name="text:ShopMap1 Text" content="" label="◆店舗①GoogleマップURL" data-group="about">
+<meta name="text:ShopTel1 Text" content="" label="◆店舗①TEL" data-group="about">
+<meta name="text:ShopTime1 Text" content="" label="◆店舗①営業時間" data-group="about">
+<meta name="text:ShopName2 Text" content="店舗名②" label="☆店舗②店舗名" data-group="about">
+<meta name="image:ShopImg2 Image" content="" label="☆店舗②店舗画像" data-group="about">
+<meta name="text:ShopAdd2 Text" content="" label="☆店舗②所在地" data-group="about">
+<meta name="text:ShopMap2 Text" content="" label="☆店舗②GoogleマップURL" data-group="about">
+<meta name="text:ShopTel2 Text" content="" label="☆店舗②TEL" data-group="about">
+<meta name="text:ShopTime2 Text" content="" label="☆店舗②営業時間" data-group="about">
+<!-- 決済方法 -->
+<meta name="if:PayDisplay If" content="1" label="▼▼▼決済方法表示▼▼▼" data-group="about">
+<meta name="if:PayCard If" content="1" label="【決済方法】クレジットカード" data-group="about">
+<meta name="if:PayCardVisa If" content="1" label="- 対応カード：VISA" data-group="about">
+<meta name="if:PayCardJcb If" content="0" label="- 対応カード：JCB" data-group="about">
+<meta name="if:PayCardAmex If" content="0" label="- 対応カード：American Express" data-group="about">
+<meta name="if:PayCardMaster If" content="1" label="- 対応カード：Mastercard" data-group="about">
+<meta name="if:Paybank If" content="1" label="【決済方法】銀行振込" data-group="about">
+<meta name="if:Paypayid If" content="1" label="【決済方法】Pay ID あと払い" data-group="about">
+<meta name="if:Payamazon If" content="1" label="【決済方法】Amazon Pay" data-group="about">
+<meta name="if:Paypaypal If" content="1" label="【決済方法】PayPal" data-group="about">
+<meta name="if:PayStore If" content="1" label="【決済方法】コンビニ決済・Pay-easy" data-group="about">
+<meta name="if:PayCareer If" content="1" label="【決済方法】キャリア決済" data-group="about">
+<!-- Q&A -->
+<meta name="if:QaDisplay If" content="1" label="▼▼▼Q&A表示▼▼▼" data-group="about">
+<meta name="text:QaQuestion1 Text" content="Q＆Aの質問をお書きください" label="質問1" data-group="about">
+<meta name="text:QaAnswer1 Text" content="Q＆Aの回答をお書きください" label="回答1" data-group="about">
+<meta name="text:QaQuestion2 Text" content="" label="質問2" data-group="about">
+<meta name="text:QaAnswer2 Text" content="" label="回答2" data-group="about">
+<meta name="text:QaQuestion3 Text" content="" label="質問3" data-group="about">
+<meta name="text:QaAnswer3 Text" content="" label="回答3" data-group="about">
+<meta name="text:QaQuestion4 Text" content="" label="質問4" data-group="about">
+<meta name="text:QaAnswer4 Text" content="" label="回答4" data-group="about">
+<meta name="text:QaQuestion5 Text" content="" label="質問5" data-group="about">
+<meta name="text:QaAnswer5 Text" content="" label="回答5" data-group="about">
+<meta name="text:QaUrl Text" content="https://example.com/" label="詳しいQ&AへのリンクURL" data-group="about">
+<!--▽▽▽ ユーザー設定項目：商品ページ ▽▽▽-->
+<meta name="select:ItemPageCol Select" content="1" title="1カラム" label="カラム数（PCview）" data-group="item">
+<meta name="select:ItemPageCol Select" content="2" title="2カラム" label="カラム数（PCview）" data-group="item">
+<!--▽▽▽ ユーザー設定項目：フローティングバナー ▽▽▽-->
+<meta name="image:FloatingBnrImg Image" content="" label="フローティングバナー画像" data-group="other">
+<meta name="text:FloatingBnrUrl Text" content="https://example.com/" label="フローティングバナーリンクURL" data-group="other">
+<!--▽▽▽ ユーザー設定項目：カテゴリページ ▽▽▽-->
+<meta name="if:CateImgDisplay If" content="1" label="▼▼▼【カテゴリ】専用ビジュアル表示▼▼▼" data-group="other">
+<meta name="text:CateId1 Text" content="" label="【カテゴリ】◆カテゴリ①ID" data-group="other">
+<meta name="image:CateImg1 Image" content="" label="【カテゴリ】◆カテゴリ①画像" data-group="other">
+<meta name="text:CateId2 Text" content="" label="【カテゴリ】☆カテゴリ②ID" data-group="other">
+<meta name="image:CateImg2 Image" content="" label="【カテゴリ】☆カテゴリ②画像" data-group="other">
+<meta name="text:CateId3 Text" content="" label="【カテゴリ】△カテゴリ③ID" data-group="other">
+<meta name="image:CateImg3 Image" content="" label="【カテゴリ】△カテゴリ③画像" data-group="other">
+<!-- ※※※※※※※※※　BASEシステム用記述・ここまで　※※※※※※※※※ -->
+{/block:Hidden}
+<!-- ユーザー背景指定 -->
+{BackgroundTag}
+</head>
+
+<body id="{block:IndexPage}{block:NoIndexPageSearch}{block:NoIndexPageCategory}index{/block:NoIndexPageCategory}{/block:NoIndexPageSearch}{/block:IndexPage}{block:IndexPageCategory}category{/block:IndexPageCategory}{block:ItemPage}itempage{/block:ItemPage}{block:IndexPageSearch}search{/block:IndexPageSearch}{block:MembershipPage}MembershipGuide{/block:MembershipPage}{block:MembershipMyPage}MembershipMyPage{/block:MembershipMyPage}{block:MembershipLoginPage}MembershipLogin{/block:MembershipLoginPage}{block:AboutPage}about{/block:AboutPage}{block:BlogPage}blog{/block:BlogPage}{block:CommunityPage}community{/block:CommunityPage}{block:PrivacyPage}prib{/block:PrivacyPage}{block:LawPage}lw{/block:LawPage}{block:ContactPage}contact{/block:ContactPage}" class="{select:Font Select} {select:LightMode Select}">
+{block:AppsInformationBanner}
+<!-- お知らせバナーApp -->
+{block:NotContactPage}<div class="info_wrapper">{AppsInformationBannerTag}</div>{/block:NotContactPage}
+{/block:AppsInformationBanner}
+<!-- Body -->
+<div class="bodywrap">
+
+<!-- SNSバー（body内に移動しました） -->
+<div class="sns-bar">
+  <div class="sns-bar-inner">
+    <p class="sns-message">公式SNSはじめました！</p>
+    <div class="sns-icons-wrapper">
+      <a href="https://www.instagram.com/kagayaku_mirai_/" target="_blank" rel="noopener noreferrer" class="sns-icon instagram">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+        </svg>
+        <span class="sns-name">Instagram</span>
+      </a>
+      <a href="https://www.tiktok.com/@o904485" target="_blank" rel="noopener noreferrer" class="sns-icon tiktok">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+        </svg>
+        <span class="sns-name">TikTok</span>
+      </a>
+      <a href="https://www.youtube.com/@%E8%BC%9D%E3%81%8F%E6%9C%AA%E6%9D%A5%E6%95%99%E8%82%B2" target="_blank" rel="noopener noreferrer" class="sns-icon youtube">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+        <span class="sns-name">YouTube</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ヘッダー -->
+<header class="{select:HeadType Select}">
+  <div class="header-wrapper">
+  <h1 class="head_logo {select:LogoFont Select}"><a href="{IndexPageURL}" id="logo">{LogoTag}</a></h1>
+  <div class="header-nav">
+   <nav>
+    <li><a href="{IndexPageURL}">{text:MenuHome Text}</a></li>
+    <li><a href="{AboutPageURL}">{text:MenuAbout Text}</a></li>
+    {block:AppsBlog}<li><a href="{BlogPageURL}">{text:MenuBlog Text}</a></li>{/block:AppsBlog}
+    {block:ShopPublic}{block:AppsCommunity}<li><a href="{CommunityPageURL}">{text:MenuCommunity Text}</a></li>{/block:AppsCommunity}{/block:ShopPublic}
+    {block:AppsMembership}<li><a href="{MembershipPageURL}">{text:MenuMembership Text}</a></li>{/block:AppsMembership}
+    <li><a href="mailto:{text:ContactMail Text}" class="js-mail-link nav-cta">{text:MenuContact Text}</a></li>
+  </nav>
+  {block:AppsMembership}
+  <!-- マイページicon -->
+  <div class="header-mypage">
+    <a href="{MembershipMyPageURL}">
+    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20.4652 20.3703C20.593 20.2371 20.7177 20.1007 20.8391 19.9614L20.8566 19.9411C20.9742 19.8056 21.0885 19.6676 21.1998 19.5267C21.2088 19.5154 21.2175 19.5041 21.2265 19.4928C21.3334 19.3562 21.4374 19.2171 21.5383 19.0756C21.5498 19.0593 21.5616 19.0432 21.5731 19.0269C21.6697 18.89 21.7631 18.7509 21.8537 18.6096C21.8679 18.5876 21.882 18.5657 21.896 18.5434C21.982 18.4072 22.065 18.269 22.1455 18.1289C22.1616 18.1009 22.1782 18.0728 22.1941 18.0445C22.2702 17.9095 22.3431 17.7727 22.4137 17.6344C22.4312 17.6002 22.4491 17.5659 22.4664 17.5314C22.5329 17.3982 22.5959 17.2632 22.6573 17.1273C22.6759 17.0864 22.6948 17.0456 22.713 17.0042C22.7702 16.8731 22.824 16.7404 22.8765 16.6068C22.8951 16.5594 22.9144 16.5127 22.9324 16.4651C22.9811 16.3361 23.0262 16.2055 23.0704 16.0741C23.0883 16.0208 23.1074 15.9676 23.1247 15.914C23.1651 15.7873 23.2019 15.659 23.2383 15.5304C23.2551 15.4708 23.273 15.412 23.2889 15.3522C23.322 15.227 23.351 15.1003 23.38 14.9733C23.3947 14.9089 23.4108 14.8452 23.4243 14.7806C23.4506 14.6555 23.4726 14.5288 23.4947 14.4023C23.5065 14.3346 23.5203 14.2679 23.5308 14.2001C23.5508 14.0724 23.566 13.9434 23.5819 13.8144C23.5902 13.7465 23.6008 13.6791 23.6077 13.6108C23.6219 13.4735 23.6311 13.3346 23.6405 13.1959C23.6447 13.135 23.6511 13.0749 23.6543 13.0137C23.6647 12.8136 23.6702 12.6124 23.6702 12.4098C23.67 6.05878 18.5212 0.909996 12.17 0.909996C5.81876 0.909996 0.669983 6.05878 0.669983 12.41C0.669983 12.6126 0.675503 12.8139 0.685853 13.014C0.689073 13.0752 0.695513 13.1352 0.699653 13.1961C0.709083 13.3348 0.718283 13.4737 0.732543 13.6111C0.739673 13.6794 0.750023 13.7465 0.758303 13.8146C0.773943 13.9436 0.789353 14.0727 0.809363 14.2003C0.819943 14.2682 0.833743 14.3351 0.845473 14.4025C0.867553 14.529 0.889633 14.6557 0.915853 14.7808C0.929423 14.8455 0.945753 14.9092 0.960243 14.9736C0.989223 15.1003 1.0182 15.227 1.05132 15.3524C1.06719 15.4122 1.08513 15.4711 1.10192 15.5306C1.13803 15.6592 1.17506 15.7875 1.21554 15.9143C1.23279 15.9681 1.25165 16.021 1.26982 16.0744C1.31398 16.2055 1.35906 16.3361 1.40782 16.4654C1.42576 16.513 1.44508 16.5599 1.46371 16.607C1.51615 16.7407 1.56997 16.8734 1.62724 17.0045C1.64518 17.0459 1.66427 17.0864 1.6829 17.1275C1.74431 17.2637 1.80733 17.3985 1.8738 17.5316C1.89105 17.5661 1.90899 17.6004 1.92647 17.6347C1.99708 17.7729 2.07022 17.9098 2.14612 18.0448C2.16199 18.0731 2.17855 18.1011 2.19465 18.1292C2.27515 18.2692 2.35818 18.4075 2.4442 18.5436C2.45823 18.5657 2.47249 18.5876 2.48652 18.6096C2.57714 18.7509 2.67052 18.8898 2.76689 19.0266C2.77839 19.0432 2.79012 19.0595 2.80185 19.0759C2.90259 19.2173 3.00655 19.3565 3.1135 19.4931C3.12224 19.5043 3.13121 19.5156 3.13995 19.5269C3.25104 19.6679 3.36558 19.8059 3.48311 19.9413L3.50082 19.9616C3.62226 20.1007 3.74692 20.2371 3.87457 20.3703L3.88331 20.3795C4.01464 20.5159 4.14896 20.6491 4.28673 20.7788C6.34546 22.7191 9.11788 23.91 12.1698 23.91C15.2216 23.91 17.9938 22.7188 20.0525 20.779L20.053 20.7785C20.1908 20.6488 20.3251 20.5157 20.4564 20.3793L20.4649 20.3705L20.4652 20.3703ZM12.17 5.05C14.3295 5.05 16.08 6.80053 16.08 8.96C16.08 11.1195 14.3295 12.87 12.17 12.87C10.0105 12.87 8.25998 11.1195 8.25998 8.96C8.25998 6.80053 10.0105 5.05 12.17 5.05ZM12.17 22.76C9.30533 22.76 6.70932 21.5898 4.83344 19.7026C6.42665 16.949 9.11696 15.1383 12.17 15.1383C15.223 15.1383 17.9133 16.949 19.5065 19.7026C17.6306 21.5895 15.0346 22.76 12.17 22.76Z" />
+      </svg>
+    </a>
+  </div>
+  {/block:AppsMembership}
+  <!-- カートicon -->
+  {BASEMenuTag}
+  </div>
+  <!-- メニューicon -->
+  <p id="btn-open" class="{block:not_if-MenuBurger_If}pc-none{/block:not_if-MenuBurger_If}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" height="24" width="24" class="spNavOpen"><g class="nc-int-icon js-nc-int-icon nc-int-icon-rotate"><g class="nc-int-icon-a"><path clip-rule="evenodd" fill-rule="evenodd" d="M3 6.75A.75.75 0 013.75 6h16.5a.75.75 0 010 1.5H3.75A.75.75 0 013 6.75zM3 12a.75.75 0 01.75-.75h16.5a.75.75 0 010 1.5H3.75A.75.75 0 013 12zm0 5.25a.75.75 0 01.75-.75h16.5a.75.75 0 010 1.5H3.75a.75.75 0 01-.75-.75z"></path></g><g class="nc-int-icon-b"><path clip-rule="evenodd" fill-rule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"></path></g></g></svg></p>
+  </div>
+</header>
+
+<div class="overlay"></div>
+
+<!-- SPナビゲーション -->
+<div id="sp-nav">
+  <p id="btn-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" height="24" width="24"><path clip-rule="evenodd" fill-rule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"></path></svg></p>
+  {block:AppsSearch}
+  <!-- 検索 -->
+  <div class="item-search">
+  <form action="{SearchPageURL}" method="get">
+    <input type="text" class="{select:Font Select} search-{select:MenuLang Select}" name="q" placeholder="Search" value="{IndexPageSearch}"  data-tra-eng="SEARCH" data-tra-jp="商品検索"/>
+    <button type="submit">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32" height="32" viewBox="0 0 32 32"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m28 27l-7.5-7.5M5 13a9 9 0 1 0 18 0a9 9 0 0 0-18 0Z"></path></svg>
+    </button>
+  </form>
+  </div>
+  {/block:AppsSearch}
+  <!-- メニュー -->
+  <nav>
+    <!-- カテゴリ -->
+    {block:AppsItemCategory}
+    <p class="s-title"><span class="{select:MenuLang Select}" data-tra-eng="CATEGORY" data-tra-jp="カテゴリー">Category</span></p>
+    {block:AppsItemCategoryCategories}
+    <p class="category-title"><a href="{AppsItemCategoryCategoryPageURL}">{AppsItemCategoryCategoryName}</a></p>
+    <ul class="category-group">
+        {block:AppsItemCategoryMediumCategories}<li><a href="{AppsItemCategoryMediumCategoryPageURL}">{AppsItemCategoryMediumCategoryName}</a></li>{/block:AppsItemCategoryMediumCategories}
+    </ul>
+    {/block:AppsItemCategoryCategories}
+    {/block:AppsItemCategory}
+    <!-- ショップインフォ -->
+    <div class="shop-info">
+    <p class="s-title"><span class="{select:MenuLang Select}" data-tra-eng="SHOP INFO." data-tra-jp="インフォメーション">Shop Info.</span></p>
+    <ul class="category-group">
+        <li><a href="{IndexPageURL}">{text:MenuHome Text}</a></li>
+        <li><a href="{AboutPageURL}">{text:MenuAbout Text}</a></li>
+
+        {block:AppsBlog}<li><a href="{BlogPageURL}">{text:MenuBlog Text}</a></li>{/block:AppsBlog}
+        {block:ShopPublic}{block:AppsCommunity}<li><a href="{CommunityPageURL}">{text:MenuCommunity Text}</a></li>{/block:AppsCommunity}{/block:ShopPublic}
+
+        {block:AppsMembership}<li><a href="{MembershipPageURL}">{text:MenuMembership Text}</a></li>{/block:AppsMembership}
+
+        <li><a href="mailto:{text:ContactMail Text}" class="js-mail-link">{text:MenuContact Text}</a></li>
+    </ul>
+    </div>
+    {block:AppsMembership}
+    <!-- Mypageリンク -->
+    <p class="s-title side-mypage">
+    <a href="{MembershipMyPageURL}">
+      <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20.4652 20.3703C20.593 20.2371 20.7177 20.1007 20.8391 19.9614L20.8566 19.9411C20.9742 19.8056 21.0885 19.6676 21.1998 19.5267C21.2088 19.5154 21.2175 19.5041 21.2265 19.4928C21.3334 19.3562 21.4374 19.2171 21.5383 19.0756C21.5498 19.0593 21.5616 19.0432 21.5731 19.0269C21.6697 18.89 21.7631 18.7509 21.8537 18.6096C21.8679 18.5876 21.882 18.5657 21.896 18.5434C21.982 18.4072 22.065 18.269 22.1455 18.1289C22.1616 18.1009 22.1782 18.0728 22.1941 18.0445C22.2702 17.9095 22.3431 17.7727 22.4137 17.6344C22.4312 17.6002 22.4491 17.5659 22.4664 17.5314C22.5329 17.3982 22.5959 17.2632 22.6573 17.1273C22.6759 17.0864 22.6948 17.0456 22.713 17.0042C22.7702 16.8731 22.824 16.7404 22.8765 16.6068C22.8951 16.5594 22.9144 16.5127 22.9324 16.4651C22.9811 16.3361 23.0262 16.2055 23.0704 16.0741C23.0883 16.0208 23.1074 15.9676 23.1247 15.914C23.1651 15.7873 23.2019 15.659 23.2383 15.5304C23.2551 15.4708 23.273 15.412 23.2889 15.3522C23.322 15.227 23.351 15.1003 23.38 14.9733C23.3947 14.9089 23.4108 14.8452 23.4243 14.7806C23.4506 14.6555 23.4726 14.5288 23.4947 14.4023C23.5065 14.3346 23.5203 14.2679 23.5308 14.2001C23.5508 14.0724 23.566 13.9434 23.5819 13.8144C23.5902 13.7465 23.6008 13.6791 23.6077 13.6108C23.6219 13.4735 23.6311 13.3346 23.6405 13.1959C23.6447 13.135 23.6511 13.0749 23.6543 13.0137C23.6647 12.8136 23.6702 12.6124 23.6702 12.4098C23.67 6.05878 18.5212 0.909996 12.17 0.909996C5.81876 0.909996 0.669983 6.05878 0.669983 12.41C0.669983 12.6126 0.675503 12.8139 0.685853 13.014C0.689073 13.0752 0.695513 13.1352 0.699653 13.1961C0.709083 13.3348 0.718283 13.4737 0.732543 13.6111C0.739673 13.6794 0.750023 13.7465 0.758303 13.8146C0.773943 13.9436 0.789353 14.0727 0.809363 14.2003C0.819943 14.2682 0.833743 14.3351 0.845473 14.4025C0.867553 14.529 0.889633 14.6557 0.915853 14.7808C0.929423 14.8455 0.945753 14.9092 0.960243 14.9736C0.989223 15.1003 1.0182 15.227 1.05132 15.3524C1.06719 15.4122 1.08513 15.4711 1.10192 15.5306C1.13803 15.6592 1.17506 15.7875 1.21554 15.9143C1.23279 15.9681 1.25165 16.021 1.26982 16.0744C1.31398 16.2055 1.35906 16.3361 1.40782 16.4654C1.42576 16.513 1.44508 16.5599 1.46371 16.607C1.51615 16.7407 1.56997 16.8734 1.62724 17.0045C1.64518 17.0459 1.66427 17.0864 1.6829 17.1275C1.74431 17.2637 1.80733 17.3985 1.8738 17.5316C1.89105 17.5661 1.90899 17.6004 1.92647 17.6347C1.99708 17.7729 2.07022 17.9098 2.14612 18.0448C2.16199 18.0731 2.17855 18.1011 2.19465 18.1292C2.27515 18.2692 2.35818 18.4075 2.4442 18.5436C2.45823 18.5657 2.47249 18.5876 2.48652 18.6096C2.57714 18.7509 2.67052 18.8898 2.76689 19.0266C2.77839 19.0432 2.79012 19.0595 2.80185 19.0759C2.90259 19.2173 3.00655 19.3565 3.1135 19.4931C3.12224 19.5043 3.13121 19.5156 3.13995 19.5269C3.25104 19.6679 3.36558 19.8059 3.48311 19.9413L3.50082 19.9616C3.62226 20.1007 3.74692 20.2371 3.87457 20.3703L3.88331 20.3795C4.01464 20.5159 4.14896 20.6491 4.28673 20.7788C6.34546 22.7191 9.11788 23.91 12.1698 23.91C15.2216 23.91 17.9938 22.7188 20.0525 20.779L20.053 20.7785C20.1908 20.6488 20.3251 20.5157 20.4564 20.3793L20.4649 20.3705L20.4652 20.3703ZM12.17 5.05C14.3295 5.05 16.08 6.80053 16.08 8.96C16.08 11.1195 14.3295 12.87 12.17 12.87C10.0105 12.87 8.25998 11.1195 8.25998 8.96C8.25998 6.80053 10.0105 5.05 12.17 5.05ZM12.17 22.76C9.30533 22.76 6.70932 21.5898 4.83344 19.7026C6.42665 16.949 9.11696 15.1383 12.17 15.1383C15.223 15.1383 17.9133 16.949 19.5065 19.7026C17.6306 21.5895 15.0346 22.76 12.17 22.76Z" />
+        </svg>
+        <span class="menu-ENG-upper" data-tra-eng="MY PAGE" data-tra-jp="マイページ">My Page</span>
+      </a>
+    </p>
+    {/block:AppsMembership}
+  </nav>
+</div>
+<!-- 本文 -->
+<main>
+{block:AboutPage}
+{block:if-AboutMvDisplay_If}
+<!-- ABOUT・MV -->
+<figure class="about-head-img">
+<img src="{image:AboutMvImg Image}" alt="">
+</figure>
+<!-- ABOUT・MV -->
+{/block:if-AboutMvDisplay_If}
+{/block:AboutPage}
+
+{block:NoIndexPageCategory}
+{block:NoIndexPageSearch}
+{block:IndexPage}
+<!-- ※※※※※※※※※　TOPページ　※※※※※※※※※ -->
+<!-- ※TOPページ限定エリア※ -->
+  {block:if-MvDisplay_If}
+  <!-- TOP・MV -->
+  <div class="main-visual {block:if-Round_If}round10{/block:if-Round_If}">
+    <div class="{select:MvType Select}">
+
+      {block:image-MvImg1_Image}<div>
+        <div class="mv-box {select:MvDesign Select}">
+          	<span class="img">
+              <img src="{image:MvImg1 Image}" alt="" class="{block:if-Round_If}round10{/block:if-Round_If}">
+            </span>
+          <div class="read-wrap">
+            <div class="read">
+                {block:text-MvTitle1_Text}<p class="ttl {select:TitleFont Select}">{text:MvTitle1 Text}</p>{/block:text-MvTitle1_Text}
+                {block:text-MvText1_Text}<p class="txt">{text:MvText1 Text}</p>{/block:text-MvText1_Text}
+                {block:text-MvUrl1_Text}<p class="btn {select:BtnDesign Select}"><a href="{text:MvUrl1 Text}"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>{/block:text-MvUrl1_Text}
+            </div>
+          </div>
+        </div>
+      </div>{/block:image-MvImg1_Image}
+
+      {block:image-MvImg2_Image}<div>
+        <div class="mv-box {select:MvDesign Select}">
+          	<span class="img">
+              <img src="{image:MvImg2 Image}" alt="" class="{block:if-Round_If}round10{/block:if-Round_If}">
+            </span>
+          <div class="read-wrap">
+            <div class="read">
+                {block:text-MvTitle2_Text}<p class="ttl {select:TitleFont Select}">{text:MvTitle2 Text}</p>{/block:text-MvTitle2_Text}
+                {block:text-MvText2_Text}<p class="txt">{text:MvText2 Text}</p>{/block:text-MvText2_Text}
+                {block:text-MvUrl2_Text}<p class="btn {select:BtnDesign Select}"><a href="{text:MvUrl2 Text}"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>{/block:text-MvUrl2_Text}
+            </div>
+          </div>
+        </div>
+      </div>{/block:image-MvImg2_Image}
+
+      {block:image-MvImg3_Image}<div>
+        <div class="mv-box {select:MvDesign Select}">
+          	<span class="img">
+              <img src="{image:MvImg3 Image}" alt="" class="{block:if-Round_If}round10{/block:if-Round_If}">
+            </span>
+          <div class="read-wrap">
+            <div class="read">
+                {block:text-MvTitle3_Text}<p class="ttl {select:TitleFont Select}">{text:MvTitle3 Text}</p>{/block:text-MvTitle3_Text}
+                {block:text-MvText3_Text}<p class="txt">{text:MvText3 Text}</p>{/block:text-MvText3_Text}
+                {block:text-MvUrl3_Text}<p class="btn {select:BtnDesign Select}"><a href="{text:MvUrl3 Text}"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>{/block:text-MvUrl3_Text}
+            </div>
+          </div>
+        </div>
+      </div>{/block:image-MvImg3_Image}
+
+    </div>
+    <!-- /slider -->
+  </div>
+  <style>
+  .main-visual {max-height:100svh; overflow:hidden;}
+  </style>
+  {/block:if-MvDisplay_If}
+
+  {block:if-BnrDisplay_If}
+  <!-- TOP・バナー -->
+  {block:image-BnrImgPc_Image}
+  <section class="banner">
+    {block:text-BnrUrl_Text}<a href="{text:BnrUrl Text}" target="_blank">{/block:text-BnrUrl_Text}
+    <picture>
+      {block:image-BnrImgSp_Image}<source media="(max-width: 780px)" srcset="{image:BnrImgSp Image}">{/block:image-BnrImgSp_Image}
+      <img src="{image:BnrImgPc Image}">
+    </picture>
+    {block:text-BnrUrl_Text}</a>{/block:text-BnrUrl_Text}
+  </section>
+  {/block:image-BnrImgPc_Image}
+  {block:not_image-BnrImgPc_Image}
+  {block:image-BnrImgSp_Image}
+  <section class="banner">
+    {block:text-BnrUrl_Text}<a href="{text:BnrUrl Text}" target="_blank">{/block:text-BnrUrl_Text}
+    <picture>
+      <img src="{image:BnrImgSp Image}">
+    </picture>
+    {block:text-BnrUrl_Text}</a>{/block:text-BnrUrl_Text}
+  </section>
+  {/block:image-BnrImgSp_Image}
+  {/block:not_image-BnrImgPc_Image}
+  {/block:if-BnrDisplay_If}
+
+  {block:if-ConceptDisplay_If}
+  <!-- TOP・コンセプト -->
+  <section class="first concept {select:ConceptType Select}">
+    <div class="box {block:if-Round_If}round10{/block:if-Round_If} {block:not_if-Round_If}round0{/block:not_if-Round_If} {select:ItemsBg Select}">
+      {block:text-ConceptTitle_Text}<p class="main-catch">{text:ConceptTitle Text}</p>{/block:text-ConceptTitle_Text}
+      {block:text-ConceptText_Text}<p class="txt">{text:ConceptText Text}</p>{/block:text-ConceptText_Text}
+      {block:text-ConceptBtn_Text}<p class="btn {select:BtnDesign Select}"><a href="{text:ConceptUrl Text}">{text:ConceptBtn Text}</a></p>{/block:text-ConceptBtn_Text}
+    </div>
+  </section>
+  {/block:if-ConceptDisplay_If}
+
+<!-- ※TOPページ限定エリア・ここまで※ -->
+{/block:IndexPage}
+{/block:NoIndexPageSearch}
+{/block:NoIndexPageCategory}
+
+<!-- ※全ページ共通エリア※ -->
+<div class="main-contents {select:ContWidth Select} {block:if-MenuSide_If}side-on{/block:if-MenuSide_If}{block:not_if-MenuSide_If}side-off{/block:not_if-MenuSide_If}">
+
+  {block:if-MenuSide_If}
+  <!-- ▽▽▽ サイドメニュー ▽▽▽ -->
+  <div class="sidenav {block:if-Round_If}round10{/block:if-Round_If} {block:not_if-Round_If}round0{/block:not_if-Round_If} {select:ItemsBg Select}">
+    {block:AppsItemCategory}
+    {block:AppsItemCategoryCategories}
+    <!-- カテゴリ -->
+    <p class="category-title"><a href="{AppsItemCategoryCategoryPageURL}">{AppsItemCategoryCategoryName}</a></p>
+    <ul class="category-group">
+        {block:AppsItemCategoryMediumCategories}<li><a href="{AppsItemCategoryMediumCategoryPageURL}">{AppsItemCategoryMediumCategoryName}</a></li>{/block:AppsItemCategoryMediumCategories}
+    </ul>
+    {/block:AppsItemCategoryCategories}
+    {/block:AppsItemCategory}
+    <!-- ショップインフォ -->
+    <div class="shop-info">
+    <p class="category-title"><span class="{select:MenuLang Select}" data-tra-eng="SHOP INFO." data-tra-jp="インフォメーション">
+Shop Info.</span></p>
+    <ul class="category-group">
+        <li><a href="{IndexPageURL}">{text:MenuHome Text}</a></li>
+        <li><a href="{AboutPageURL}">{text:MenuAbout Text}</a></li>
+        {block:AppsBlog}<li><a href="{BlogPageURL}">{text:MenuBlog Text}</a></li>{/block:AppsBlog}
+        {block:ShopPublic}{block:AppsCommunity}<li><a href="{CommunityPageURL}">{text:MenuCommunity Text}</a></li>{/block:AppsCommunity}{/block:ShopPublic}
+        {block:AppsMembership}<li><a href="{MembershipPageURL}">{text:MenuMembership Text}</a></li>{/block:AppsMembership}
+        <li><a href="mailto:{text:ContactMail Text}" class="js-mail-link">{text:MenuContact Text}</a></li>
+    </ul>
+    </div>
+  </div>
+  <!-- △△△ サイドメニュー △△△ -->
+  {/block:if-MenuSide_If}
+
+  <!-- ▽▽▽ コンテンツ ▽▽▽ -->
+<div class="main-area {select:ItemsBg Select} {block:if-Round_If}round10{/block:if-Round_If}{block:not_if-Round_If}round0{/block:not_if-Round_If} {select:Gap Select} {select:ItemsImgRatio Select} spculumn-{select:ItemsColSp Select} {block:NotItemPage}pcculumn-{select:ItemsColPc Select}{/block:NotItemPage}{block:ItemPage}pcculumn-3{/block:ItemPage} {select:BtnDesign Select} {block:BlogPage}{select:BlogType Select}-list{/block:BlogPage}">
+
+{block:IndexPage}
+{block:NoIndexPageCategory}
+{block:NoIndexPageSearch}
+
+  <!-- TOP・BLOG固定記事 -->
+  {block:AppsBlog}
+  {block:not_if-BlogDisplay_If}
+  {block:AppsBlogArticleIsPinned}
+  <p class="blog-fixed"><a href="{AppsBlogArticlePageURL}">{AppsBlogArticleTitle}</a></p>
+  {/block:AppsBlogArticleIsPinned}
+  {/block:not_if-BlogDisplay_If}
+  {/block:AppsBlog}
+
+  {block:ShopPublic}
+  {block:if-RankDisplay_If}
+  <!-- TOP・ランキング -->
+  <div class="ranking item-wrapper top-order{select:TopNumRnak Select}">
+    <h2 class="ttl {select:TitleFont Select}">{text:RankTitle Text}</h2>
+    <span class="rankLoading">loading</span>
+    <ul class="itemlist rank-slider" style="display:none;"></ul>
+    {block:text-RankNo1_Text}<span class="rankItemUrl" style="display:none;">{IndexPageURL}/items/{text:RankNo1 Text}?nmb=1</span>{/block:text-RankNo1_Text}
+    {block:text-RankNo2_Text}<span class="rankItemUrl" style="display:none;">{IndexPageURL}/items/{text:RankNo2 Text}?nmb=2</span>{/block:text-RankNo2_Text}
+    {block:text-RankNo3_Text}<span class="rankItemUrl" style="display:none;">{IndexPageURL}/items/{text:RankNo3 Text}?nmb=3</span>{/block:text-RankNo3_Text}
+    {block:text-RankNo4_Text}<span class="rankItemUrl" style="display:none;">{IndexPageURL}/items/{text:RankNo4 Text}?nmb=4</span>{/block:text-RankNo4_Text}
+    {block:text-RankNo5_Text}<span class="rankItemUrl" style="display:none;">{IndexPageURL}/items/{text:RankNo5 Text}?nmb=5</span>{/block:text-RankNo5_Text}
+  </div>
+  {/block:if-RankDisplay_If}
+  {/block:ShopPublic}
+
+  {block:ShopPublic}
+  {block:if-TopCateDisplay_If}
+  <!-- TOP・PICKUPカテゴリ -->
+  <div class="pickupitem item-wrapper top-order{select:TopNumCate Select}">
+    {block:not_text-TopCateId_Text}
+    <h2 class="ttl {select:TitleFont Select}">PICKUPカテゴリ</h2>
+    <p class="red">※カテゴリIDを入力してください。</p>
+    {/block:not_text-TopCateId_Text}
+    {block:text-TopCateId_Text}
+    <ul class="itemlist"></ul>
+    <p class="btn {select:BtnDesign Select}"><a href="{IndexPageURL}/categories/{text:TopCateId Text}/"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>
+    {/block:text-TopCateId_Text}
+  </div>
+  {/block:if-TopCateDisplay_If}
+  {/block:ShopPublic}
+{/block:NoIndexPageSearch}
+{/block:NoIndexPageCategory}
+{/block:IndexPage}
+
+  {block:IndexPage}
+  {block:IndexPageCategory}
+  <!-- カテゴリ・パンくず -->
+  <nav class="bread_wrap">
+  {BreadcrumbTag}
+  </nav>
+  {/block:IndexPageCategory}
+  {block:IndexPageSearch}
+  <!-- 検索・パンくず -->
+  <nav class="bread_wrap">
+        <ul class="breadcrumb">
+            <li class="breadcrumb__child">
+                <a href="{IndexPageURL}" class="breadcrumb__link">
+                  {text:MenuHome Text}
+                </a>
+            </li>
+            <li class="breadcrumb__child">{lang:ItemSearchResult}</li>
+        </ul>
+  </nav>
+  {/block:IndexPageSearch}
+  {/block:IndexPage}
+
+  {block:IndexPage}
+  <!-- 商品一覧（TOP・カテゴリ・検索） -->
+  <div class="allitem item-wrapper top-order{select:TopNumItems Select} {block:if-ItemsDisplay_If}topNoList{/block:if-ItemsDisplay_If}{block:not_if-ItemsDisplay_If}top-items-none{/block:not_if-ItemsDisplay_If}">
+
+    <div class="item-search">
+      {block:NoIndexPageCategory}
+      {block:NoIndexPageSearch}
+      {block:ShopPublic}
+      <!-- TOP・一覧見出し -->
+      <h2 class="ttl {select:TitleFont Select}">{text:ItemsTitle Text}</h2>
+      {/block:ShopPublic}
+      {/block:NoIndexPageSearch}
+      {/block:NoIndexPageCategory}
+
+      {block:IndexPageCategory}
+      <!-- カテゴリ・一覧見出し -->
+      <h2 class="ttl {select:TitleFont Select}">{IndexPageCategory}</h2>
+      {/block:IndexPageCategory}
+
+      {block:IndexPageSearch}
+      <!-- 検索・一覧見出し -->
+      <h2 class="ttl {select:TitleFont Select}">{lang:ItemSearchResult}</h2>
+      {/block:IndexPageSearch}
+
+      {block:AppsSearch}
+      {block:ShopPublic}
+      <!-- 見出しエリア検索窓 -->
+      <form action="{SearchPageURL}" method="get">
+        <input type="text" name="q" class="{select:Font Select} search-{select:MenuLang Select}" placeholder="Search" value="{IndexPageSearch}" data-tra-eng="SEARCH" data-tra-jp="商品検索"/>
+        <button type="submit">
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32" height="32" viewBox="0 0 32 32"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m28 27l-7.5-7.5M5 13a9 9 0 1 0 18 0a9 9 0 0 0-18 0Z"></path></svg>
+        </button>
+      </form>
+      {/block:ShopPublic}
+      {/block:AppsSearch}
+    </div>
+
+    {block:IndexPageCategory}
+    <!-- カテゴリ・タグ -->
+    <ul class="cate-items-tags">
+      {block:AppsItemCategoryChildCategories}
+      <li><a href="{AppsItemCategoryChildCategoryPageURL}">{AppsItemCategoryChildCategoryName}</a></li>
+      {/block:AppsItemCategoryChildCategories}
+    </ul>
+    {/block:IndexPageCategory}
+
+    {block:NotShopPublic}
+    <!-- 準備中 -->
+    <div id="notshop">
+    <p>{lang:NotShopPublicMessage}</p>
+    </div>
+    {/block:NotShopPublic}
+
+    {block:ShopPublic}
+    {block:NoItems}
+    <!-- 該当商品無し -->
+    <div id="notshop">
+    <p>{lang:NoItemsMessage}</p>
+    </div>
+    {/block:NoItems}
+
+    {block:HasItems}
+    <!-- 商品リスト -->
+    <ul class="itemlist" id="itemListWrap">
+      {block:Items}
+      <li>
+        <a href="{ItemPageURL}">
+        {block:AppsItemLabel}{AppsItemLabelTag}{/block:AppsItemLabel}
+        <div class="img">
+          {block:ItemImage1}
+            <img src="{ItemImage1URL-500}" alt="{ItemTitle} 画像">
+          {/block:ItemImage1}
+          {block:NoItemImage1}<img src="https://basefile.akamaized.net/tailordemo-base-shop/67ee1205d8aea/noimg.png">{/block:NoItemImage1}
+          {block:ItemNowOnSale}{block:NoItemStock}<span class="soldout-cover"></span>{/block:NoItemStock}{/block:ItemNowOnSale}
+          {block:ItemEndOfSale}<span class="soldout-cover"></span>{/block:ItemEndOfSale}
+        </div>
+        <div class="item-data">
+          <p class="item-title">{ItemTitle}</p>
+          <p class="item-price">
+              {block:NoItemProperPrice}<span class="default">{ItemPrice}</span>{/block:NoItemProperPrice}
+              {block:HasItemProperPrice}
+                <span class="discount">{ItemPrice}</span>
+                <span class="ratio">{ItemDiscountRate}</span>
+              {/block:HasItemProperPrice}
+          </p>
+          <ul class="status">
+              {block:ItemCommunityLimited}<li class="community"><span>{lang:CommunityLimitedItem}</span></li>{/block:ItemCommunityLimited}
+              {block:ItemWatingForSale}<li class="coming_soon"><span>COMING SOON</span></li>{/block:ItemWatingForSale}
+              {block:ItemTakeout}<li class="takeout"><span>{lang:TakeoutItem}</span></li>{/block:ItemTakeout}
+              {block:ItemPreOrder}<li class="preOrder"><span>{lang:PreOrderItem}</span></li>{/block:ItemPreOrder}
+              {block:ItemLottery}<li class="lottery"><span>{lang:LotteryItem}</span></li>{/block:ItemLottery}
+          </ul>
+        </div>
+        </a>
+      </li>
+      {/block:Items}
+    </ul>
+    <p class="btn {select:BtnDesign Select}" id="moreItems"><a href="#"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>
+    <div class="loader_wrap" id="loading" style="display: none;"><div class="loader">Loading...</div></div>
+    <span id="max_page" style="display: none;">{MaxPageNumber}</span>
+    <span id="next_page" style="display: none;">{NextPageNumber}</span>
+    <input id="base_url" type="hidden" value="{ShopURL}" />
+
+    {/block:HasItems}
+    {/block:ShopPublic}
+  </div>
+  {/block:IndexPage}
+
+  {block:IndexPage}
+  {block:NoIndexPageSearch}
+  {block:NoIndexPageCategory}
+
+  {block:if-BlogDisplay_If}
+  <!-- TOP・ブログ -->
+  {block:AppsBlog}
+  <section class="blog {select:BlogType Select} item-wrapper top-order{select:TopNumBlog Select}">
+    <h2 class="ttl {select:TitleFont Select}">{text:MenuBlog Text}</h2>
+    <ul class="itemlist" id="blog-entry"></ul>
+    <p class="btn {select:BtnDesign Select} blog-all"><a href="{BlogPageURL}"><span class="{select:MenuLang Select}" data-tra-eng="VIEW MORE" data-tra-jp="もっと見る">View more</span></a></p>
+  </section>
+  {/block:AppsBlog}
+  {/block:if-BlogDisplay_If}
+
+  {block:if-TopicsDisplay_If}
+  <!-- TOP・トピックス -->
+  <section class="infomation item-wrapper top-order{select:TopNumTopics Select}">
+    <h2 class="ttl {select:TitleFont Select}">{text:TopicsTitle Text}</h2>
+    <ul class="info-list {block:if-Round_If}round10{/block:if-Round_If}">
+      <li class="info-data">
+        <p class="info-date">{text:Topics3Date Text}</p>
+        <p class="info-title">{text:Topics3 Text}</p>
+      </li>
+      <li class="info-data">
+        <p class="info-date">{text:Topics2Date Text}</p>
+        <p class="info-title">{text:Topics2 Text}</p>
+      </li>
+      <li class="info-data">
+        <p class="info-date">{text:Topics1Date Text}</p>
+        <p class="info-title">{text:Topics1 Text}</p>
+      </li>
+    </ul>
+  </section>
+  {/block:if-TopicsDisplay_If}
+
+  {block:if-InstagramDisplay_If}
+  <!-- TOP・埋め込みコード -->
+  <section class="instagram item-wrapper top-order{select:TopNumInstagram Select}">
+    <h2 class="ttl {select:TitleFont Select}">{text:InstagramCodeTitle Text}</h2>
+    <div class="top-insta-wrap">
+      {text:InstagramCode Text}
+    </div>
+  </section>
+  {/block:if-InstagramDisplay_If}
+
+  {/block:IndexPage}
+  {/block:NoIndexPageSearch}
+  {/block:NoIndexPageCategory}
+
+{block:ItemPage}
+<!-- ※※※※※※※※※　商品ページ　※※※※※※※※※ -->
+
+    <div class="product-wrap product-{select:ItemPageCol Select}col">
+        <!-- ▼▼▼ メイン画像 ▼▼▼ -->
+        <div class="product-imgs">
+            {block:AppsItemLabel}{AppsItemLabelTag}{/block:AppsItemLabel}
+            <div class="item_img_wrap">
+                {block:NoItemImage1}
+                <div class="item_slider_no"><span>No image</span></div>
+                {/block:NoItemImage1}
+                  {block:ItemImage1}
+                  <ul id="item_slider">
+                    <li data-nbr="1"><img src="{ItemImage1URL-1280}" alt="画像1"></li>
+                    {block:ItemImage2}<li data-nbr="2"><img src="{ItemImage2URL-1280}" alt="{ItemTitle}・画像2"></li>{/block:ItemImage2}
+                    {block:ItemImage3}<li data-nbr="3"><img src="{ItemImage3URL-1280}" alt="{ItemTitle}・画像3"></li>{/block:ItemImage3}
+                    {block:ItemImage4}<li data-nbr="4"><img src="{ItemImage4URL-1280}" alt="{ItemTitle}・画像4"></li>{/block:ItemImage4}
+                    {block:ItemImage5}<li data-nbr="5"><img src="{ItemImage5URL-1280}" alt="{ItemTitle}・画像5"></li>{/block:ItemImage5}
+                    {block:ItemImage6}<li data-nbr="6"><img src="{ItemImage6URL-1280}" alt="{ItemTitle}・画像6"></li>{/block:ItemImage6}
+                    {block:ItemImage7}<li data-nbr="7"><img src="{ItemImage7URL-1280}" alt="{ItemTitle}・画像7"></li>{/block:ItemImage7}
+                    {block:ItemImage8}<li data-nbr="8"><img src="{ItemImage8URL-1280}" alt="{ItemTitle}・画像8"></li>{/block:ItemImage8}
+                    {block:ItemImage9}<li data-nbr="9"><img src="{ItemImage9URL-1280}" alt="{ItemTitle}・画像9"></li>{/block:ItemImage9}
+                    {block:ItemImage10}<li data-nbr="10"><img src="{ItemImage10URL-1280}" alt="{ItemTitle}・画像10"></li>{/block:ItemImage10}
+                    {block:ItemImage11}<li data-nbr="11"><img src="{ItemImage11URL-1280}" alt="{ItemTitle}・画像11"></li>{/block:ItemImage11}
+                    {block:ItemImage12}<li data-nbr="12"><img src="{ItemImage12URL-1280}" alt="{ItemTitle}・画像12"></li>{/block:ItemImage12}
+                    {block:ItemImage13}<li data-nbr="13"><img src="{ItemImage13URL-1280}" alt="{ItemTitle}・画像13"></li>{/block:ItemImage13}
+                    {block:ItemImage14}<li data-nbr="14"><img src="{ItemImage14URL-1280}" alt="{ItemTitle}・画像14"></li>{/block:ItemImage14}
+                    {block:ItemImage15}<li data-nbr="15"><img src="{ItemImage15URL-1280}" alt="{ItemTitle}・画像15"></li>{/block:ItemImage15}
+                    {block:ItemImage16}<li data-nbr="16"><img src="{ItemImage16URL-1280}" alt="{ItemTitle}・画像16"></li>{/block:ItemImage16}
+                    {block:ItemImage17}<li data-nbr="17"><img src="{ItemImage17URL-1280}" alt="{ItemTitle}・画像17"></li>{/block:ItemImage17}
+                    {block:ItemImage18}<li data-nbr="18"><img src="{ItemImage18URL-1280}" alt="{ItemTitle}・画像18"></li>{/block:ItemImage18}
+                    {block:ItemImage19}<li data-nbr="19"><img src="{ItemImage19URL-1280}" alt="{ItemTitle}・画像19"></li>{/block:ItemImage19}
+                    {block:ItemImage20}<li data-nbr="20"><img src="{ItemImage20URL-1280}" alt="{ItemTitle}・画像20"></li>{/block:ItemImage20}
+                </ul>
+                {/block:ItemImage1}
+                <!-- ▼ サムネイル ▼ -->
+                {block:ItemImage2}<div class="item-thumb-warp1col">
+                    <ul id="item_thumb">
+                      <li data-nbr="1"><span></span></li>
+                      <li data-nbr="2"><span></span></li>
+                      {block:ItemImage3}<li data-nbr="3"><span></span></li>{/block:ItemImage3}
+                      {block:ItemImage4}<li data-nbr="4"><span></span></li>{/block:ItemImage4}
+                      {block:ItemImage5}<li data-nbr="5"><span></span></li>{/block:ItemImage5}
+                      {block:ItemImage6}<li data-nbr="6"><span></span></li>{/block:ItemImage6}
+                      {block:ItemImage7}<li data-nbr="7"><span></span></li>{/block:ItemImage7}
+                      {block:ItemImage8}<li data-nbr="8"><span></span></li>{/block:ItemImage8}
+                      {block:ItemImage9}<li data-nbr="9"><span></span></li>{/block:ItemImage9}
+                      {block:ItemImage10}<li data-nbr="10"><span></span></li>{/block:ItemImage10}
+                      {block:ItemImage11}<li data-nbr="11"><span></span></li>{/block:ItemImage11}
+                      {block:ItemImage12}<li data-nbr="12"><span></span></li>{/block:ItemImage12}
+                      {block:ItemImage13}<li data-nbr="13"><span></span></li>{/block:ItemImage13}
+                      {block:ItemImage14}<li data-nbr="14"><span></span></li>{/block:ItemImage14}
+                      {block:ItemImage15}<li data-nbr="15"><span></span></li>{/block:ItemImage15}
+                      {block:ItemImage16}<li data-nbr="16"><span></span></li>{/block:ItemImage16}
+                      {block:ItemImage17}<li data-nbr="17"><span></span></li>{/block:ItemImage17}
+                      {block:ItemImage18}<li data-nbr="18"><span></span></li>{/block:ItemImage18}
+                      {block:ItemImage19}<li data-nbr="19"><span></span></li>{/block:ItemImage19}
+                      {block:ItemImage20}<li data-nbr="20"><span></span></li>{/block:ItemImage20}
+                    </ul>
+                </div>
+                <div class="item-thumb-warp2col"></div>{/block:ItemImage2}
+            </div>
+        </div>
+        <!--▲▲▲ メイン画像▲▲▲-->
+
+        <!--▼▼▼ 商品基本情報 ▼▼▼-->
+        <div class="product-data">
+        <!--▼ 商品名 ▼-->
+        {block:ItemNowOnSale}
+        {block:NoItemStock}
+        <p class="soldout-cover">SOLD OUT</p>
+        {/block:NoItemStock}
+        {/block:ItemNowOnSale}
+        {block:ItemEndOfSale}
+        <p class="soldout-cover">SOLD OUT</p>
+        {/block:ItemEndOfSale}
+        <h1 class="item-ttl">
+            {ItemTitle}
+            {block:AppsDownload}{block:ItemDigitalContent}
+            <span class="filename">（{ItemDigitalContent}）</span>
+            {/block:ItemDigitalContent}{/block:AppsDownload}
+        </h1>
+
+        {block:NoItemProperPrice}
+        <!--▼ 定価 ▼-->
+        <p class="item-price">
+        <span class="default">{ItemPrice}</span>
+        </p>
+        {/block:NoItemProperPrice}
+
+        {block:HasItemProperPrice}
+        <!--▼ 値下げ ▼-->
+        <p class="item-price">
+        <span class="discount">{ItemPrice}</span>
+        <span class="ratio">{ItemDiscountRate}</span>
+        </p>
+        {/block:HasItemProperPrice}
+
+        {block:PurchaseForm}
+            <!--▼ 年齢制限 ▼-->
+            {AppsAgeVerificationWarningTag}
+            <!--▼ 予約商品 ▼-->
+            {block:ItemWatingForSale}
+            <p class="comingSoon">{ItemSaleStatusTag}</p>
+            {/block:ItemWatingForSale}
+            <!--▼ コミュニティ ▼-->
+            {block:AppsCommunity}{CommunityPurchaseButton}{/block:AppsCommunity}
+            <!--▼ 注意事項 ▼-->
+            {ItemAttentionTag}
+            <!--▼ オプション選択 ▼-->
+            {ItemSelectTag}
+            <!--▼ カートに入れるボタン ▼-->
+            {PurchaseButton}
+        {/block:PurchaseForm}
+
+        </div>
+        <!--▲▲▲ 商品基本情報▲▲▲-->
+
+        <div class="product-detail">
+            <!--▼▼▼ 商品説明 ▼▼▼-->
+            <section>
+                <!--▼ 商品説明（default） ▼-->
+                <div class="itemDescription">
+                    <p>
+                        {ItemDetail}
+                    </p>
+                </div>
+                {block:AppsItemDetailCustom}
+                <!--▼ カスタムパーツ ▼-->
+                <div id="appsItemDetailCustom">
+                    {AdditionalItemDetail}
+                    {AdditionalItemDetailDefaultCssAndJs}
+                </div>
+                {/block:AppsItemDetailCustom}
+            </section>
+            <!--▲▲▲ 商品説明 ▲▲▲-->
+            <!--▼▼▼ ショップの評価 ▼▼▼-->
+            {block:AppsReview}
+                {AppsReviewTag}
+            {/block:AppsReview}
+            <!--▲▲▲ ショップの評価 ▲▲▲-->
+            <nav class="item-btns">
+              <!--▼ 通報ボタン ▼-->
+              <div id="reportBtn">
+              {IllegalReportTag}
+              {IllegalReportMessageTag}
+              </div>
+              <ul class="item-sns">
+                <li class="tw"><a href="" onclick="tweetBtn()" class="{select:MenuLang Select}" data-tra-eng="POST" data-tra-jp="ポストする">Post</a></li>
+                <li class="fb"><a href="http://www.facebook.com/share.php?u={ItemRedirectUrl}"  rel="nofollow" target="_blank" class="{select:MenuLang Select}" data-tra-eng="SHARE" data-tra-jp="シェアする">Share</a></li>
+              </ul>
+
+            </nav>
+        </div>
+   </div>
+   {block:HasRelatedItems}
+   <!--▼▼▼ 関連商品 ▼▼▼-->
+   <div class="product-relate product-{select:ItemPageCol Select}col">
+    <section class="item_related">
+        <h2 class="ttl {select:TitleFont Select} {select:MenuLang Select}" data-tra-eng="RELATED ITEMS" data-tra-jp="関連商品">Related Items</h2>
+          <ul class="itemlist">
+            {block:RelatedItems}
+            <li>
+              <a href="{RelatedItemPageURL}">
+              <div class="img">
+                <img src="{RelatedItemImageURL-640}">
+              </div>
+              <div class="item-data">
+                <p class="item-title">{RelatedItemTitle}</p>
+                <p class="item-price">
+                    <span class="default">{RelatedItemPrice}</span>
+                </p>
+              </div>
+              </a>
+            </li>
+            {/block:RelatedItems}
+          </ul>
+    </section>
+   </div>
+   <!--▲▲▲ 関連商品▲▲▲-->
+   {/block:HasRelatedItems}
+
+{block:if-RankDisplay_If}
+<!-- TOPランキング表示用HTML -->
+<div style="display:none;">
+<div class="RankItemdata">
+<div class="item-data">
+<p class="item-title">{ItemTitle}</p>
+<p class="item-price">
+{block:NoItemProperPrice}<span class="default">{ItemPrice}</span>{/block:NoItemProperPrice}
+{block:HasItemProperPrice}
+<span class="discount">{ItemPrice}</span>
+<span class="ratio">{ItemDiscountRate}</span>
+{/block:HasItemProperPrice}
+</p>
+</div>
+</div>
+<span class="RankItemImg">{block:ItemImage1}{ItemImage1URL-500}{/block:ItemImage1}{block:NoItemImage1}{ItemNoImageURL}{/block:NoItemImage1}</span>
+</div>
+{/block:if-RankDisplay_If}
+
+<!-- ※※※※※※※※※　商品ページ・ここまで　※※※※※※※※※ -->
+{/block:ItemPage}
+
+{block:AboutPage}
+<!-- ※※※※※※※※※　ABOUTページ　※※※※※※※※※ -->
+  <!--パンくず-->
+  <nav class="bread_wrap">
+    <ul class="breadcrumb">
+        <li class="breadcrumb__child">
+            <a href="{IndexPageURL}" class="breadcrumb__link">
+              {text:MenuHome Text}
+            </a>
+        </li>
+        <li class="breadcrumb__child">
+            <a href="{AboutPageURL}" class="breadcrumb__link">
+              {text:MenuAbout Text}
+            </a>
+        </li>
+    </ul>
+  </nav>
+
+<h1 class="ttl-h1 {select:TitleFont Select}">{text:MenuAbout Text}</h1>
+
+<div class="about-wrap">
+    <!--▼▼▼ 本文 ▼▼▼-->
+    <p class="txt">{ShopIntroduction}</p>
+    <!--▲▲▲ 本文 ▲▲▲-->
+    {block:if-AboutConDisplay_If}
+    <!--▼▼▼ コンセプト ▼▼▼-->
+    <section class="about-con">
+        {block:text-AboutConTitle_Text}<h2 class="{select:TitleFont Select}">{text:AboutConTitle Text}</h2>{/block:text-AboutConTitle_Text}
+        {block:image-AboutConImg_Image}
+        <figure>
+            <img src="{image:AboutConImg Image}" alt="">
+        </figure>
+        {/block:image-AboutConImg_Image}
+        {block:text-AboutConText_Text}
+        <p class="txt">{text:AboutConText Text}</p>
+        {/block:text-AboutConText_Text}
+    </section>
+    <!--▲▲▲ コンセプト ▲▲▲-->
+    {/block:if-AboutConDisplay_If}
+
+    {block:if-ShopDisplay_If}
+    <!--▼▼▼ 店舗情報 ▼▼▼-->
+    <section class="about-info">
+        <h2 class="{select:TitleFont Select} {select:MenuLang Select}" data-tra-eng="INFORMATION" data-tra-jp="店舗情報">Information</h2>
+
+        {block:text-ShopName1_Text}
+        <div class="about-info-box">
+          {block:image-ShopImg1_Image}<figure class="about-info-img">
+              <img src="{image:ShopImg1 Image}" alt="">
+          </figure>
+          {/block:image-ShopImg1_Image}
+          {block:not_image-ShopImg1_Image}
+          <div class="about-info-img is-none">
+              <span class="{select:LogoFont Select}">{LogoTag}</span>
+          </div>
+          {/block:not_image-ShopImg1_Image}
+          <div class="about-info-data">
+            <p class="name">{text:ShopName1 Text}</p>
+              <table>
+                {block:text-ShopAdd1_Text}
+                  <tr>
+                      <th class="setting-eng"><span class="jp">所在地</span><span class="en">Location</span></th>
+                      <td>{text:ShopAdd1 Text}{block:text-ShopMap1_Text}<br><a href="{text:ShopMap1 Text}" target="_blank" class="about-info-map">Google Map</a>{/block:text-ShopMap1_Text}</td>
+                  </tr>
+                {/block:text-ShopAdd1_Text}
+                {block:text-ShopTel1_Text}
+                  <tr>
+                      <th>TEL</th>
+                      <td>{text:ShopTel1 Text}</td>
+                  </tr>
+                {/block:text-ShopTel1_Text}
+                {block:text-ShopTime1_Text}
+                  <tr>
+                      <th class="setting-eng"><span class="jp">営業時間</span><span class="en">Open</span></th>
+                      <td>{text:ShopTime1 Text}</td>
+                  </tr>
+                {/block:text-ShopTime1_Text}
+              </table>
+            </div>
+        </div>
+        {/block:text-ShopName1_Text}
+        {block:text-ShopName2_Text}
+        <div class="about-info-box">
+            {block:image-ShopImg2_Image}<figure class="about-info-img">
+                <img src="{image:ShopImg2 Image}" alt="">
+            </figure>
+            {/block:image-ShopImg2_Image}
+            {block:not_image-ShopImg2_Image}
+            <div class="about-info-img is-none">
+                <span class="{select:LogoFont Select}">{LogoTag}</span>
+            </div>
+            {/block:not_image-ShopImg2_Image}
+            <div class="about-info-data">
+              <p class="name">{text:ShopName2 Text}</p>
+                <table>
+                  {block:text-ShopAdd2_Text}
+                    <tr>
+                        <th class="setting-eng"><span class="jp">所在地</span><span class="en">Location</span></th>
+                        <td>{text:ShopAdd2 Text}{block:text-ShopMap2_Text}<br><a href="{text:ShopMap2 Text}" target="_blank" class="about-info-map">Google Map</a>{/block:text-ShopMap2_Text}</td>
+                    </tr>
+                  {/block:text-ShopAdd2_Text}
+                  {block:text-ShopTel2_Text}
+                    <tr>
+                        <th>TEL</th>
+                        <td>{text:ShopTel2 Text}</td>
+                    </tr>
+                  {/block:text-ShopTel2_Text}
+                  {block:text-ShopTime2_Text}
+                    <tr>
+                        <th class="setting-eng"><span class="jp">営業時間</span><span class="en">Open</span></th>
+                        <td>{text:ShopTime2 Text}</td>
+                    </tr>
+                  {/block:text-ShopTime2_Text}
+                </table>
+            </div>
+        </div>
+        {/block:text-ShopName2_Text}
+    </section>
+    <!--▲▲▲ 店舗情報 ▲▲▲-->
+    {/block:if-ShopDisplay_If}
+
+    {block:if-PayDisplay_If}
+    <!--▼▼▼ お支払い方法 ▼▼▼-->
+    <section class="about-pay">
+        <h2 class="{select:TitleFont Select} {select:MenuLang Select}" data-tra-eng="PAYMENT" data-tra-jp="お支払い方法">Payment</h2>
+        <p class="txt setting-eng">
+          <span class="jp">お支払いには次の方法がご利用いただけます。</span>
+          <span class="en">Various payment methods are available for your convenience.</span>
+        </p>
+        <ul class="about-pay-list">
+          {block:if-PayCard_If}
+          <li class="setting-eng">
+            <span class="jp">クレジットカード</span><span class="en">Credit Card</span>
+            <span class="sub">
+                 ({block:if-PayCardVisa_If}VISA{/block:if-PayCardVisa_If}{block:if-PayCardJcb_If}・JCB{/block:if-PayCardJcb_If}{block:if-PayCardAmex_If}・American Express{/block:if-PayCardAmex_If}{block:if-PayCardMaster_If}・Mastercard{/block:if-PayCardMaster_If})
+            </span>
+          </li>
+          {/block:if-PayCard_If}
+          {block:if-Paybank_If}<li class="setting-eng"><span class="jp">銀行振込（三井住友銀行）</span><span class="en">Bank Transfer <span class="sub">(Sumitomo Mitsui Banking Corporation)</span></span></li>{/block:if-Paybank_If}
+          {block:if-Paypayid_If}<li class="setting-eng"><span class="jp">Pay ID あと払い</span><span class="en">Post pay (Pay ID)</span></li>{/block:if-Paypayid_If}
+          {block:if-Payamazon_If}<li class="setting-eng">Amazon Pay</li>{/block:if-Payamazon_If}
+          {block:if-Paypaypal_If}<li class="setting-eng">PayPal</li>{/block:if-Paypaypal_If}
+          {block:if-PayStore_If}<li class="setting-eng"><span class="jp">コンビニ決済・Pay-easy</span><span class="en">Convenience Store Payment (Pay-easy)</span></li>{/block:if-PayStore_If}
+          {block:if-PayCareer_If}<li class="setting-eng"><span class="jp">キャリア決済</span><span class="en">Carrier Payment</span></li>{/block:if-PayCareer_If}
+        </ul>
+    </section>
+    <!--▲▲▲ お支払い方法 ▲▲▲-->
+    {/block:if-PayDisplay_If}
+    {block:if-QaDisplay_If}
+    <!--▼▼▼ Q&A ▼▼▼-->
+    <section class="about-qa">
+        <h2 class="{select:TitleFont Select} {select:MenuLang Select}" data-tra-eng="Q&A" data-tra-jp="よくあるご質問">Q&A</h2>
+        <dl class="about-pa-list">
+          {block:text-QaQuestion1_Text}
+          <!-- ▽Q1▽ -->
+          <dt>{text:QaQuestion1 Text}</dt>
+          <dd>{text:QaAnswer1 Text}</dd>
+          {/block:text-QaQuestion1_Text}
+          {block:text-QaQuestion2_Text}
+          <!-- ▽Q2▽ -->
+          <dt>{text:QaQuestion2 Text}</dt>
+          <dd>{text:QaAnswer2 Text}</dd>
+          {/block:text-QaQuestion2_Text}
+          {block:text-QaQuestion3_Text}
+          <!-- ▽Q3▽ -->
+          <dt>{text:QaQuestion3 Text}</dt>
+          <dd>{text:QaAnswer3 Text}</dd>
+          {/block:text-QaQuestion3_Text}
+          {block:text-QaQuestion4_Text}
+          <!-- ▽Q4▽ -->
+          <dt>{text:QaQuestion4 Text}</dt>
+          <dd>{text:QaAnswer4 Text}</dd>
+          {/block:text-QaQuestion4_Text}
+          {block:text-QaQuestion5_Text}
+          <!-- ▽Q5▽ -->
+          <dt>{text:QaQuestion5 Text}</dt>
+          <dd>{text:QaAnswer5 Text}</dd>
+          {/block:text-QaQuestion5_Text}
+        </dl>
+        {block:text-QaUrl_Text}
+        <p class="txt setting-eng">
+            <span class="jp">さらに詳しい情報は<a href="{text:QaUrl Text}">こちら</a>をご確認ください。</span>
+            <span class="en">For further details, please check <a href="{text:QaUrl Text}">here</a>.</span>
+          </p>
+        {/block:text-QaUrl_Text}
+    </section>
+    <!--▲▲▲ Q&A ▲▲▲-->
+    {/block:if-QaDisplay_If}
+</div>
+<!-- ※※※※※※※※※　ABOUTページ・ここまで　※※※※※※※※※ -->
+{/block:AboutPage}
+
+{block:BlogPage}
+<!-- ※※※※※※※※※　BLOGページ　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{BlogPageURL}" class="breadcrumb__link">
+            {text:MenuBlog Text}
+          </a>
+      </li>
+  </ul>
+</nav>
+<h1 class="ttl-h1 {select:TitleFont Select}">{text:MenuBlog Text}</h1>
+<div class="blog-wrap">
+{PageContents}
+</div>
+<p class="blog-back btn {select:BtnDesign Select}">
+  <a href="{BlogPageURL}">一覧に戻る</a>
+</p>
+<!-- ※※※※※※※※※　BLOGページ・ここまで　※※※※※※※※※ -->
+{/block:BlogPage}
+
+{block:CommunityPage}
+<!-- ※※※※※※※※※　コミュニティページ　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{CommunityPageURL}" class="breadcrumb__link">
+            {text:MenuCommunity Text}
+          </a>
+      </li>
+  </ul>
+</nav>
+{PageContents}
+<!-- ※※※※※※※※※　コミュニティページ・ここまで　※※※※※※※※※ -->
+{/block:CommunityPage}
+
+{block:MembershipPage}
+<!-- ※※※※※※※※※　メンバーシップ：ガイドページ　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{MembershipPageURL}" class="breadcrumb__link">
+            {text:MenuMembership Text}
+          </a>
+      </li>
+  </ul>
+</nav>
+{PageContents}
+<!-- ※※※※※※※※※　メンバーシップ：ガイドページ・ここまで　※※※※※※※※※ -->
+{/block:MembershipPage}
+{block:MembershipMyPage}
+<!-- ※※※※※※※※※　メンバーシップ：マイページ　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{MembershipPageURL}" class="breadcrumb__link">
+            {text:MenuMembership Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{MembershipMyPageURL}" class="breadcrumb__link">
+            マイページ
+          </a>
+      </li>
+  </ul>
+</nav>
+{PageContents}
+<!-- ※※※※※※※※※　メンバーシップ：マイページ・ここまで　※※※※※※※※※ -->
+{/block:MembershipMyPage}
+
+{block:MembershipLoginPage}
+<!-- ※※※※※※※※※　メンバーシップ：ログイン　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{MembershipPageURL}" class="breadcrumb__link">
+            {text:MenuMembership Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{MembershipLoginPageURL}" class="breadcrumb__link">
+            ログイン
+          </a>
+      </li>
+  </ul>
+</nav>
+{PageContents}
+<!-- ※※※※※※※※※　メンバーシップ：ログイン・ここまで　※※※※※※※※※ -->
+{/block:MembershipLoginPage}
+
+{block:PrivacyPage}
+<!-- ※※※※※※※※※　プライバシーポリシー　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{PrivacyPageURL}" class="breadcrumb__link">
+            {lang:Privacy}
+          </a>
+      </li>
+  </ul>
+</nav>
+<h1 class="ttl-h1 {select:TitleFont Select}">{lang:Privacy}</h1>
+{PageContents}
+<!-- ※※※※※※※※※　プライバシーポリシー・ここまで　※※※※※※※※※ -->
+{/block:PrivacyPage}
+
+
+{block:LawPage}
+<!-- ※※※※※※※※※　特定商取引法に基づく表記　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+  <ul class="breadcrumb">
+      <li class="breadcrumb__child">
+          <a href="{IndexPageURL}" class="breadcrumb__link">
+            {text:MenuHome Text}
+          </a>
+      </li>
+      <li class="breadcrumb__child">
+          <a href="{LawPageURL}" class="breadcrumb__link">
+            {lang:Law}
+          </a>
+      </li>
+  </ul>
+</nav>
+<h1 class="ttl-h1 {select:TitleFont Select}">{lang:Law}</h1>
+{PageContents}
+<!-- ※※※※※※※※※　特定商取引法に基づく表記・ここまで　※※※※※※※※※ -->
+{/block:LawPage}
+
+{block:ContactPage}
+<!-- ※※※※※※※※※　お問い合わせ　※※※※※※※※※ -->
+<!--パンくず-->
+<nav class="bread_wrap">
+    <ul class="breadcrumb">
+        <li class="breadcrumb__child">
+            <a href="{IndexPageURL}" class="breadcrumb__link">
+              {text:MenuHome Text}
+            </a>
+        </li>
+        <li class="breadcrumb__child">
+            <a href="{ContactPageURL}" class="breadcrumb__link">
+              {text:MenuContact Text}
+            </a>
+        </li>
+    </ul>
+</nav>
+<h1 class="ttl-h1 {select:TitleFont Select}">{text:MenuContact Text}</h1>
+<div class="contact-wrap {select:BtnDesign Select}">
+{PageContents}
+</div>
+<!-- ※※※※※※※※※　お問い合わせ・ここまで　※※※※※※※※※ -->
+{/block:ContactPage}
+
+  </div>
+  <!-- △△△ コンテンツ △△△ -->
+</div>
+
+
+  {block:if-CloseDisplay_If}
+  <!-- クロージング（全ページ共通） -->
+  <section class="last concept {select:CloseType Select}">
+    <div class="box {block:if-Round_If}round10{/block:if-Round_If} {block:not_if-Round_If}round0{/block:not_if-Round_If} {select:CloseType Select}">
+      {block:text-CloseTitle_Text}<p class="main-catch">{text:CloseTitle Text}</p>{/block:text-CloseTitle_Text}
+      {block:text-CloseText_Text}<p class="txt">{text:CloseText Text}</p>{/block:text-CloseText_Text}
+      {block:text-CloseBtn_Text}<p class="btn {select:BtnDesign Select}"><a href="{text:CloseUrl Text}">{text:CloseBtn Text}</a></p>{/block:text-CloseBtn_Text}
+    </div>
+  </section>
+  <!-- クロージング（全ページ共通） -->
+  {/block:if-CloseDisplay_If}
+
+  <!-- ===== お問い合わせ帯（全ページ共通） ===== -->
+  <section class="kmk-cta" id="contact-cta">
+    <span class="kmk-cta-badge">相談無料</span>
+    <p class="kmk-cta-title">{text:CtaTitle Text}</p>
+    <p class="kmk-cta-text">{text:CtaText Text}</p>
+    <ul class="kmk-cta-points">
+      <li>無理な勧誘は一切なし</li>
+      <li>メール1通でOK</li>
+      <li>ご返信は原則2営業日以内</li>
+    </ul>
+    <a href="mailto:{text:ContactMail Text}" class="kmk-cta-btn js-mail-link">✉ {text:CtaBtn Text}</a>
+    <p class="kmk-cta-mail">送信先：<a href="mailto:{text:ContactMail Text}" class="js-mail-link">{text:ContactMail Text}</a></p>
+  </section>
+
+  {block:AppsMailMagazine}
+  <!-- メールマガジン -->
+  <section class="mailmagazine {block:if-Round_If}round10{/block:if-Round_If} {block:not_if-Round_If}round0{/block:not_if-Round_If} {select:ItemsBg Select}">
+    <div class="box">
+      <div>
+        <p class="s-title"><span class="{select:MenuLang Select}" data-tra-eng="MAIL MAGAZINE" data-tra-jp="メールマガジン">Mail Magazine</span></p>
+        <p class="setting-eng">
+          <span class="jp">新商品やキャンペーンなどの最新情報をお届けいたします。</span>
+          <span class="en">We'll give you the latest on new products and campaigns.</span>
+        </p>
+        {MailMagazineSubscribeTag}
+      </div>
+    </div>
+  </section>
+  {/block:AppsMailMagazine}
+
+</main>
+<!-- フッター -->
+<footer>
+  <ul class="sns-list">
+    {block:ShopLineId}<li class="line"><a href="https://line.me/R/ti/p/%40{ShopLineId}" target="_blank">LINE</a></li>{/block:ShopLineId}
+    {block:ShopTiktokId}<li class="tiktok"><a href="https://www.tiktok.com/@{ShopTiktokId}" target="_blank">tiktok</a></li>{/block:ShopTiktokId}
+    {block:ShopTwitterId}<li class="twitter"><a href="https://twitter.com/{ShopTwitterId}" target="_blank">X(Twitter)</a></li>{/block:ShopTwitterId}
+    {block:ShopFacebookId}<li class="facebook"><a href="https://www.facebook.com/{ShopFacebookId}" target="_blank">facebook</a></li>{/block:ShopFacebookId}
+    {block:ShopInstagramId}<li class="insta"><a href="https://www.instagram.com/{ShopInstagramId}" target="_blank">instagram</a></li>{/block:ShopInstagramId}
+    {block:ShopYoutubeId}<li class="youtube"><a href="{ShopYoutubeId}" target="_blank">YouTube</a></li>{/block:ShopYoutubeId}
+    {block:ShopAmebaId}<li class="abema"><a href="https://ameblo.jp/{ShopAmebaId}" target="_blank">abema</a></li>{/block:ShopAmebaId}
+    {block:ShopNoteId}<li class="note"><a href="https://note.com/{ShopNoteId}" target="_blank">note</a></li>{/block:ShopNoteId}
+  </ul>
+
+  <ul class="manual">
+    <li><a href="mailto:{text:ContactMail Text}" class="js-mail-link">お問い合わせ</a></li>
+    <li><a href="{PrivacyPageURL}">{lang:Privacy}</a></li>
+    <li><a href="{LawPageURL}">{lang:Law}</a></li>
+    {block:AppsMembership}<li><a href="https://thebase.com/pages/shop_membership_term" target="_blank">会員規約</a></li>{/block:AppsMembership}
+    {block:text-FootMenuTtl_Text}<li><a href="{text:FootMenuUrl Text}">{text:FootMenuTtl Text}</a></li>{/block:text-FootMenuTtl_Text}
+  </ul>
+
+  <div class="setting {select:LightMode Select}">
+    <!--言語切り替え-->
+    {block:AppsI18n}
+    {AppsI18nTag}
+    {/block:AppsI18n}
+    <!--BASE icon-->
+    {BASEMenuTag}
+  </div>
+
+<div class="copy"><small>{text:FootCopyright Text}</small></div>
+
+</footer>
+
+<!-- 追従お問い合わせボタン -->
+<a href="mailto:{text:ContactMail Text}" class="kmk-float-cta js-mail-link">✉ 無料相談・お問い合わせ</a>
+
+{block:image-FloatingBnrImg_Image}
+<!-- フローティングバナー -->
+<div class="bnr-float">
+<picture>
+{block:text-FloatingBnrUrl_Text}<a href="{text:FloatingBnrUrl Text}">{/block:text-FloatingBnrUrl_Text}
+<img src="{image:FloatingBnrImg Image}" alt="">
+{block:text-FloatingBnrUrl_Text}</a>{/block:text-FloatingBnrUrl_Text}
+</picture>
+<span class="bnr-float-close"></span>
+</div>
+<!-- フローティングバナー -->
+{/block:image-FloatingBnrImg_Image}
+
+<!-- お問い合わせメール（件名・本文のひな形を自動でセット） -->
+<script>
+(function () {
+  var mail = "{text:ContactMail Text}".trim() || "kagayakumiraikyouiku@gmail.com";
+  var subject = "【お問い合わせ】輝く未来教育";
+  var body = "お名前：\nお子さまの学年：\nご連絡先（電話番号）：\nご相談内容：\n";
+  var href = "mailto:" + mail +
+    "?subject=" + encodeURIComponent(subject) +
+    "&body=" + encodeURIComponent(body);
+  var links = document.querySelectorAll(".js-mail-link");
+  for (var i = 0; i < links.length; i++) {
+    links[i].setAttribute("href", href);
+  }
+})();
+</script>
+
+<!-- JS・共通 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/3.0.1/js.cookie.min.js" integrity="sha512-wT7uPE7tOP6w4o28u1DN775jYjHQApdBnib5Pho4RB0Pgd9y7eSkAV1BTqQydupYDB9GBhTcQQzyNMPMV3cAew==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+//スクロール管理システム（フローティングバナー＆コンセプトチャプター）
+$(function () {
+    // 要素の存在確認
+    var hasBnrFloat = $(".bnr-float").length > 0;
+    var hasConceptFirst = $(".first.concept").length > 0;
+    var hasMainVisual = $(".main-visual").length > 0;
+    var isTargetPage = $("#index").length > 0 || $("#itempage").length > 0;
+
+    // 各種状態管理
+    var floatingBannerExecuted = false;
+    var conceptFirstTriggered = false;
+
+    // ウィンドウ高さと要素位置の計算
+    var windowHeight = $(window).height();
+    var winHeightHalf = windowHeight / 2;
+
+    // .first.concept要素の位置計算（存在する場合のみ）
+    var conceptFirstOffset = 0;
+    var conceptFirstDistanceFromTop = 0;
+    if (hasConceptFirst) {
+        conceptFirstOffset = $(".first.concept").offset().top;
+        conceptFirstDistanceFromTop = conceptFirstOffset - windowHeight;
+    }
+
+    // 統合スクロールハンドラー（エラー分離版）
+    function unifiedScrollHandler() {
+        var scrollTop = $(window).scrollTop();
+        // フローティングバナーの処理
+        if (hasBnrFloat && hasMainVisual && !floatingBannerExecuted && isTargetPage) {
+            if (scrollTop >= winHeightHalf) {
+                try {
+                    executeFloatingBanner();
+                    floatingBannerExecuted = true;
+                } catch (error) {
+                    console.error("フローティングバナー処理でエラー:", error);
+                    // エラーが発生してもフラグは立てる
+                    floatingBannerExecuted = true;
+                }
+            }
+        }
+
+        // .first.conceptの処理（独立したエラー処理）
+        if (hasConceptFirst && !conceptFirstTriggered) {
+            if (scrollTop > conceptFirstDistanceFromTop) {
+                try {
+                    $(".first.concept").find('.box').addClass("is-view");
+                    conceptFirstTriggered = true;
+                } catch (error) {
+                    console.error(".first.concept処理でエラー:", error);
+                    // エラーが発生してもフラグは立てる
+                    conceptFirstTriggered = true;
+                }
+            }
+        }
+    }
+
+    // フローティングバナーの実行
+    function executeFloatingBanner() {
+        try {
+            // Cookiesライブラリが読み込まれているかチェック
+            if (typeof Cookies !== 'undefined') {
+                if (Cookies.get("floating_banner_tes202510031120") !== "close") {
+                    $(".bnr-float").fadeIn();
+                }
+                $('.bnr-float-close').click(function () {
+                    $(this).parent().fadeOut('fast');
+                    Cookies.set("floating_banner_tes202510031120", "close", { expires: 1 });
+                });
+            } else {
+                // Cookiesライブラリが読み込まれていない場合は強制表示
+                console.warn("Cookiesライブラリが読み込まれていません。フローティングバナーを強制表示します。");
+                $(".bnr-float").fadeIn();
+                $('.bnr-float-close').click(function () {
+                    $(this).parent().fadeOut('fast');
+                });
+            }
+        } catch (error) {
+            console.error("フローティングバナー処理で予期しないエラー:", error);
+            // 緊急時のフォールバック処理
+            $(".bnr-float").fadeIn();
+            $('.bnr-float-close').click(function () {
+                $(this).parent().fadeOut('fast');
+            });
+        }
+    }
+
+    // 直接実行パターンの監視
+    if (hasBnrFloat && !hasMainVisual && isTargetPage) {
+        try {
+            executeFloatingBanner();
+            floatingBannerExecuted = true;
+        } catch (error) {
+            console.error("直接実行パターンでフローティングバナー処理エラー:", error);
+            floatingBannerExecuted = true;
+        }
+    }
+
+    // 初期実行（特に.first.conceptの初期チェック）
+    try {
+        unifiedScrollHandler();
+    } catch (error) {
+        console.error("初期実行でエラー:", error);
+    }
+
+    // スクロールイベントリスナー
+    $(window).on("scroll", function() {
+        try {
+            unifiedScrollHandler();
+        } catch (error) {
+            console.error("スクロールハンドラーでエラー:", error);
+        }
+    });
+});
+{block:if-CloseDisplay_If}
+//クロージング
+$(function () {
+  var target2 = $(".concept.last");
+  if (navigator.userAgent.indexOf('iPhone') === -1) {
+    $('.concept.last').css('background-attachment','fixed');
+  };
+  target2.css('background-image','url("{image:CloseImg Image}")');
+});
+{/block:if-CloseDisplay_If}
+
+//form枠線を半透明
+function hex2rgba (hex, alpha = 1) {
+  let r = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+  let c = null
+  if (r) { c = r.slice(1,4).map(function(x) { return parseInt(x, 16) }) }
+  r = hex.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i)
+  if (r) { c = r.slice(1,4).map(function(x) { return 0x11 * parseInt(x, 16) }) }
+  if (!c) { return null }
+  return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`
+}
+var fontClr = "{color:FontClr Color}";
+var ItemfontClr = "{color:ItemsClr Color}";
+var fontClr05 = hex2rgba(fontClr, 0.5);
+var ItemfontClr05 = hex2rgba(ItemfontClr, 0.5);
+
+$(function(){
+    {block:AppsI18n}
+    //言語選択
+    $('#i18 select').css("border-color",fontClr05);
+    {/block:AppsI18n}
+    {block:AppsMailMagazine}
+    //メールマガジン
+    $('.mailmagazine #email').css("border-color",fontClr05);
+    $('.item-bg-clr.mailmagazine #email').css("border-color",ItemfontClr05);
+    {/block:AppsMailMagazine}
+    {block:ItemPage}
+    //商品ページ
+    $('#itemSelect select,#itemSelect input[type="text"]').css("border-color",fontClr05);
+    $('.item-bg-clr').find('#itemSelect select,#itemSelect input[type="text"]').css("border-color",ItemfontClr05);
+    {/block:ItemPage}
+    {block:ContactPage}
+    //お問い合わせ
+    $('.inquirySection input[type="text"],.inquirySection textarea').css("border-color",fontClr05);
+    $('.item-bg-clr').find('.inquirySection input[type="text"],.inquirySection textarea').css("border-color",ItemfontClr05);
+    {/block:ContactPage}
+});
+
+</script>
+
+<!-- JS・記事一覧限定 -->
+{block:IndexPage}
+<script>
+var h_max_page = Number($("#max_page").text());
+if (h_max_page == 1) {
+    $('#moreItems').css('display', 'none');
+}
+var h_next_page = Number($("#next_page").text());
+if(h_max_page < h_next_page) {
+    $('#moreItems').css('display', 'none');
+}
+var process_flg = false;
+var end_flg = false;
+
+////////////////////////
+
+var moreButton = $('#moreItems a');
+var topParam = location.search;
+
+$(moreButton).on("click", (function (e) {
+    e.preventDefault();
+    var max_page = $("#max_page").text();
+    var next_page = $("#next_page").text();
+    var path = location.pathname;
+
+    path.includes("/categories/")
+        ? history.replaceState("", "", path + "/" + next_page)
+        : topParam.includes("topPageType=allItems")
+            ? history.replaceState("", "", "./" + next_page + "/" + topParam)
+            : path.includes("/search") || history.replaceState("", "", "./" + next_page),
+    0 == process_flg && 0 == end_flg && (
+        eval(max_page) >= eval(next_page)
+            ? $.ajax({
+                url: '{LoadItemsPageURL}' + next_page + '{LoadItemsPageURLParams}',
+                dataType: "html",
+                beforeSend: function () {
+                    process_flg = !0,
+                    $('#moreItems a').css('display', 'none');
+                    $('#loading').css('display', 'block');
+                },
+                success: function success(data) {
+                    $('#itemListWrap').append(data);
+                    next_page = eval(next_page) + 1;
+                    $('#next_page').text(next_page);
+                },
+                complete: function complete() {
+                    process_flg = !1,
+                    $('#loading').css('display', 'none');
+                    $('#moreItems a').css('display', 'block');
+                    if (eval(max_page) < eval(next_page)) {
+                        $('#moreItems').css('display', 'none');
+                    }
+                    foreign_price();
+                }
+            })
+            : end_flg =! 0
+    )
+}));
+
+//外貨表示のデザイン調整
+function foreign_price() {
+    $('.default, .discount').each(function() {
+        var text = $(this).text();
+        var pattern = /\([^\)]+\)/;
+        var matchedText = text.match(pattern);
+        if (matchedText !== null) {
+        var wrappedText = text.replace(pattern, ' <span class="foreign">' + matchedText[0] + '</span>');
+        $(this).html(wrappedText);
+        }
+    });
+}
+</script>
+{/block:IndexPage}
+
+{block:IndexPage}
+{block:NoIndexPageCategory}
+{block:NoIndexPageSearch}
+<!-- JS・TOP限定 -->
+<script>
+//外貨表示のデザイン調整（関数）
+function foreign_price() {
+  $('.default, .discount').each(function() {
+    var text = $(this).text();
+    var pattern = /\([^\)]+\)/;
+    var matchedText = text.match(pattern);
+    if (matchedText !== null) {
+      var wrappedText = text.replace(pattern, ' <span class="foreign">' + matchedText[0] + '</span>');
+      $(this).html(wrappedText);
+    }
+  });
+}
+
+{block:if-MvDisplay_If}
+  //【MV】固定ビジュアルの動作
+  $(function () {
+    $('.mv-fix').each(function() {
+        $(this).find('.mv-box').addClass('slick-active');
+        $(this).find('.mv-box').append('<div class="mv-scr"><span class="bar"></span><span class="txt">SCROLL</span></div>');
+    });
+  });
+  //【MV】スライダー表示の動作
+  $(function () {
+    var $mainSlider = $(".mv-slide");
+    $mainSlider
+    .on("init", function (event, slick) {
+      $(this).append('<div class="slick-num"><span class="now-count"></span><span class="per"> / </span><span class="all-count"></span></div>');
+      $(".now-count").text(slick.currentSlide + 1);
+      $(".all-count").text(slick.slideCount);
+      $(this).append('<div class="slick-circle"><svg viewBox="-4 5 100 100"><circle class="cir-bg" cx="45" cy="45" r="44"></circle><circle class="cir-bar" cx="45" cy="45" r="44" id="cirBar"></circle></svg></div>');
+    })
+    .slick({
+      autoplay: false,       //自動再生
+      fade: true,           //スライド→フェードに変更
+      speed: 1500,           //スライドするスピード
+      dots: false,           //スライド下のドット
+      arrows: false,        //左右の矢印
+      infinite: true,       //永久にループさせる
+      swipe: true,
+    })
+    .on("beforeChange", function (event, slick, currentSlide, nextSlide) {
+      $(".now-count").text(nextSlide + 1);
+    });
+    //プログレスバー設定
+    var
+      //time = 3,
+      $bar = $('#cirBar'),
+      isPause,
+      tick,
+      percentTime,
+      cirLength;
+
+    function startProgressbar() {
+      resetProgressbar();
+      percentTime = 277;
+      isPause = false;
+      tick = setInterval(interval, 18);//5s÷277=0.018（円周の長さ）
+    }
+    function interval() {
+      if (isPause === false) {
+        percentTime -= 0.5;
+        //percentTime = Math.round(percentTime);
+        $bar.css('stroke-dashoffset',percentTime);
+        if (percentTime <= 0) {
+          $mainSlider.slick('slickNext');
+          startProgressbar();
+        }
+      }
+    }
+    function resetProgressbar() {
+      $bar.css('stroke-dashoffset',277);
+      clearTimeout(tick);
+    }
+    startProgressbar();
+    $mainSlider.on('beforeChange', function (slick, currentSlide, nextSlide) {
+      startProgressbar();
+    });
+  });
+  //【MV】mv-type-bの時の動作
+  var winH = $(window).height();
+  function applyEffects() {
+    var scrollY = $(window).scrollTop();
+    $('.mv-type-b').each(function() {
+      var scrollPer = scrollY / winH;
+
+      if (scrollPer == 0) {
+        var blur = 0;
+        var transY = 0;
+      } else if (scrollPer <= 1.0) {
+        var blur = Math.floor(scrollPer * 150) / 100;
+        var transY = scrollPer * -10;
+        transY = Math.floor(transY * 100) / 100;
+      } else {
+        var blur = 1.5;
+        var transY = -10;
+      }
+      $(this).find('.img img').css({
+        'filter': 'blur(' + blur + 'rem)',
+        'transform': 'translateY(' + transY + 'rem)'
+      });
+    });
+  }
+  $(window).on('load scroll', function() {
+    applyEffects();
+  });
+  //【MV】mv-type-dの時の動作
+  function mvSize() {
+    $('.mv-type-d').each(function() {
+          var readSize = $(this).find('.read-wrap').outerHeight();
+          var winSize = $(window).height();
+          if($('.head-bg-tra').length){
+            if (window.innerWidth < 768){
+                readSize = winSize - readSize - 50;
+            } else {
+                readSize = winSize - readSize - 80;
+            }
+          } else {
+            if (window.innerWidth < 768){
+                readSize = winSize - readSize - 70;
+            } else {
+                readSize = winSize - readSize - 110;
+            }
+          }
+          $(this).css('grid-template-rows', readSize + 'px auto');
+    });
+  }
+  $(window).on('resize', function() {
+    clearTimeout(window.resizedFinished);
+    window.resizedFinished = setTimeout(mvSize, 50);
+  });
+  $(function() {
+    mvSize();
+  });
+{/block:if-MvDisplay_If}
+{block:if-ConceptDisplay_If}
+//コンセプト（要素表示はスクロール管理に統合）
+$(function () {
+  var target1 = $(".first.concept");
+  if (navigator.userAgent.indexOf('iPhone') === -1) {
+    $('.first.concept').css('background-attachment','fixed');
+  };
+  target1.css('background-image','url("{image:ConceptImg Image}")');
+});
+{/block:if-ConceptDisplay_If}
+{block:if-RankDisplay_If}
+//ランキング
+$(document).ready(function () {
+  var rankSource = '';
+  var ajaxCount = 0;
+  var rankItemUrls = $('.rankItemUrl').toArray().map(function(item) {
+    return $(item).text();
+  });
+  function processAjax(index) {
+    var rankItemUrl = rankItemUrls[index];
+    $.ajax({
+      url: rankItemUrl,
+      cache: false,
+      dataType: 'html',
+      success: function (html) {
+        var rankNmb = ajaxCount + 1;
+        var itemDataImg = $(html).find('.RankItemImg').text();
+        var itemDataData = $(html).find('.RankItemdata').html();
+        var itemCode = '<li class="rank' + rankNmb + '"><a href="' + rankItemUrl + '">' +
+          '<div class="img"><img src="' + itemDataImg + '" alt=""></div>' +
+          itemDataData +
+          '</a></li>';
+        rankSource += itemCode;
+        ajaxCount++;
+
+        if (ajaxCount === rankItemUrls.length) {
+          $('.ranking .itemlist').append(rankSource);
+          $('.rankLoading').hide();
+          $('.ranking .itemlist').fadeIn("slow");
+          sliderInit();
+          foreign_price();
+        } else {
+          processAjax(ajaxCount);
+        }
+      }
+    });
+  }
+  if (rankItemUrls.length > 0) {
+    processAjax(ajaxCount);
+  }
+});
+
+function sliderInit() {
+  $(".rank-slider").slick({
+    autoplay: true,
+    slidesToShow: 3,
+    dots: true,
+    arrows: false,
+    responsive: [{
+      breakpoint: 767,
+      settings: {
+        centerMode: true,
+        slidesToShow: 1,
+        //centerPadding: '50px',
+        variableWidth: true,
+      }
+    }]
+  });
+}
+
+{/block:if-RankDisplay_If}
+
+{block:if-TopCateDisplay_If}
+//PICKUPカテゴリ
+$(function(){
+    $.ajax({
+    url: '{IndexPageURL}/categories/{text:TopCateId Text}',
+    cache: false,
+    datatype: 'html',
+      success: function(html) {
+          var ttl = $(html).find('.allitem .item-search h2');
+          var pi = $(html).find('.allitem .itemlist > li').slice(0, 4);
+          var PiWrap = $('.pickupitem .itemlist');
+          PiWrap.before(ttl);
+          PiWrap.append(pi);
+          foreign_price();
+      }
+    });
+});
+{/block:if-TopCateDisplay_If}
+{block:if-BlogDisplay_If}
+{block:AppsBlog}
+//ブログ記事リスト
+$(function(){
+$.ajax({
+    url: '{BlogFeedPageURL}',
+    type: 'GET',
+    dataType: 'xml',
+})
+.done(function(data) {
+    i = 1;
+    $('item', data).each(function() {
+        var link = $('link', this).text();
+        var title = $('title', this).text();
+        var image = $('image', this).text();
+
+        let pubDate = $(this).find('pubDate').text();
+        let date = new Date(pubDate);
+        let dateY = date.getFullYear();
+        let dateM = date.getMonth() + 1;
+        let dateD = date.getDate();
+        date = dateY +'.'+ dateM +'.'+ dateD;
+
+        var data = $('data',this).text();
+
+        var blog_content = '<li><a href="' + link + '"><div class="img"><img src="' + image + '"></div><div class="blog-data"><span class="blog-title">' + title + '</span><span class="blog-date">' + date + '</span></div></a></li>';
+        $('#blog-entry').append(blog_content);
+        if (i >= 4) {
+            return false;
+        }
+        i++;
+    });
+    $(function () {
+        $('img[src="https://thebase.in/i/testpro1.png"]').attr('src','https://basefile.akamaized.net/hayadesign-base-shop/63804bb4c93ab/noimage.png');
+    });
+});
+});
+$(window).on('load', function() {
+    $("#blog-entry").each(function () {
+    var num = $(this).find('li').length;
+    if(3 <= num){
+    $('.blog-all').css('display','block');
+    }
+});
+});
+{/block:AppsBlog}
+{/block:if-BlogDisplay_If}
+</script>
+{/block:NoIndexPageSearch}
+{/block:NoIndexPageCategory}
+{/block:IndexPage}
+
+{block:IndexPageCategory}
+<!-- JS・カテゴリページ限定 -->
+<script>
+$(function(){
+  //パンくずリスト「Home」を置換
+  var breadHome = $('.breadcrumb__child:first-of-type');
+  if(breadHome.length){
+    breadHome.html('<a href="{ShopURL}" class="breadcrumb__link">{text:MenuHome Text}</a>');
+  }
+  // カテゴリ専用画像の表示
+  var catId = {
+      '{text:CateId1 Text}': '{image:CateImg1 Image}',
+      '{text:CateId2 Text}': '{image:CateImg2 Image}',
+      '{text:CateId3 Text}': '{image:CateImg3 Image}'
+  };
+  var catUrl = window.location.href;
+  var catIdMatch = catUrl.match(/\/categories\/(\d{7})/);
+  if (catIdMatch) {
+      var i = catIdMatch[1];
+      var catImgUrl = catId[i];
+      if (catImgUrl) {
+          var catImgHtml = '<figure class="about-head-img"><img src="'+catImgUrl+'" alt=""></figure>';
+          $('.main-contents').before(catImgHtml);
+      }
+  }
+});
+</script>
+{/block:IndexPageCategory}
+
+{block:ItemPage}
+<!-- JS・商品ページ限定 -->
+<script>
+$(function() {
+    //カートに入れるボタンのアイコン色置換
+    var accentFontClr = "{color:AccentFontClr Color}";
+    var cartIcon = $('.purchaseButton__btn--addToCart');
+    if($(cartIcon).length){
+    var cartImg = cartIcon.css('background-image');
+    var cartImgCode = cartImg.split('%23333333').join('%23' + accentFontClr.replace('#', ''));
+    $(cartIcon).css('background-image' , cartImgCode);
+    }
+});
+
+//セレクトボックスの矢印
+$(document).ready(function(){
+  var clrFont = '';
+  if ($('.item-bg-clr').length) {
+    clrFont = "{color:ItemsClr Color}";
+  } else {
+    clrFont = "{color:FontClr Color}";
+  }
+  var productSelect = $('.product-data select');
+  productSelect.each(function() {
+    var arrImg = $(this).css('background-image');
+    arrImg = arrImg.replace('%23000000', '%23' + clrFont.replace('#', ''));
+    $(this).css('background-image' , arrImg);
+  });
+});
+
+//SNS用リンク
+var tweetBtn = function () {
+var text = "text";
+var url = "url";
+var hashtags = "hashtags";
+var via = "via";
+window.open("https://twitter.com/share?" + [
+    "text=" + encodeURIComponent("{PageTitle}"),
+    "url=" + encodeURIComponent("{ItemRedirectUrl}"),
+    "via=" + encodeURIComponent("{TwitterDataVia}"),
+    "hashtags=" + encodeURIComponent("{TwitterDataHashtags}")
+].join("&"));
+}
+</script>
+{/block:ItemPage}
+
+{block:AboutPage}
+<!-- JS・ABOUT限定 -->
+<script></script>
+{/block:AboutPage}
+
+{block:BlogPage}
+<!-- JS・BLOG限定 -->
+<script></script>
+{/block:BlogPage}
+
+{block:CommunityPage}
+<!-- JS・コミュニティ限定 -->
+<script>
+$(function(){
+  $('h1.communityTitle').addClass("ttl-h1 {select:TitleFont Select}");
+});
+</script>
+{/block:CommunityPage}
+
+{block:MembershipPage}
+<!-- JS・メンバーシップ（ガイド）限定 -->
+<script>
+$(function(){
+  $('#membership .content h2,#membership .heading-wrapper h2').addClass("ttl-h1 {select:TitleFont Select}");
+});
+</script>
+{/block:MembershipPage}
+
+{block:MembershipMyPage}
+<!-- JS・メンバーシップ（Mypage）限定 -->
+<script>
+$(function(){
+  $('#membership .mypage h2,#membership .heading-wrapper h2').addClass("ttl-h1 {select:TitleFont Select}");
+});
+</script>
+{/block:MembershipMyPage}
+
+{block:MembershipLoginPage}
+<!-- JS・メンバーシップ（ログイン）限定 -->
+<script>
+$(function(){
+  $('#membership .login h2,#membership .heading-wrapper h2').addClass("ttl-h1 {select:TitleFont Select}");
+});
+</script>
+{/block:MembershipLoginPage}
+
+{block:ContactPage}
+<!-- JS・お問い合わせ限定 -->
+<script></script>
+{/block:ContactPage}
+
+<style>.nc-int-icon-rotate{--animation-duration:0.4s;}.nc-int-icon{position:relative;}.nc-int-icon-b{position: absolute;top: calc(50% - 0.5em);left: calc(50% - 0.5em);opacity: 0;}.nc-int-icon-rotate .nc-int-icon-a,.nc-int-icon-rotate .nc-int-icon-b{transition: opacity 0s calc(var(--animation-duration)/2), transform var(--animation-duration); transform-origin: center center;}.nc-int-icon-rotate .nc-int-icon-b{transform: rotate(90deg) scale(0.6);}.nc-int-icon-state-b .nc-int-icon-a{opacity: 0;}.nc-int-icon-state-b .nc-int-icon-b{opacity: 1;}.nc-int-icon-rotate.nc-int-icon-state-b .nc-int-icon-a{transform: rotate(-90deg) scale(0.6);}.nc-int-icon-rotate.nc-int-icon-state-b .nc-int-icon-b{transform: rotate(0);}</style>
+
+<script>function initIntIcon(i){if(i.classList.contains("js-nc-int-icon-loaded")) return;i.classList.add("js-nc-int-icon-loaded");i.closest("svg").addEventListener("click",function(n){i.classList.toggle("nc-int-icon-state-b")});};var intIcons=document.getElementsByClassName("js-nc-int-icon");for(var i=0;intIcons.length>i;i++){initIntIcon(intIcons[i]);}</script>
+
+</div>
+</body>
+</html>
+{/block:NotLoadItemsPage}
+
+{block:LoadItemsPage}
+<!-- ※※※※※※※※※　追加読み込み用タグ　※※※※※※※※※ -->
+{block:Items}
+<li>
+<a href="{ItemPageURL}">
+{block:AppsItemLabel}{AppsItemLabelTag}{/block:AppsItemLabel}
+<div class="img">
+{block:ItemImage1}
+<img src="{ItemImage1URL-500}" alt="{ItemTitle} 画像">
+{/block:ItemImage1}
+{block:NoItemImage1}<img src="https://basefile.akamaized.net/tailordemo-base-shop/67ee1205d8aea/noimg.png">{/block:NoItemImage1}
+{block:ItemNowOnSale}{block:NoItemStock}<span class="soldout-cover"></span>{/block:NoItemStock}{/block:ItemNowOnSale}
+{block:ItemEndOfSale}<span class="soldout-cover"></span>{/block:ItemEndOfSale}
+</div>
+<div class="item-data">
+<p class="item-title">{ItemTitle}</p>
+<p class="item-price">
+{block:NoItemProperPrice}<span class="default">{ItemPrice}</span>{/block:NoItemProperPrice}
+{block:HasItemProperPrice}
+<span class="discount">{ItemPrice}</span>
+<span class="ratio">{ItemDiscountRate}</span>
+{/block:HasItemProperPrice}
+</p>
+<ul class="status">
+{block:ItemCommunityLimited}<li class="community"><span>{lang:CommunityLimitedItem}</span></li>{/block:ItemCommunityLimited}
+{block:ItemWatingForSale}<li class="coming_soon"><span>COMING SOON</span></li>{/block:ItemWatingForSale}
+{block:ItemTakeout}<li class="takeout"><span>{lang:TakeoutItem}</span></li>{/block:ItemTakeout}
+{block:ItemPreOrder}<li class="preOrder"><span>{lang:PreOrderItem}</span></li>{/block:ItemPreOrder}
+{block:ItemLottery}<li class="lottery"><span>{lang:LotteryItem}</span></li>{/block:ItemLottery}
+</ul>
+</div>
+</a>
+</li>
+{/block:Items}
+<!-- ※※※※※※※※※　追加読み込み用タグ・ここまで　※※※※※※※※※ -->
+{/block:LoadItemsPage}
