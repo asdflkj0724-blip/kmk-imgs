@@ -2230,6 +2230,70 @@
       ],
       "ig_media_id": "17968530717235642",
       "permalink": "https://www.instagram.com/reel/Df4YrHLCqMo/"
+    },
+    {
+      "date": "2026-11-19T20:21:19+09:00",
+      "slot": "2026-11-19",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "b6|5",
+      "body": "肩をすべらせるオフショルダーに、胸元がひらくカットアウトシャツ。フードニットとロングスカートで、秋をやわらかく。",
+      "text": "肩をすべらせるオフショルダーに、胸元がひらくカットアウトシャツ。フードニットとロングスカートで、秋をやわらかく。",
+      "image": "imageye___-_imgi_4_O1CN01WZE6xQpEOVK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01WZE6xQpEOVK2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_4_O1CN01wlHHdroftLJ2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN017QvYjNm9DYD2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#オフショルダートップス",
+        "#カットアウトシャツ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "肩をのぞかせて、\n今日は私らしく"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "肩をのぞかせて、\n今日は私らしく",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18113422028351188",
+      "permalink": "https://www.instagram.com/reel/Df69dWGjELk/"
     }
   ],
   "errors": []
