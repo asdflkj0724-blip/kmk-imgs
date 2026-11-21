@@ -2402,6 +2402,70 @@
       ],
       "ig_media_id": "17981264324928600",
       "permalink": "https://www.instagram.com/reel/Df9iSgNDHsr/"
+    },
+    {
+      "date": "2026-11-21T20:21:29+09:00",
+      "slot": "2026-11-21",
+      "source": "generated",
+      "format": "reel",
+      "x_tweet_id": null,
+      "id": "__brand__",
+      "name": "",
+      "combo": "claude",
+      "body": "レースがのぞくショートパンツに、アシンメトリーなワイドパンツ。ベルトをきゅっと効かせて、MAMCの秋を自分らしく。",
+      "text": "レースがのぞくショートパンツに、アシンメトリーなワイドパンツ。ベルトをきゅっと効かせて、MAMCの秋を自分らしく。",
+      "image": "ダウンロード (69).png",
+      "images": [
+        "imageye___-_imgi_4_O1CN01UtRpX1wDfgH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "ダウンロード (69).png",
+        "imageye___-_imgi_7_O1CN012F4nVTGBQqJ2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ワイドパンツコーデ",
+        "#ショートパンツコーデ"
+      ],
+      "variant": {
+        "template": "detail",
+        "duration": 11.0,
+        "transition": "push",
+        "hook_id": "ai",
+        "hook_text": "ベルトひとつで、\n表情が変わる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "ベルトひとつで、\n表情が変わる",
+          "color": "white",
+          "bad": 0.006,
+          "worst_char": 0.042,
+          "on_face": false,
+          "on_product": 0.999
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.125,
+          "worst_char": 0.238,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18138358231661236",
+      "permalink": "https://www.instagram.com/reel/DgAHDz8DsVE/"
     }
   ],
   "errors": []
