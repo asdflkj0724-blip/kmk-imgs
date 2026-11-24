@@ -122,6 +122,18 @@
   .world .wd { font-size: 12px; color: var(--muted); }
   .world button { font-size: 13px; padding: 5px 10px; }
   .world button.del { background: #3a2a30; color: #ffb3b3; border-bottom-color: #22161a; }
+  .sleepov { background: radial-gradient(ellipse at 50% 30%, #2a3a8a, #070b22); transition: background 2.5s; }
+  .sleepov.morning { background: radial-gradient(ellipse at 50% 30%, #fff3c0, #8fd3ff); }
+  .sleepbox { display: grid; justify-items: center; gap: 18px; text-align: center; }
+  .sleepbox .moon { width: 110px; height: 110px; border-radius: 50%; background: #fff3b0; box-shadow: 0 0 60px #fff3b0; transition: background 2.5s, box-shadow 2.5s; }
+  .sleepov.morning .moon { background: #ffcf3a; box-shadow: 0 0 80px #ffb020; }
+  #sleepText { font-size: 30px; color: #fff; text-shadow: 2px 2px 0 rgba(0,0,0,.35); }
+  .sleepov.morning #sleepText { color: #6b3f12; text-shadow: none; }
+  .zzz span { display: inline-block; font-size: 34px; color: #c9d6ff; margin: 0 6px; animation: zfloat 2.4s infinite ease-in-out; }
+  .zzz span:nth-child(2) { animation-delay: .4s; font-size: 26px; } .zzz span:nth-child(3) { animation-delay: .8s; font-size: 20px; }
+  .sleepov.morning .zzz { visibility: hidden; }
+  @keyframes zfloat { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-18px); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .zzz span { animation: none; } }
   .tvbox { width: min(760px, 100%); }
   #tvBig { width: 100%; height: auto; aspect-ratio: 16 / 9; display: block; border: 8px solid #1d1d22; border-radius: 10px; background: #000; margin: 6px 0 12px; }
   #tvCh { flex-wrap: wrap; }
@@ -258,6 +270,15 @@
   </div>
 </div>
 
+<div id="sleep" class="overlay sleepov" hidden>
+  <div class="sleepbox">
+    <div class="moon"></div>
+    <div id="sleepText">おやすみなさい…</div>
+    <div class="zzz"><span>Z</span><span>z</span><span>z</span></div>
+    <button id="wakeBtn" hidden>おはよう！ あそぶ</button>
+  </div>
+</div>
+
 <div id="tvView" class="overlay" hidden>
   <div class="inv tvbox">
     <div class="invhead"><h2>テレビ</h2><button id="tvClose" class="ghost">とじる（E）</button></div>
@@ -293,7 +314,7 @@ const AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, LOG=5, LEAVES=6, PLANKS=7, GLASS=
   COBWEB=25, TORCH=26, LANTERN=27, FLOWER_R=28, FLOWER_Y=29, MOSSY=30, PLASTER=31, ROOF_R=32, ROOF_B=33, CLOUD=34,
   CHEST=35, SHELF=36, FLOOR=37, SIGN=38, BED=39, SOFA=40, BOOKSHELF=41, TV=42, FRIDGE=43, TABLE=44,
   WOOL_P=45, WOOL_B=46, WOOL_Y=47, TEDDY=48, BALL=49, GAMEBOX=50, ROAD=51, ROAD_LINE=52, LAVA=53,
-  COOKIE_W=54, CHOCO_R=55, FROSTING=56, CANDY_ST=57, WAFER=58, GUMDROP=59, LOLLI=60, SIDEWALK=61, CROSSWALK=62;
+  COOKIE_W=54, CHOCO_R=55, FROSTING=56, CANDY_ST=57, WAFER=58, GUMDROP=59, LOLLI=60, SIDEWALK=61, CROSSWALK=62, BARRIER=63;
 const GEAR_LOOT = [
   { id: 'sword', mat: 'diamond' }, { id: 'sword', mat: 'gold' }, { id: 'sword', mat: 'diamond', deco: 'gold' }, { id: 'sword', mat: 'gold', deco: 'diamond' },
   { id: 'clothes', mat: 'diamond' }, { id: 'clothes', mat: 'gold' }, { id: 'clothes', mat: 'gold', deco: 'diamond' }, { id: 'clothes', mat: 'diamond', deco: 'emerald' },
@@ -359,6 +380,7 @@ const BLOCKS = {
   [ROAD_LINE]:{ name: '道路（白線）', tex: [57, 57, 57], snd: 'stone' },
   [LAVA]:    { name: 'マグマ',       tex: [58, 58, 58], snd: 'sand' },
   [SIDEWALK]:{ name: '歩道', tex: [66, 66, 66], snd: 'stone' },
+  [BARRIER]: { name: 'ドア', tex: [8, 8, 8], snd: 'wood' },
   [CROSSWALK]:{ name: '横断歩道', tex: [67, 67, 67], snd: 'stone' },
   [COOKIE_W]:{ name: 'クッキーのかべ', tex: [59, 59, 59], snd: 'sand' },
   [CHOCO_R]: { name: 'チョコの屋根', tex: [60, 60, 60], snd: 'sand' },
@@ -380,10 +402,10 @@ const DROPS = { [COAL_ORE]: COAL, [GOLD_ORE]: GOLD, [SILVER_ORE]: SILVER, [EMERA
 const LIGHTS = { [LAMP]: 12, [LANTERN]: 11, [TORCH]: 9, [LAVA]: 9 };
 const CROSS = new Set([COBWEB, TORCH, LANTERN, FLOWER_R, FLOWER_Y, TEDDY, BALL, GAMEBOX, GUMDROP, LOLLI]);
 
-const isTransparent = id => id === AIR || id === LEAVES || id === GLASS || id === WATER || id === LAVA || id === TABLE || CROSS.has(id);
+const isTransparent = id => id === AIR || id === BARRIER || id === LEAVES || id === GLASS || id === WATER || id === LAVA || id === TABLE || CROSS.has(id);
 const isSolid = id => id !== AIR && id !== WATER && id !== LAVA && !CROSS.has(id);
 const isFluid = id => id === WATER || id === LAVA;
-const blocksSky = id => isSolid(id) && id !== LEAVES && id !== GLASS && id !== CLOUD;
+const blocksSky = id => isSolid(id) && id !== LEAVES && id !== GLASS && id !== CLOUD && id !== BARRIER;
 const isBlockItem = id => typeof id === 'number' && id < 100;
 
 const MAT = {
@@ -1243,7 +1265,7 @@ function buildMikkunHouse(v, set) {
       set(X, Y, Z, id);
     }
   }
-  for (let X = door; X <= door + 1; X++) for (let Y = f + 1; Y <= f + 3; Y++) set(X, Y, z0, AIR);
+  for (let X = door; X <= door + 1; X++) for (let Y = f + 1; Y <= f + 3; Y++) set(X, Y, z0, BARRIER);
   for (let k = 0; k < 14; k++) {
     const rx0 = x0 - 1 + k, rx1 = x1 + 1 - k, rz0 = z0 - 1 + k, rz1 = z1 + 1 - k, Y = wallTop + 1 + k;
     const full = rx1 - rx0 <= 1 || rz1 - rz0 <= 1;
@@ -1530,7 +1552,7 @@ function buildMesh(c) {
   const V = v => inset + v * (1 - 2 * inset);
   for (let y = 0; y < H; y++) for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
     const id = data[idxOf(lx, y, lz)];
-    if (id === AIR) continue;
+    if (id === AIR || id === BARRIER) continue;
     const def = BLOCKS[id];
     if (CROSS.has(id)) {
       const glow = LIGHTS[id] ? 1 : 0;
@@ -1970,6 +1992,9 @@ const Sound = (() => {
       else { tone(392, 0.28, { type: 'sawtooth', vol: 0.07, lp: 1500 }); tone(494, 0.28, { type: 'sawtooth', vol: 0.06, lp: 1500 }); }
     },
     tvNote(f) { tone(f, 0.3, { type: 'triangle', vol: 0.07 }); },
+    door(open) { tone(open ? 300 : 260, 0.35, { to: open ? 420 : 180, type: 'triangle', vol: 0.08 }); noise(0.12, 600, { vol: 0.15, delay: open ? 0.25 : 0.05 }); },
+    lullaby() { [523, 440, 392, 440, 523, 587, 523, 440, 392, 330, 392, 440].forEach((f, i) => tone(f, 0.55, { delay: i * 0.45, type: 'sine', vol: 0.07, attack: 0.05 })); },
+    morning() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.35, { delay: i * 0.12, type: 'triangle', vol: 0.09 })); },
     love() { arp([659, 880, 1047], 0.09, 0.09, 'sine'); },
     voice(type, x, y, z) {
       const v = near(x, y, z); if (v <= 0.02) return;
@@ -2603,7 +2628,7 @@ function tame(m) {
   }
   const taken = new Set(mobs.filter(x => x.pet).map(x => x.name));
   const names = m.T.petNames.filter(n => !taken.has(n));
-  m.pet = true;
+  m.pet = true; m.anchor = m.pos.clone();
   m.name = names.length ? names[Math.random() * names.length | 0] : m.T.petNames[0] + (taken.size + 1);
   nuzzle(m); hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 8);
   Sound.love();
@@ -2634,7 +2659,6 @@ function populateChunk(c) {
 function updateMob(m, dt) {
   if (!chunkReady(m.pos.x, m.pos.z)) {
     m.g.visible = false; if (m.bubble) m.bubble.hidden = true;
-    if (m.pet) teleportPet(m);
     return;
   }
   m.g.visible = true;
@@ -2669,15 +2693,15 @@ function updateMob(m, dt) {
       if (m.happyT <= 0 && Math.random() < dt * 0.06) { hearts(p.x, p.y + m.h, p.z, 1); m.happyT = 1; }
     }
   } else if (m.pet) {
-    // ペット：飼い主についていく。遠すぎたらワープ
-    const fp = followPoint(m), fdx = fp.x - p.x, fdz = fp.z - p.z, fd = Math.hypot(fdx, fdz);
-    if (dist > 26 || Math.abs(dy) > 12) teleportPet(m);
-    else if (fd > 1.5) { m.targetYaw = Math.atan2(fdx, fdz); wantSpeed = Math.max(T.speed * 2.2, fd > 8 ? 5.5 : 3.2); }
+    // ペット：ついてこないで、その場所のまわりでのんびりすごす
+    const an = m.anchor || (m.anchor = p.clone());
+    const ax = an.x - p.x, az = an.z - p.z;
+    if (Math.hypot(ax, az) > (T.big ? 12 : 7)) { m.targetYaw = Math.atan2(ax, az); wantSpeed = T.speed; }
     else {
-      if (m.think <= 0) { m.think = 2 + Math.random() * 3; m.moving = Math.random() < 0.25; m.targetYaw = Math.random() < 0.6 ? Math.atan2(dx, dz) : m.yaw + (Math.random() - 0.5) * 2; }
-      wantSpeed = m.moving && dist < 2.4 ? T.speed * 0.6 : 0;
-      if (m.happyT <= 0 && Math.random() < dt * 0.15) { hearts(p.x, p.y + m.h, p.z, 1); m.happyT = 0.5; }
+      if (m.think <= 0) { m.think = 2 + Math.random() * 4; m.moving = Math.random() < 0.5; m.targetYaw = m.yaw + (Math.random() - 0.5) * 2.5; }
+      wantSpeed = m.moving ? T.speed * 0.8 : 0;
     }
+    if (dist < 5 && m.happyT <= 0 && Math.random() < dt * 0.1) { hearts(p.x, p.y + m.h, p.z, 1); m.happyT = 1; }
   } else if (T.friend) {
     // 友達：いっしょに歩いて、敵がいたら戦ってくれる
     let foe = null, fd = 7;
@@ -2775,7 +2799,6 @@ function updateMob(m, dt) {
     // プテラノドン：空をとぶ
     let alt;
     if (m === mount) alt = keys.Space ? p.y + 6 : p.y - 2.5;
-    else if (m.pet) alt = player.pos.y + 4;
     else { if (!m.altT || m.altT < performance.now()) { m.altT = performance.now() + 2000; m.alt = Math.max(SEA + 2, columnTop(Math.floor(p.x), Math.floor(p.z))) + 9 + Math.random() * 4; } alt = m.alt; }
     if (m !== mount && wantSpeed === 0) wantSpeed = T.speed;
     v.y += ((alt - p.y) * 1.2 - v.y) * Math.min(1, dt * 3);
@@ -2795,9 +2818,17 @@ function updateMob(m, dt) {
     }
   }
   if (m === mount) { player.pos.set(p.x, p.y + T.seat, p.z); player.vel.set(0, 0, 0); player.airTop = player.pos.y; player.headInWater = false; document.getElementById('water').hidden = true; }
+  if (T.villager && !(m.friend && !m.stay) && market && market.home && m !== mount) {
+    const hm = market.home, inH = (x, z) => x > hm.x0 - 0.2 && x < hm.x1 + 1.2 && z > hm.z0 - 0.2 && z < hm.z1 + 1.2;
+    if (inH(p.x, p.z)) {
+      if (m.prevX !== undefined && !inH(m.prevX, m.prevZ)) { p.x = m.prevX; p.z = m.prevZ; m.targetYaw += Math.PI; m.think = 2; }
+      else { m.targetYaw = Math.atan2(hm.door + 1 - p.x, hm.z0 - 3 - p.z); m.moving = true; }
+    }
+    m.prevX = p.x; m.prevZ = p.z;
+  }
   if (m.wings) { const fl = Math.sin(performance.now() / (m.onGround ? 400 : 140)) * (m.onGround ? 0.15 : 0.6); m.wings[0].rotation.z = fl; m.wings[1].rotation.z = -fl; }
   if (T.hop && m.onGround && !wasGround) { m.squash = 0.2; if (m.type === 'jelly' && Math.random() < 0.5) Sound.voice('jelly', p.x, p.y, p.z); }
-  if (p.y < -10) { if (m.pet) teleportPet(m); else { removeMob(m); return; } }
+  if (p.y < -10) { if (m.pet && m.anchor) { p.copy(m.anchor); p.y += 2; v.set(0, 0, 0); } else { removeMob(m); return; } }
 
   if (m.voiceT <= 0) { m.voiceT = (T.hostile ? 5 : 8) + Math.random() * 12; if (m.type !== 'jelly') Sound.voice(m.type, p.x, p.y, p.z); }
 
@@ -2866,7 +2897,6 @@ function findPlay(m) {
   if (m.homeRec) return m.homeRec.kind === kind ? m.homeRec : null;
   let best = null, bd = 10;
   for (const r of props) if (r.kind === kind) { const d = Math.hypot(r.x - m.pos.x, r.z - m.pos.z); if (d < bd) { bd = d; best = r; } }
-  if (best && m.pet && Math.hypot(best.x - player.pos.x, best.z - player.pos.z) > 12) return null; // 飼い主がはなれたら、ついていく
   return best;
 }
 function playAI(m, dt) {
@@ -2919,7 +2949,7 @@ function mountOn(m) {
 }
 function dismount() {
   const m = mount; if (!m) return;
-  mount = null;
+  mount = null; m.anchor = m.pos.clone();
   const sx = Math.cos(m.yaw), sz = -Math.sin(m.yaw), off = m.w + 1.2;
   for (const s2 of [1, -1]) for (let dy = 2; dy >= -3; dy--) {
     const x = Math.floor(m.pos.x + sx * off * s2), z = Math.floor(m.pos.z + sz * off * s2), y = Math.floor(m.pos.y) + dy;
@@ -3364,6 +3394,22 @@ scene.add(hemiLight, dirLight);
 // 置いたもの（みっくんの家などに飾れる）とお店の商品
 const props = [];
 const displays = [];
+let doorRec = null;
+function toggleDoor() {
+  if (!doorRec || !market) return;
+  const h = market.home, f = market.f;
+  doorRec.open = !doorRec.open;
+  for (let X = h.door; X <= h.door + 1; X++) for (let Y = f + 1; Y <= f + 3; Y++) {
+    const cx2 = Math.floor(X / CS), cz2 = Math.floor(h.z0 / CS), c = chunks.get(ckey(cx2, cz2));
+    if (!c) continue;
+    const i2 = idxOf(X - cx2 * CS, Y, h.z0 - cz2 * CS);
+    c.data[i2] = doorRec.open ? AIR : BARRIER;
+    (edits[ckey(cx2, cz2)] || (edits[ckey(cx2, cz2)] = {}))[i2] = c.data[i2];
+  }
+  Sound.door(doorRec.open);
+  toast(doorRec.open ? 'ドアをあけた！' : 'ドアをしめた！');
+  saveSoon();
+}
 const signals = [];
 let signalT = 0;
 function addPropObject(kind, x, y, z, yaw, opts = {}) {
@@ -3388,7 +3434,7 @@ function raycastProp(maxDist) {
   propRay.set(camera.position, d); propRay.far = maxDist;
   const objs = [];
   for (const r of props) objs.push(r.g);
-  for (const r of displays) if (r.display) objs.push(r.g);
+  for (const r of displays) if (r.display || r.door) objs.push(r.g);
   const hit = propRay.intersectObjects(objs, true)[0];
   return hit ? { rec: hit.object.userData.rec, t: hit.distance } : null;
 }
@@ -3480,6 +3526,24 @@ function ensureDisplays() {
   for (let dx = -18; dx <= 44; dx += 10) { addPropObject('streetlamp', cx + dx + 0.5, f + 1, cz - 22.5, Math.PI, { deco: true }); addPropObject('streetlamp', cx + dx + 0.5, f + 1, cz + 39.5, 0, { deco: true }); }
   for (let dz = -14; dz <= 36; dz += 10) { addPropObject('streetlamp', cx - 19.5, f + 1, cz + dz + 0.5, HALF_PI, { deco: true }); addPropObject('streetlamp', cx + 44.5, f + 1, cz + dz + 0.5, -HALF_PI, { deco: true }); }
   for (const [dx, dz, yaw] of [[-12, 25.6, 0], [-12, 34.4, Math.PI], [-16.4, 30, HALF_PI], [-7.6, 30, -HALF_PI]]) addPropObject('bench', cx + dx + 0.5, f + 1, cz + dz + 0.5, yaw, { deco: true });
+  // みっくんのいえの両開きドア
+  {
+    const g = new THREE.Group(), leaves = [];
+    for (const side of [-1, 1]) {
+      const pv = new THREE.Group(); pv.position.set(home.door + (side < 0 ? 0 : 2), f + 1, home.z0 + 0.5); g.add(pv);
+      const o = side < 0 ? 0.5 : -0.5;
+      mk(BX(0.98, 2.94, 0.14), 0xff8ab8, o, 1.47, 0, pv); mk(BX(0.8, 2.7, 0.16), 0xffb3d1, o, 1.47, 0, pv);
+      mk(BX(0.86, 0.1, 0.18), 0xffffff, o, 2.2, 0, pv); mk(BX(0.86, 0.1, 0.18), 0xffffff, o, 0.8, 0, pv);
+      mk(SG(0.16), 0xff4f7b, o, 2.55, -0.09, pv, { s: [1, 1, 0.3] }); mk(SG(0.16), 0xff4f7b, o, 2.55, 0.09, pv, { s: [1, 1, 0.3] });
+      mk(SG(0.06), 0xffd23a, o - side * 0.36, 1.4, -0.11, pv); mk(SG(0.06), 0xffd23a, o - side * 0.36, 1.4, 0.11, pv);
+      leaves.push({ pv, side });
+    }
+    scene.add(g);
+    const open = getBlock(home.door, f + 1, home.z0) !== BARRIER;
+    doorRec = { kind: 'door', door: true, deco: true, g, leaves, open, ang: open ? 1 : 0, x: home.door + 1, y: f + 1, z: home.z0 + 0.5 };
+    g.traverse(o2 => { o2.userData.rec = doorRec; });
+    displays.push(doorRec);
+  }
   addPropObject('biglolli', home.door - 1.5, f + 1, home.z0 - 2.5, 0, { deco: true, scale: 1.5 });
   addPropObject('biglolli', home.door + 3.5, f + 1, home.z0 - 2.5, 0, { deco: true, scale: 1.5 });
   addPropObject('bigcake', home.x1 + 3, f + 1, home.z0 + 3.5, 0, { deco: true, scale: 1.7 });
@@ -3508,6 +3572,7 @@ function ensureDisplays() {
   });
 }
 function clearDisplays() {
+  doorRec = null;
   signals.length = 0;
   for (const r of displays.slice()) removePropObject(r);
   sectionEls.forEach(s => s.el.remove()); sectionEls = [];
@@ -3791,6 +3856,30 @@ function renderShop() {
 }
 document.getElementById('shopClose').addEventListener('click', closeShop);
 
+// ================= ベッドでねる =================
+let sleeping = false;
+function sleepInBed(x, y, z) {
+  if (riding || mount) return;
+  sleeping = true; playing = false;
+  for (const k in keys) keys[k] = false;
+  player.pos.set(x, y + 0.6, z); player.vel.set(0, 0, 0); player.pitch = 0.9; player.airTop = player.pos.y;
+  const ov = document.getElementById('sleep');
+  ov.classList.remove('morning'); ov.hidden = false;
+  document.getElementById('sleepText').textContent = 'おやすみなさい…';
+  document.getElementById('wakeBtn').hidden = true;
+  if (document.pointerLockElement) document.exitPointerLock();
+  Sound.lullaby();
+  for (const m of mobs) if (m.pet && m.pos.distanceTo(player.pos) < 12) hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 2);
+  setTimeout(() => {
+    if (!sleeping) return;
+    ov.classList.add('morning');
+    document.getElementById('sleepText').textContent = 'おはよう！ ぐっすりねむれたね。体力がまんたん！';
+    document.getElementById('wakeBtn').hidden = false;
+    player.hp = 20; renderHearts(); Sound.morning(); saveSoon();
+  }, 5500);
+}
+document.getElementById('wakeBtn').addEventListener('click', () => { sleeping = false; player.pitch = 0; player.pos.y += 0.6; startPlay(); });
+
 // ================= テレビ =================
 const TV_CHANNELS = ['にこにこアニメ', 'どうぶつチャンネル', 'ほしぞら', 'きゃにーちゃんのうた'];
 const tvCanvas = document.createElement('canvas'); tvCanvas.width = 320; tvCanvas.height = 180;
@@ -3877,17 +3966,19 @@ function openStorage(k, title) {
 function interactProp(rec) {
   const P = PROPS[rec.kind] || {};
   if (rec.kind === 'tv') { openTV(rec); return true; }
+  if (rec.kind === 'bed') { sleepInBed(rec.x, rec.y + 0.4, rec.z); return true; }
   if (P.storage) { Sound.place(PLANKS); openStorage('p:' + rec.uid, 'れいぞうこ（食べ物や飲み物をしまえるよ）'); return true; }
   if (P.cat === 'pethouse') {
     const inside = mobs.filter(m => m.homeRec === rec);
     if (inside.length) {
       inside.forEach(m => { m.homeRec = null; hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 3); });
-      toast(`${inside.map(m => m.name).join('と')}が小屋から出てきた！ またついてくるよ`); Sound.love(); saveSoon(); return true;
+      inside.forEach(m => { m.anchor = m.pos.clone(); });
+      toast(`${inside.map(m => m.name).join('と')}が小屋から出てきた！`); Sound.love(); saveSoon(); return true;
     }
     const big = rec.kind === 'bighut';
-    const cands = mobs.filter(m => m.pet && !m.homeRec && !m.T.swim && m !== mount && (big || !m.T.big))
-      .sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos)).slice(0, 3);
-    if (!cands.length) { toast(big ? 'ついてきているペットがいないよ' : 'ついてきている小さなペットがいないよ（恐竜は大きな小屋へ）'); return true; }
+    const cands = mobs.filter(m => m.pet && !m.homeRec && !m.T.swim && m !== mount && (big || !m.T.big) && Math.hypot(m.pos.x - rec.x, m.pos.z - rec.z) < 16)
+      .sort((a, b) => a.pos.distanceTo(rec.g.position) - b.pos.distanceTo(rec.g.position)).slice(0, 3);
+    if (!cands.length) { toast(big ? '近くにペットがいないよ。ペットを小屋の近くにつれてきてね' : '近くに小さなペットがいないよ（恐竜は大きな小屋へ）'); return true; }
     cands.forEach(m => { m.homeRec = rec; m.think = 0; hearts(m.pos.x, m.pos.y + m.h, m.pos.z, 4); say(m, 'ここがおうちだね！'); });
     toast(`${cands.map(m => m.name).join('と')}が${P.name}でくらすことになった！ もう一度右クリックで出てくるよ`); Sound.love(); saveSoon();
     return true;
@@ -4239,10 +4330,11 @@ function primaryAction() {
   const bh = raycast(6);
   const ch = raycastCar(4.5);
   const ph = raycastProp(5);
-  if (ph && (!bh || ph.t < bh.t + 0.2) && (!mh || ph.t < mh.t) && (!ch || ph.t < ch.t)) { if (ph.rec.display) takeDisplay(ph.rec); else pickUpProp(ph.rec); return; }
+  if (ph && (!bh || ph.t < bh.t + 0.2) && (!mh || ph.t < mh.t) && (!ch || ph.t < ch.t)) { if (ph.rec.door) toggleDoor(); else if (ph.rec.display) takeDisplay(ph.rec); else pickUpProp(ph.rec); return; }
   if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) { attackMob(mh.mob, mh.dir); return; }
   if (ch && (!bh || ch.t < bh.t)) { pickUpCar(ch.car); return; }
   if (!bh || bh.id === BEDROCK) return;
+  if (bh.id === BARRIER) { toggleDoor(); return; }
   if (inTown(bh.x, bh.z) && bh.y >= market.f - 4 && !isPlayerPlaced(bh.x, bh.y, bh.z)) { toast('町の建物はこわせないよ（自分でおいたブロックはこわせます）'); return; }
   if (bh.id === CHEST) {
     const k = bh.x + ',' + bh.y + ',' + bh.z;
@@ -4269,6 +4361,8 @@ function secondaryAction() {
   const ch = raycastCar(4.5);
   const s = inv[selected];
   const ph = raycastProp(5);
+  if (ph && ph.rec.door && (!bh || ph.t < bh.t + 0.3)) { toggleDoor(); return; }
+  if (bh && bh.id === BARRIER) { toggleDoor(); return; }
   if (ph && ph.rec.display && (!bh || ph.t < bh.t + 0.2)) { takeDisplay(ph.rec); return; }
   if (ph && !ph.rec.display && !ph.rec.deco && (!bh || ph.t < bh.t + 0.2) && interactProp(ph.rec)) return;
   if (mh && (!bh || mh.t < bh.t) && (!ch || mh.t < ch.t)) {
@@ -4286,6 +4380,7 @@ function secondaryAction() {
   }
   if (ch && (!bh || ch.t < bh.t)) { enterCar(ch.car); return; }
   if (bh && (bh.id === SHELF || bh.id === FRIDGE || (bh.id === TABLE && inMarket(bh.x, bh.z)))) { openShop(marketCategory(bh.x, bh.z, bh.id)); return; }
+  if (bh && bh.id === BED) { sleepInBed(bh.x + 0.5, bh.y + 1, bh.z + 0.5); return; }
   if (bh && bh.id === CHEST) { openChest(bh.x, bh.y, bh.z, 'チェスト'); return; }
   if (!s) return;
   if (s.id === ROD) { castRod(); return; }
@@ -4348,7 +4443,7 @@ function onLockError() {
 }
 function startPlay() {
   Sound.init();
-  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false; shopEl.hidden = true; shopOpen = false; curChest = null; document.getElementById('tvView').hidden = true; tvOpen = false;
+  playing = true; menu.hidden = true; deadEl.hidden = true; invEl.hidden = true; invOpen = false; shopEl.hidden = true; shopOpen = false; curChest = null; document.getElementById('tvView').hidden = true; tvOpen = false; document.getElementById('sleep').hidden = true; sleeping = false;
   if (!lockFailed) {
     try {
       const r = canvas.requestPointerLock && canvas.requestPointerLock();
@@ -4375,7 +4470,7 @@ document.getElementById('respawn').addEventListener('click', () => {
   riding = null;
   player.pos.copy(spawnPoint()); player.vel.set(0, 0, 0); player.yaw = 0; player.pitch = -0.1;
   player.hp = 20; player.airTop = player.pos.y; player.invuln = 2;
-  for (const m of mobs.slice()) { if (m.T.hostile) removeMob(m); else if (m.pet) m.pos.copy(player.pos); }
+  for (const m of mobs.slice()) if (m.T.hostile) removeMob(m);
   renderHearts();
   startPlay();
 });
@@ -4394,7 +4489,7 @@ function warpToMarket() {
   if (riding) riding = null;
   player.pos.copy(spawnPoint()); player.vel.set(0, 0, 0);
   player.yaw = 0; player.pitch = 0; player.flying = false; player.airTop = player.pos.y; player.invuln = 1;
-  for (const m of mobs) if (m.pet || (m.friend && !m.stay)) teleportPet(m);
+  for (const m of mobs) if (m.friend && !m.stay) teleportPet(m);
   unstick();
   toast('スーパーの前にワープ！ まっすぐ進むと入り口だよ');
 }
@@ -4405,8 +4500,8 @@ function warpHome() {
   const hm = market.home;
   warpToMarket();
   player.pos.set(hm.door + 1, market.f + 1.05, hm.z0 - 1.5); player.yaw = Math.PI; player.pitch = 0; unstick();
-  for (const m of mobs) if (m.pet || (m.friend && !m.stay)) teleportPet(m);
-  toast('みっくんの家の前にワープ！');
+  for (const m of mobs) if (m.friend && !m.stay) teleportPet(m);
+  toast('みっくんの家の前にワープ！ ドアは右クリックであけしめできるよ');
 }
 document.getElementById('warpHome').addEventListener('click', () => { warpHome(); startPlay(); });
 document.getElementById('reset').addEventListener('click', () => {
@@ -4468,6 +4563,7 @@ window.addEventListener('wheel', e => { if (playing) select(selected + (e.deltaY
 
 window.addEventListener('keydown', e => {
   if (invOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeInv(); } return; }
+  if (sleeping) { if (!document.getElementById('wakeBtn').hidden && (e.code === 'Enter' || e.code === 'Space')) document.getElementById('wakeBtn').click(); return; }
   if (tvOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeTV(); } return; }
   if (shopOpen) { if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); closeShop(); } return; }
   if (e.code === 'Escape' && playing && lockFailed) { pause(); return; }
@@ -4555,7 +4651,7 @@ function saveNow() {
       props: props.map(r => ({ kind: r.kind, x: r.x, y: r.y, z: r.z, yaw: r.yaw, uid: r.uid })),
       cars: cars.filter(c => c.owned).map(c => ({ x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, color: c.color })),
       friends: mobs.filter(m => m.friend).map(m => ({ key: m.npc.key, name: m.name, look: m.look, kyanny: !!m.kyanny })),
-      pets: mobs.filter(m => m.pet && !m.T.swim).map(m => ({ type: m.type, name: m.name, uid: m.uid, home: m.homeRec ? m.homeRec.uid : null })),
+      pets: mobs.filter(m => m.pet && !m.T.swim).map(m => ({ type: m.type, name: m.name, uid: m.uid, home: m.homeRec ? m.homeRec.uid : null, x: m.pos.x, y: m.pos.y, z: m.pos.z, ax: (m.anchor || m.pos).x, az: (m.anchor || m.pos).z })),
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch, flying: player.flying },
     }));
   } catch (e) {}
@@ -4643,7 +4739,9 @@ function newWorld(s, e, saved, themeName) {
   if (saved && saved.props) for (const r of saved.props) if (PROPS[r.kind]) addPropObject(r.kind, r.x, r.y, r.z, r.yaw, { uid: r.uid });
   if (saved && saved.pets) for (const pt of saved.pets) if (MOBS[pt.type]) {
     const hr = pt.home ? props.find(r => r.uid === pt.home) : null;
-    const pm = createMob(pt.type, hr ? hr.x + 0.8 : player.pos.x + (Math.random() - 0.5) * 2, hr ? hr.y + 0.1 : player.pos.y + 0.5, hr ? hr.z + 0.8 : player.pos.z + (Math.random() - 0.5) * 2, null, pt);
+    const has = typeof pt.x === 'number';
+    const pm = createMob(pt.type, hr ? hr.x + 0.8 : has ? pt.x : player.pos.x + (Math.random() - 0.5) * 2, hr ? hr.y + 0.1 : has ? pt.y + 0.3 : player.pos.y + 0.5, hr ? hr.z + 0.8 : has ? pt.z : player.pos.z + (Math.random() - 0.5) * 2, null, pt);
+    if (has) pm.anchor = new THREE.Vector3(pt.ax, pt.y, pt.az);
     if (hr) pm.homeRec = hr;
   }
   if (saved && saved.cars) for (const c of saved.cars) createCar(c.x, c.y + 0.2, c.z, c.yaw, c.color, null, true);
@@ -4707,6 +4805,7 @@ function loop(now) {
     if (vis) { se.el.style.left = ((tmpV.x + 1) / 2 * W) + 'px'; se.el.style.top = ((1 - tmpV.y) / 2 * Hh) + 'px'; }
   }
   for (const r of displays) if (r.spin) r.g.rotation.y += dt * 0.45;
+  if (doorRec) { doorRec.ang += ((doorRec.open ? 1 : 0) - doorRec.ang) * Math.min(1, dt * 6); for (const l of doorRec.leaves) l.pv.rotation.y = -l.side * doorRec.ang * HALF_PI; }
   if (tvOnRecs.size || tvOpen) { drawTV(dt); if (tvOpen) document.getElementById('tvBig').getContext('2d').drawImage(tvCanvas, 0, 0, 640, 360); }
   // 信号：青→黄→赤
   signalT = (signalT + dt) % 12;
@@ -4724,9 +4823,12 @@ function loop(now) {
       if (ph && (!bh2 || ph.t < bh2.t + 0.2)) {
         const r = ph.rec;
         const P2 = PROPS[r.kind] || {};
-        const use = r.kind === 'tv' ? '右クリックでテレビを見る・' : P2.storage ? '右クリックであける・' : P2.cat === 'pethouse' ? '右クリックでペットが入る/出る・' : '';
+        const use = r.kind === 'bed' ? '右クリックでねる・' : r.kind === 'tv' ? '右クリックでテレビを見る・' : P2.storage ? '右クリックであける・' : P2.cat === 'pethouse' ? '右クリックでペットが入る/出る・' : '';
+        if (r.door) { text = 'ドア（右クリックであけしめ）'; } else
         text = r.vehicle ? `${itemName({ id: CAR, mat: r.vehicle })}（クリックでもらえる）` : r.display ? `${P2.name}（クリックでもらえる）` : `${P2.name}（${use}左クリックでしまう）`;
-      } else if (ch2 && (!bh2 || ch2.t < bh2.t)) text = `${itemName({ id: CAR, mat: ch2.car.color })}（右クリックで乗る・左クリックでしまう）`;
+      } else if (bh2 && bh2.id === BARRIER) text = 'ドア（右クリックであけしめ）';
+      else if (bh2 && bh2.id === BED) text = 'ベッド（右クリックでねる）';
+      else if (ch2 && (!bh2 || ch2.t < bh2.t)) text = `${itemName({ id: CAR, mat: ch2.car.color })}（右クリックで乗る・左クリックでしまう）`;
       else if (bh2 && (bh2.id === SHELF || bh2.id === FRIDGE) && inMarket(bh2.x, bh2.z)) text = 'たな（右クリックでお店の画面）';
     }
     an.textContent = text; an.hidden = !text;
@@ -4800,6 +4902,6 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
-window.__cubeland = { addPropObject, interactProp, heightAt, getBlock, mountOn, getMount: () => mount, displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
+window.__cubeland = { toggleDoor, sleepInBed, addPropObject, interactProp, heightAt, getBlock, mountOn, getMount: () => mount, displays, props, getMarket: () => market, warpHome, talkTo, volcanoAt, cars, enterCar, openShop, player, mobs, drops, inv, equip, createMob, addItem, setTime: t => { dayTime = t; }, lightAt, raycastMob, primaryAction, secondaryAction, camera, openInv, closeInv, villageAt, select, tame, attackMob, spawnPoint };
 })();
 </script>
