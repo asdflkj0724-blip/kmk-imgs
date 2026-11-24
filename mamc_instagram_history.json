@@ -2639,6 +2639,114 @@
       ],
       "ig_media_id": "18114527564147317",
       "permalink": "https://www.instagram.com/reel/DgFQoggERzM/"
+    },
+    {
+      "date": "2026-11-24T21:39:39+09:00",
+      "slot": "2026-11-24",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2124988444141101475",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "ケーブルニットにシャツの襟をのぞかせて。マーメイドスカートと折り返し裾のパンツで、MAMCの秋を軽やかに。",
+      "text": "ケーブルニットにシャツの襟をのぞかせて。マーメイドスカートと折り返し裾のパンツで、MAMCの秋を軽やかに。",
+      "image": "imageye___-_imgi_4_O1CN01vGqYP2kzmuH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+      "images": [
+        "imageye___-_imgi_4_O1CN01vGqYP2kzmuH2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_6_O1CN01eg2h16P8gqI2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-01-minimal-house",
+        "title": "MAMC Minimal House（A minor・120BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ケーブルニット",
+        "#ニットコーデ"
+      ],
+      "variant": {
+        "template": "compare",
+        "duration": 11.0,
+        "transition": "fade",
+        "hook_id": "ai",
+        "hook_text": "襟をのぞかせて、\n秋を重ねる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "襟をのぞかせて、\n秋を重ねる",
+          "color": "ink",
+          "bad": 0.011,
+          "worst_char": 0.004,
+          "on_face": false,
+          "on_product": 0.78
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.006,
+          "worst_char": 0.018,
+          "on_face": false,
+          "on_product": 1.0
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.002,
+          "worst_char": 0.002,
+          "on_face": false,
+          "on_product": 0.006
+        },
+        {
+          "kind": "label",
+          "text": "A",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.0
+        },
+        {
+          "kind": "label",
+          "text": "B",
+          "color": "ink",
+          "bad": 0.001,
+          "worst_char": 0.001,
+          "on_face": false,
+          "on_product": 0.008
+        },
+        {
+          "kind": "cta",
+          "text": "お気に入りの\n着こなしを\n見つけてね",
+          "color": "ink",
+          "bad": 0.0,
+          "worst_char": 0.0,
+          "on_face": false,
+          "on_product": 0.71
+        }
+      ],
+      "ig_media_id": "17995161468106237",
+      "permalink": "https://www.instagram.com/reel/DgH-ZaXihAu/"
     }
   ],
   "errors": []
