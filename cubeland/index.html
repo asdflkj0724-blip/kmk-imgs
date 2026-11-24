@@ -172,7 +172,7 @@
 <div id="menu" class="overlay">
   <div class="card">
     <h1>キューブランド</h1>
-    <p class="sub">いつでも晴れの、虹がかかる世界。集めて、つくって、みんなと仲よくなろう。</p>
+    <p class="sub">昼は虹、夜はわるものに気をつけて。集めて、つくって、みんなと仲よくなろう。</p>
     <div class="keys">
       <span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></span><span>移動</span>
       <span><kbd>マウス</kbd></span><span>まわりを見る</span>
@@ -192,7 +192,8 @@
     <div class="toggles">
       <button class="toggle" id="tBgm" aria-pressed="true">BGM</button>
       <button class="toggle" id="tSfx" aria-pressed="true">効果音</button>
-      <button class="toggle" id="tEnemy" aria-pressed="false" hidden>敵が出る</button>
+      <button class="toggle" id="tEnemy" aria-pressed="true">敵が出る</button>
+      <button class="toggle" id="tNight" aria-pressed="true">夜がくる</button>
     </div>
     <div class="worlds">
       <div class="worlds-head">せかいをえらぶ</div>
@@ -2007,6 +2008,7 @@ const Sound = (() => {
       else if (type === 'panda') tone(160, 0.3, { to: 120, type: 'triangle', vol: 0.12 * v });
       else if (type === 'walker') tone(85, 0.9, { to: 60, type: 'sawtooth', vol: 0.14 * v, lp: 420, attack: 0.15, vibrato: 4 });
       else if (type === 'jelly') tone(240, 0.14, { to: 110, vol: 0.18 * v });
+      else if (type === 'bandit') { tone(180, 0.25, { to: 130, type: 'sawtooth', vol: 0.09 * v, lp: 900 }); tone(150, 0.3, { to: 110, type: 'sawtooth', vol: 0.08 * v, lp: 900, delay: 0.3 }); }
       else if (type === 'nessie') tone(260, 0.9, { to: 330, type: 'sine', vol: 0.12 * v, vibrato: 4, attack: 0.2 });
       else if (type === 'ptera') { tone(1100, 0.12, { to: 1500, type: 'triangle', vol: 0.07 * v }); tone(1200, 0.12, { to: 1600, type: 'triangle', vol: 0.06 * v, delay: 0.15 }); }
       else if (['trex', 'tricera', 'brachio', 'stego'].includes(type)) tone(200, 0.6, { to: 150, type: 'sawtooth', vol: 0.08 * v, lp: 700, attack: 0.1, vibrato: 3 });
@@ -2474,6 +2476,15 @@ MOBS.ptera = { name: 'プテラノドン', animal: true, mount: true, big: true,
     m.wings = [];
     for (const sx of [-1, 1]) { const pv = m.pivot(m.g, sx * 0.3, 0.55, 0); mk(BX(2.2, 0.06, 0.9), 0xff8a40, sx * 1.1, 0, -0.1, pv); mk(BX(1.2, 0.05, 0.6), L, sx * 0.7, -0.02, 0.05, pv); m.wings.push(pv); }
   } };
+MOBS.bandit = { name: 'わるもの', hostile: true, human: true, w: 0.3, h: 1.85, hp: 14, speed: 2.5, dmg: 2,
+  build(m) {
+    m.look = { boy: true, hair: '#2a2430', dress: 0x2b2b3a, pants: 0x1d1d22, ribbon: 0xd02a2a, cap: 0x3a1a1a };
+    MOBS.villager.build(m);
+    m.part(m.head, 0.6, 0.13, 0.03, 0x111111, 0, 0.33, 0.265);
+    m.part(m.head, 0.1, 0.05, 0.035, 0xffffff, -0.12, 0.33, 0.27, true); m.part(m.head, 0.1, 0.05, 0.035, 0xffffff, 0.12, 0.33, 0.27, true);
+    m.part(m.head, 0.6, 0.18, 0.03, 0xd02a2a, 0, 0.1, 0.265);
+    m.part(m.g, 0.3, 0.34, 0.24, 0xc8b48a, 0.26, 0.72, -0.2); m.part(m.g, 0.12, 0.06, 0.25, 0x5a3a1e, 0.26, 0.9, -0.2);
+  } };
 const DINO_TYPES = ['trex', 'tricera', 'brachio', 'stego', 'ptera'];
 const KYANNY_LOOK = { hair: '#ff9ec7', dress: 0xffc4e1, ribbon: 0xff4f7b, long: true, twin: true, ears: true, star: true };
 const KYANNY_TALK = ['きゃにーだよ！ よろしくね♪', 'いっしょに冒険しよ！', 'スーパーのケーキ、おいしいよ！', 'ダイヤ見つけたら見せてね！', 'ペット、かわいいね！', '火山のマグマはあついから気をつけてね', 'きょうもいっぱいあそぼ！'];
@@ -2552,7 +2563,7 @@ function createMob(type, x, y, z, npc, petInfo) {
   m.pivot = (parent, px, py, pz) => { const g = new THREE.Group(); g.position.set(px, py, pz); parent.add(g); return g; };
   m.limb = (parent, w, h, d, color, px, top, pz) => { const p = m.pivot(parent, px, top, pz); m.part(p, w, h, d, color, 0, -h / 2, 0); return p; };
   T.build(m);
-  const sc = T.villager ? 0.72 : (T.animal && !T.big) ? 0.75 : 1;
+  const sc = (T.villager || T.human) ? 0.72 : (T.animal && !T.big) ? 0.75 : 1;
   if (sc !== 1) { m.g.scale.setScalar(sc); m.w *= sc; m.h *= sc; }
   m.targetYaw = m.yaw;
   scene.add(m.g);
@@ -2726,6 +2737,9 @@ function updateMob(m, dt) {
         wantSpeed = m.moving ? T.speed : 0;
       }
     }
+  } else if (T.villager && m.fleeT > 0) {
+    m.fleeT -= dt;
+    m.targetYaw = Math.atan2(-dx, -dz); wantSpeed = 3.6;
   } else if (T.villager) {
     {
       const hx = m.npc.home.x - p.x, hz = m.npc.home.z - p.z;
@@ -2972,7 +2986,21 @@ function teleportPet(m) {
 
 let defeated = 0;
 function attackMob(m, dir, power) {
-  if (m.T.villager) { talkTo(m); return; }
+  if (m.T.villager) {
+    if (m.friend || m.kyanny) { talkTo(m); return; }
+    // 村の人：叩くと「いたい！」とにげて、3回でたおれる
+    m.vhp = (m.vhp ?? 3) - 1;
+    m.hurtT = 0.35; m.fleeT = 4;
+    m.vel.x += dir.x * 5; m.vel.z += dir.z * 5; m.vel.y = 4.5;
+    Sound.hit(m.pos.x, m.pos.y, m.pos.z);
+    if (m.vhp <= 0) {
+      for (let i = 0; i < 10; i++) spawnParticle(m.pos.x, m.pos.y + 1.2, m.pos.z, new THREE.Color(0xffe14d), 2.5);
+      puff(m.pos.x, m.pos.y, m.pos.z, 10);
+      toast(`${m.name}をたおした！`);
+      removeMob(m);
+    } else say(m, ['いたい！', 'やめてよ〜！', 'わあっ！', 'たすけて〜！'][Math.random() * 4 | 0]);
+    return;
+  }
   if (!m.T.hostile) { nuzzle(m); return; }
   const held = inv[selected];
   const dmg = power || (held && held.id === 'sword' ? swordPower(held) : 3);
@@ -2984,7 +3012,8 @@ function attackMob(m, dir, power) {
     Sound.death(m.pos.x, m.pos.y, m.pos.z);
     puff(m.pos.x, m.pos.y, m.pos.z, 14);
     defeated++; toast(`${m.T.name}をたおした！`);
-    if (Math.random() < 0.35) spawnDrop({ id: m.type === 'jelly' ? STRING : COAL, count: 1 + (Math.random() * 2 | 0) }, m.pos.x, m.pos.y + 0.5, m.pos.z);
+    if (m.type === 'bandit') spawnDrop(Math.random() < 0.5 ? { id: GOLD, count: 1 + (Math.random() * 2 | 0) } : { id: [EMERALD, DIAMOND, SILVER][Math.random() * 3 | 0], count: 1 }, m.pos.x, m.pos.y + 0.5, m.pos.z);
+    else if (Math.random() < 0.35) spawnDrop({ id: m.type === 'jelly' ? STRING : COAL, count: 1 + (Math.random() * 2 | 0) }, m.pos.x, m.pos.y + 0.5, m.pos.z);
     removeMob(m);
   }
 }
@@ -3090,7 +3119,7 @@ function updateSpawns(dt) {
         const l = lightAt(x + 0.5, spot + 0.5, z + 0.5);
         if (Math.max(l.sky * daylight, l.lamp) >= 0.3) continue;
         const underground = spot < top - 2;
-        const type = underground ? (Math.random() < 0.55 ? 'jelly' : 'walker') : (Math.random() < 0.7 ? 'walker' : 'jelly');
+        const r3 = Math.random(); const type = underground ? (r3 < 0.45 ? 'jelly' : r3 < 0.75 ? 'walker' : 'bandit') : (r3 < 0.45 ? 'bandit' : r3 < 0.8 ? 'walker' : 'jelly');
         createMob(type, x + 0.5, spot + 0.01, z + 0.5);
         break;
       }
@@ -4511,9 +4540,8 @@ document.getElementById('reset').addEventListener('click', () => {
   note.textContent = `${THEME_INFO[next].name}をつくりました！ 前の世界は「せかいをえらぶ」からいつでももどれます。`;
 });
 
-const settings = { bgm: true, sfx: true, enemies: true };
+const settings = { bgm: true, sfx: true, enemies: true, night: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) {}
-settings.enemies = false; // この世界には敵はいません
 function bindToggle(id, key, apply) {
   const b = document.getElementById(id);
   const sync = () => b.setAttribute('aria-pressed', settings[key] ? 'true' : 'false');
@@ -4526,6 +4554,7 @@ function bindToggle(id, key, apply) {
 bindToggle('tBgm', 'bgm', on => Sound.setBgm(on));
 bindToggle('tSfx', 'sfx', on => Sound.setSfx(on));
 bindToggle('tEnemy', 'enemies', () => {});
+bindToggle('tNight', 'night', on => { if (!on) dayTime = 0.42; });
 
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
@@ -4625,7 +4654,7 @@ function loadWorld(id) {
   const w = worlds.find(x => x.id === id);
   if (w) { w.last = Date.now(); saveWorldList(); }
   if (data && typeof data.seed === 'number' && data.player) {
-    dayTime = 0.42;
+    dayTime = typeof data.time === 'number' ? data.time : 0.3;
     player.hp = typeof data.hp === 'number' && data.hp > 0 ? data.hp : 20;
     newWorld(data.seed, data.edits, data, data.theme);
   } else newWorld(w ? w.seed : (Math.random() * 1e9) | 0, {}, null, w ? w.theme : 'meadow');
@@ -4667,7 +4696,7 @@ const skyDay = new THREE.Color(0x87ceeb), skyNight = new THREE.Color(0x0a1028), 
 const waterFog = new THREE.Color(0x1d4a8c);
 const sky = new THREE.Color();
 function updateSky(dt) {
-  dayTime = 0.42; // ずっと昼間の快晴
+  if (settings.night) dayTime = (dayTime + dt / DAY_LEN) % 1; else dayTime = 0.42;
   const ang = (dayTime - 0.25) * Math.PI * 2;
   const sunH = Math.sin(ang);
   daylight = Math.max(0.16, Math.min(1, 0.3 + sunH * 1.2));
@@ -4685,8 +4714,9 @@ function updateSky(dt) {
   scene.fog.color.copy(fogC); scene.fog.near = near; scene.fog.far = far;
   const cp = camera.position;
   sun.position.set(cp.x + Math.cos(ang) * 300, cp.y + Math.sin(ang) * 300, cp.z + 40); sun.lookAt(cp);
-  moon.position.set(cp.x - Math.cos(ang) * 300, cp.y - Math.sin(ang) * 300, cp.z - 40); moon.lookAt(cp); moon.visible = false;
+  moon.position.set(cp.x - Math.cos(ang) * 300, cp.y - Math.sin(ang) * 300, cp.z - 40); moon.lookAt(cp); moon.visible = settings.night;
   rainbow.position.set(cp.x + 60, cp.y - 70, cp.z - 330); rainbow.lookAt(cp.x + 60, cp.y - 70, cp.z);
+  rainbow.visible = daylight > 0.7;
 }
 
 // ================= 世界の初期化 =================
