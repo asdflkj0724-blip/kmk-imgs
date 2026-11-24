@@ -204,6 +204,7 @@
       <button id="warp" class="ghost">スーパーの前へワープ（H）</button>
       <button id="warpHome" class="ghost">みっくんの家へワープ（J）</button>
       <button id="reset" class="ghost">＋ 新しい世界をつくる</button>
+      <button id="collect" class="ghost">おいた物をぜんぶかばんにもどす</button>
     </div>
     <div id="note"></div>
   </div>
@@ -4660,6 +4661,46 @@ function loadWorld(id) {
   } else newWorld(w ? w.seed : (Math.random() * 1e9) | 0, {}, null, w ? w.theme : 'meadow');
   renderWorldList();
 }
+// 置いた物（ブロック以外）と車を、ぜんぶの世界からかばんにもどす
+function collectPlacedThings() {
+  let n = 0;
+  const give = it => { addItem(Object.assign({}, it)); n++; };
+  for (const r of props.slice()) {
+    for (const m of mobs) { if (m.homeRec === r) m.homeRec = null; if (m.playRec === r) { m.playRec = null; m.play = null; } }
+    if (r.tvOn) tvTurnOff(r);
+    const sk = 'p:' + r.uid;
+    if (chests[sk]) { for (const it of chests[sk]) if (it) addItem(it); delete chests[sk]; }
+    give({ id: 'prop', mat: r.kind, count: 1 });
+    removePropObject(r);
+  }
+  for (const c of cars.slice()) if (c.owned && c !== riding) { give({ id: CAR, mat: c.color, count: 1 }); removeCar(c); }
+  for (const w of worlds) {
+    if (w.id === currentWorldId) continue;
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(worldKey(w.id)) || 'null'); } catch (e) {}
+    if (!d) continue;
+    let changed = false;
+    for (const r of d.props || []) {
+      if (!PROPS[r.kind]) continue;
+      give({ id: 'prop', mat: r.kind, count: 1 });
+      const sk = 'p:' + r.uid;
+      if (d.chests && d.chests[sk]) { for (const it of d.chests[sk]) if (it) addItem(it); delete d.chests[sk]; }
+      changed = true;
+    }
+    for (const c of d.cars || []) { give({ id: CAR, mat: c.color, count: 1 }); changed = true; }
+    if (changed) { d.props = []; d.cars = []; try { localStorage.setItem(worldKey(w.id), JSON.stringify(d)); } catch (e) {} }
+  }
+  refreshInventory(); saveNow();
+  return n;
+}
+document.getElementById('collect').addEventListener('click', () => {
+  const btn = document.getElementById('collect');
+  if (btn.dataset.c !== '1') { btn.dataset.c = '1'; btn.textContent = 'もう一度押すと、かばんにもどすよ'; setTimeout(() => { btn.dataset.c = ''; btn.textContent = 'おいた物をぜんぶかばんにもどす'; }, 3000); return; }
+  btn.dataset.c = ''; btn.textContent = 'おいた物をぜんぶかばんにもどす';
+  const n = collectPlacedThings();
+  Sound.gift && Sound.gift();
+  note.textContent = n ? `置いてあった物を${n}こ、かばんにもどしたよ！ E キーでかばんを見てね。` : '置いてある物はなかったよ。';
+});
 function createWorld(themeName) {
   if (currentWorldId) saveNow();
   const n = worlds.filter(w => w.theme === themeName).length + 1;
