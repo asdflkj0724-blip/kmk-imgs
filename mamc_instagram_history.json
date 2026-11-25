@@ -2747,6 +2747,71 @@
       ],
       "ig_media_id": "17995161468106237",
       "permalink": "https://www.instagram.com/reel/DgH-ZaXihAu/"
+    },
+    {
+      "date": "2026-11-25T20:29:25+09:00",
+      "slot": "2026-11-25",
+      "source": "x_mirror",
+      "format": "reel",
+      "x_tweet_id": "2125359633405554798",
+      "id": "__brand__",
+      "name": "",
+      "combo": "x_mirror",
+      "body": "肩から結ぶラップトップスに、揺れるロングスカート。くすみカラーを重ねて、MAMCで自分だけの秋を纏って。",
+      "text": "肩から結ぶラップトップスに、揺れるロングスカート。くすみカラーを重ねて、MAMCで自分だけの秋を纏って。",
+      "image": "imageye___-_imgi_62_O1CN01filqG2RyQwB2vHAO_!!4611686018427380178-0-item_pic.jpg",
+      "images": [
+        "imageye___-_imgi_62_O1CN01filqG2RyQwB2vHAO_!!4611686018427380178-0-item_pic.jpg",
+        "imageye___-_imgi_4_O1CN019TAScZOMzkI2vHAO_!!4611686018427380178-0-item_pic.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01yYAVaEyHJ0G2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg",
+        "imageye___-_imgi_5_O1CN01i8FIUigQ0zF2vHAO_!!2206542070226.jpg_q50.jpg_.jpeg"
+      ],
+      "bgm": {
+        "source": "library",
+        "track_id": "mamc-02-deep-chic",
+        "title": "MAMC Deep Chic（C minor・115BPM）",
+        "license": "Owned by FABMIC",
+        "source_url": "scripts/mamc_bgm.py（このリポジトリのプログラムで自動作曲。外部の音源・サンプル素材は不使用）",
+        "lufs": -14.1,
+        "true_peak_db": -2.6
+      },
+      "caption_source": "ai",
+      "forced": null,
+      "image_url": null,
+      "tags": [
+        "#MAMC",
+        "#ラップトップス",
+        "#ロングスカートコーデ"
+      ],
+      "variant": {
+        "template": "ad",
+        "duration": 11.0,
+        "transition": "cut",
+        "hook_id": "ai",
+        "hook_text": "結んで、重ねて、\n私の秋になる"
+      },
+      "checks": [
+        {
+          "kind": "hook",
+          "text": "結んで、重ねて、\n私の秋になる",
+          "color": "white",
+          "bad": 0.035,
+          "worst_char": 0.1,
+          "on_face": false,
+          "on_product": 0.986
+        },
+        {
+          "kind": "logo",
+          "text": "MAMC",
+          "color": "white",
+          "bad": 0.017,
+          "worst_char": 0.026,
+          "on_face": false,
+          "on_product": 1.0
+        }
+      ],
+      "ig_media_id": "18228234778340557",
+      "permalink": "https://www.instagram.com/reel/DgKbJA4oEkE/"
     }
   ],
   "errors": []
