@@ -119,7 +119,8 @@ export async function generateListing(
     // 断られたときは、サーバー側で別のモデルに自動で切り替える
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    system: SYSTEM,
+    // 毎回同じ指示文は割引料金で使い回す（5分以内の2件目から、1件あたり約2.2円→約1円）
+    system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     output_config: { effort: EFFORT, format: betaZodOutputFormat(GeneratedSchema) },
     messages: [{ role: 'user', content }],
   });
