@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { charLength, checkListing, fitTitle, TITLE_MAX } from '@/lib/listingRules';
+import { charLength, checkListing, findSimplifiedChinese, fitTitle, fixChineseTerms, TITLE_MAX } from '@/lib/listingRules';
 
 describe('fitTitle', () => {
   it('短ければそのまま', () => {
@@ -81,5 +81,40 @@ describe('BUYMA の数え方（半角換算）', async () => {
   it('全角31文字は長すぎる', () => {
     const issues = checkListing({ title: 'あ'.repeat(31), description: '' });
     expect(issues.some((i) => i.level === 'error' && i.message.includes('全角30文字'))).toBe(true);
+  });
+});
+
+describe('fixChineseTerms（中国語が残ったら日本語に直す）', () => {
+  it('色の原文（米白・灰粉）を、AI が付けた日本語の色名にそろえる', () => {
+    const r = fixChineseTerms('ベージュ寄りの米白と、やわらかな灰粉の2色です。', [
+      { original: '米白', ja: 'オフホワイト' },
+      { original: '灰粉', ja: 'グレーピンク' },
+    ]);
+    expect(r.text).toBe('ベージュ寄りのオフホワイトと、やわらかなグレーピンクの2色です。');
+    expect(r.replaced).toEqual(expect.arrayContaining(['米白→オフホワイト', '灰粉→グレーピンク']));
+  });
+
+  it('よく残る中国語の用語を直す（テストで実際に出たもの）', () => {
+    expect(fixChineseTerms('参考身高：100cm / 含絨量は90%').text).toBe('参考身長：100cm / ダウン率は90%');
+    expect(fixChineseTerms('耳钉（スタッドタイプ）').text).toBe('スタッドピアス（スタッドタイプ）');
+    expect(fixChineseTerms('衣丈は短め。方襟で高腰').text).toBe('着丈は短め。スクエアネックでハイウエスト');
+    expect(fixChineseTerms('マヘア35%').text).toBe('モヘア35%');
+    expect(fixChineseTerms('ゆったりとした宽松型で').text).toBe('ゆったりとしたリラックスシルエットで');
+    expect(fixChineseTerms('チェック柄ストール 披肩にもなる2WAY').text).toBe('チェック柄ストール ショールにもなる2WAY');
+  });
+
+  it('日本語の文章や、1文字・漢字なしの原文は変えない', () => {
+    const text = '白のシャツと高めのウエスト。サイズはSです。';
+    const r = fixChineseTerms(text, [
+      { original: '白', ja: 'ホワイト' },
+      { original: 'S', ja: 'S' },
+      { original: '100cm', ja: '100cm' },
+    ]);
+    expect(r.text).toBe(text);
+    expect(r.replaced).toEqual([]);
+  });
+
+  it('残った簡体字（钉など）は警告で知らせる', () => {
+    expect(findSimplifiedChinese('耳钉')).toEqual(['钉']);
   });
 });
