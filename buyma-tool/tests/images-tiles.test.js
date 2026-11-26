@@ -73,3 +73,57 @@ test('実際の画像で：メイン画像＋縦長の説明画像を切り分�
     await browser.close();
   }
 });
+
+test('白いすき間で分ける：見出しは次にくっつけ、すき間のない長いものは切る', () => {
+  // 幅100・高さ1000 を 1000行で表す。中身：0-150(人A) 200-215(見出し) 230-380(サイズ表) 420-1000(すき間なしの長いもの)
+  const blank = Array.from({ length: 1000 }, (_, y) => !((y < 150) || (y >= 200 && y < 215) || (y >= 230 && y < 380) || y >= 420));
+  const segs = IMG.segmentByGaps(100, 1000, blank, null);
+  assert.deepEqual(segs[0], { sy: 0, sh: 150 }); // 人A
+  assert.deepEqual(segs[1], { sy: 200, sh: 180 }); // 見出し＋サイズ表（見出しだけにならない）
+  assert.ok(segs.slice(2).every((s) => s.sh <= 220)); // 長いもの（580）は幅の2.2倍以内に切る
+  assert.equal(segs.slice(2).reduce((t, s) => t + s.sh, 0), 580);
+});
+
+test('実際の画像で：細かく切られた説明の画像をつなぎ直し、人やサイズ表の途中で切らない', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<html><body></body></html>');
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/images.js'), 'utf8') });
+    const r = await page.evaluate(async () => {
+      // 長いポスター（幅750）：人3人（高さ1000）とサイズ表（高さ500）が、白いすき間（80）をはさんで並ぶ
+      const W = 750;
+      const blocks = [1000, 1000, 500, 1000];
+      const H = blocks.reduce((t, b) => t + b + 80, 80);
+      const poster = new OffscreenCanvas(W, H);
+      const ctx = poster.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
+      let y = 80;
+      const tops = [];
+      for (const b of blocks) {
+        tops.push(y);
+        for (let k = 0; k < b; k += 30) {
+          ctx.fillStyle = k % 60 ? '#a33' : '#333';
+          ctx.fillRect(150, y + k, 450, 15);
+        }
+        y += b + 80;
+      }
+      // お店がやるように、人の途中で細かく切る（高さ900ずつ）
+      const urls = [];
+      for (let sy = 0; sy < H; sy += 900) {
+        const h = Math.min(900, H - sy);
+        const c = new OffscreenCanvas(W, h);
+        c.getContext('2d').drawImage(poster, 0, sy, W, h, 0, 0, W, h);
+        urls.push(URL.createObjectURL(await c.convertToBlob({ type: 'image/png' })));
+      }
+      const out = await BuymaImages.buildImageFiles(urls, '9', { maxPx: 300, limit: 20, descUrls: urls });
+      return { pieces: urls.length, n: out.files.length, failed: out.failed };
+    });
+    assert.ok(r.pieces >= 5);
+    assert.equal(r.n, 4, 'まとまり（人3人＋サイズ表）ごとに1枚ずつ');
+    assert.deepEqual(r.failed, []);
+  } finally {
+    await browser.close();
+  }
+});

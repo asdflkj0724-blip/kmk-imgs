@@ -255,13 +255,13 @@
     const pageUrl = url || (doc.location && doc.location.href) || '';
     const skus = extractSkus(doc);
     // 画像の順番：メインの画像 → 色ごとの画像 → 商品説明の画像（着用写真・サイズ表など）。重複は除き、最大50枚
+    const descAll = extractDescImages(doc);
     const images = Array.from(
-      new Set([
-        ...extractImages(doc),
-        ...skus.flatMap((g) => g.values.map((v) => v.image)).filter(Boolean),
-        ...extractDescImages(doc),
-      ])
+      new Set([...extractImages(doc), ...skus.flatMap((g) => g.values.map((v) => v.image)).filter(Boolean), ...descAll])
     ).slice(0, 50);
+    // 商品説明の画像は、1枚の長いポスターを細かく切って載せていることが多い。
+    // 正方形にするときに「つなぎ直して、白いすき間で分ける」ため、どれが説明の画像かを残しておく
+    const descImages = descAll.filter((u) => images.includes(u));
     const result = {
       source: detectSource(pageUrl),
       itemId: itemIdOf(pageUrl),
@@ -272,6 +272,7 @@
       skus,
       specs: extractSpecs(doc),
       images,
+      descImages,
       extractedAt: new Date().toISOString(),
       warnings: [],
     };
