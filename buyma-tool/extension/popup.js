@@ -808,7 +808,6 @@ function renderPriceMode() {
   $('pmFormula').checked = settings.priceMode !== 'add';
   $('pmAdd').checked = settings.priceMode === 'add';
   $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
-  $('addJpy').disabled = settings.priceMode !== 'add';
 }
 async function savePriceMode(mode) {
   const raw = $('addJpy').value.trim();
