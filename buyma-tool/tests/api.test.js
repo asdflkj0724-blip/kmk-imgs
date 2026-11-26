@@ -70,3 +70,26 @@ test('解約した人には新しいトークンが出ないので、ログア�
   await assert.rejects(api.me(), (e) => e.status === 402 && e.message === 'プランのお申し込みをお願いします。');
   assert.equal(storage.m.get('auth'), undefined);
 });
+
+test('「＋○円」は数字なら覚え、空や変な値なら使わない（管理画面の計算方法）', () => {
+  assert.equal(normalizeSettings({ addJpy: '3000' }).addJpy, 3000);
+  assert.equal(normalizeSettings({ addJpy: 2500.4 }).addJpy, 2500);
+  assert.equal(normalizeSettings({ addJpy: 0 }).addJpy, 0);
+  assert.equal(normalizeSettings({ addJpy: '' }).addJpy, null);
+  assert.equal(normalizeSettings({ addJpy: -1 }).addJpy, null);
+  assert.equal(normalizeSettings({}).addJpy, null);
+});
+
+test('「＋○円」を出品データづくりに送る（空なら送らない）', async () => {
+  const sent = [];
+  const storage = memoryStorage({ auth: { accessToken: 'a', refreshToken: 'r', expiresAt: NOW / 1000 + 3600 } });
+  const fetch = async (url, init) => {
+    sent.push(JSON.parse(init.body));
+    return { ok: true, status: 200, json: async () => ({ listing: {} }) };
+  };
+  const api = createApi({ storage, fetch, now: () => NOW });
+  await api.generate({ title: 'x' }, '', '', 3000);
+  await api.generate({ title: 'x' }, '', '', undefined);
+  assert.equal(sent[0].addJpy, 3000);
+  assert.equal('addJpy' in sent[1], false);
+});

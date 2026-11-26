@@ -8,7 +8,7 @@ import { json, preflight } from '@/lib/http';
 import { fxFor, getAllowance, getProfile, settingsFor } from '@/lib/account';
 import { ProductSchema, colorsAndSizes, sourceText } from '@/lib/product';
 import { AiRefusalError, composeDescription, generateListing } from '@/lib/ai';
-import { calculatePrice } from '@/lib/pricing';
+import { basePriceOf, calculatePrice } from '@/lib/pricing';
 import { autoFixText, checkListing, fixChineseTerms, fitTitle } from '@/lib/listingRules';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -23,6 +23,8 @@ const Body = z.object({
   instruction: z.string().max(1000).optional(),
   /** 価格を手で決めたいとき（商品と同じ通貨） */
   costCny: z.number().positive().optional(),
+  /** 拡張機能で入れた「＋○円」。あれば「表示価格＋○円」で計算する */
+  addJpy: z.number().min(0).max(1_000_000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json(req, { error: '送られてきた商品データの形が正しくありません' }, 400);
-  const { product, templateId, instruction, costCny } = parsed.data;
+  const { product, templateId, instruction, costCny, addJpy } = parsed.data;
   if (!product.title) return json(req, { error: '商品名がないため作れません。スクショで補ってください' }, 400);
 
   const profile = await getProfile(user.id);
@@ -83,8 +85,8 @@ export async function POST(req: Request) {
   if (zhList.length) fixes.push(`中国語の言葉を日本語に直しました（${zhList.join('、')}）`);
   const description = composeDescription(g, template?.body ?? '');
 
-  // 価格：手で入れた値 → 商品の最低価格 の順に使う。通貨は商品ページの通貨
-  const cny = costCny ?? product.price?.min ?? null;
+  // 価格：手で入れた値 → 商品の一番高い価格（幅があるとき）の順に使う
+  const cny = costCny ?? basePriceOf(product.price);
   const currency = normalizeCurrency(product.price?.currency || 'CNY');
   const fx = currency ? await fxFor(profile, currency) : null;
   let breakdown = null;
@@ -93,7 +95,8 @@ export async function POST(req: Request) {
     priceError = `通貨（${product.price?.currency ?? '不明'}）に対応していません。価格を確認・修正してください`;
   } else if (cny && fx) {
     try {
-      breakdown = calculatePrice(cny, fx.rate, settingsFor(profile));
+      const base = settingsFor(profile);
+      breakdown = calculatePrice(cny, fx.rate, addJpy === undefined ? base : { ...base, profitMode: 'fixed', addJpy: Math.round(addJpy) });
     } catch (e) {
       priceError = (e as Error).message;
     }
@@ -152,6 +155,7 @@ export async function POST(req: Request) {
       priceJpy: breakdown?.salePriceJpy ?? null,
       breakdown,
       priceError,
+      priceWarning: breakdown?.warning || null,
       colors,
       sizes,
       images: product.images,

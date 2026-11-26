@@ -150,6 +150,7 @@
   function noticeItems(l) {
     const out = [];
     if (l.priceError) out.push({ level: 'warning', text: '【価格】' + l.priceError });
+    if (l.priceWarning) out.push({ level: 'warning', text: '【価格】' + l.priceWarning });
     for (const i of l.issues || []) {
       const tag = i.level === 'error' ? '【要修正】' : i.level === 'info' ? '【参考】' : '【確認】';
       out.push({ level: i.level, text: tag + i.message });

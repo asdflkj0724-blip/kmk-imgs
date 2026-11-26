@@ -64,6 +64,9 @@
     out.noBrandIfUnknown = src.noBrandIfUnknown !== false;
     out.watermarkEnabled = src.watermarkEnabled === true;
     out.watermarkText = String(src.watermarkText == null ? '' : src.watermarkText).replace(/[\r\n]+/g, ' ').slice(0, 40);
+    // 販売価格＝仕入れ先の値段（円）＋この金額。一度入れたら次の商品でも使う。空（null）なら管理画面の計算方法
+    const add = src.addJpy === '' || src.addJpy == null ? NaN : Number(src.addJpy);
+    out.addJpy = Number.isFinite(add) && add >= 0 && add <= 1000000 ? Math.round(add) : null;
     const q = Number(out.jpegQuality);
     out.jpegQuality = q > 0 && q <= 1 ? q : DEFAULT_SETTINGS.jpegQuality;
     return out;
@@ -180,8 +183,16 @@
       refresh,
       request,
       me: () => request('/api/me'),
-      generate: (product, templateId, instruction) =>
-        request('/api/generate', { method: 'POST', body: { product, templateId: templateId || undefined, instruction: instruction || undefined } }),
+      generate: (product, templateId, instruction, addJpy) =>
+        request('/api/generate', {
+          method: 'POST',
+          body: {
+            product,
+            templateId: templateId || undefined,
+            instruction: instruction || undefined,
+            addJpy: typeof addJpy === 'number' && addJpy >= 0 ? addJpy : undefined,
+          },
+        }),
       // どのサイトでも：ページの中身から AI が商品情報を抜き出す
       extract: (page) => request('/api/extract', { method: 'POST', body: { page } }),
       pickCategory: (input) => request('/api/category-pick', { method: 'POST', body: input }),

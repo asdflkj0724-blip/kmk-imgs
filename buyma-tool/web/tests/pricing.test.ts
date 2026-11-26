@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePrice, DEFAULT_PRICING, mergeSettings, validateSettings, type PricingSettings } from '@/lib/pricing';
+import { basePriceOf, calculatePrice, DEFAULT_PRICING, mergeSettings, validateSettings, type PricingSettings } from '@/lib/pricing';
 
 const base: PricingSettings = {
   ...DEFAULT_PRICING,
@@ -67,5 +67,49 @@ describe('calculatePrice', () => {
     expect(m.profitMode).toBe(DEFAULT_PRICING.profitMode);
     expect(m.roundTo).toBe(DEFAULT_PRICING.roundTo);
     expect(validateSettings(DEFAULT_PRICING)).toEqual([]);
+  });
+});
+
+describe('表示価格＋○円（fixed）', () => {
+  const fixed = (addJpy: number, extra: Partial<PricingSettings> = {}): PricingSettings => ({
+    ...DEFAULT_PRICING,
+    profitMode: 'fixed',
+    addJpy,
+    roundTo: 1,
+    ...extra,
+  });
+
+  it('売値＝表示価格×為替（上乗せなし）＋指定の金額', () => {
+    const r = calculatePrice(199, 21.5, fixed(3000));
+    expect(r.salePriceJpy).toBe(Math.ceil(199 * 21.5 + 3000)); // 4,278.5 + 3,000 → 7,279
+    expect(r.warning).toBe('');
+  });
+
+  it('端数の切り上げ単位は守る', () => {
+    expect(calculatePrice(199, 21.5, fixed(3000, { roundTo: 100 })).salePriceJpy).toBe(7300);
+  });
+
+  it('最低利益で自動に上げることはしない。赤字なら警告を出す', () => {
+    const r = calculatePrice(199, 21.5, fixed(100));
+    expect(r.salePriceJpy).toBe(Math.ceil(199 * 21.5 + 100));
+    expect(r.profitJpy).toBeLessThan(0);
+    expect(r.warning).toContain('赤字の見込み');
+  });
+
+  it('保存された設定から fixed と上乗せ額を読み込める。マイナスの上乗せ額は受け付けない', () => {
+    const m = mergeSettings({ profitMode: 'fixed', addJpy: 2500 });
+    expect(m.profitMode).toBe('fixed');
+    expect(m.addJpy).toBe(2500);
+    expect(mergeSettings({}).addJpy).toBe(3000);
+    expect(validateSettings(fixed(-1)).length).toBeGreaterThan(0);
+  });
+});
+
+describe('basePriceOf（計算に使う仕入れ値）', () => {
+  it('値段に幅があれば一番高い値段を使う', () => {
+    expect(basePriceOf({ min: 199, max: 239 })).toBe(239);
+    expect(basePriceOf({ min: 199, max: 199 })).toBe(199);
+    expect(basePriceOf(null)).toBeNull();
+    expect(basePriceOf({ min: 0, max: 0 })).toBeNull();
   });
 });
