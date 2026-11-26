@@ -612,6 +612,28 @@ async function importShipping() {
   }
 }
 
+/** 色・サイズ欄の作りを調べて、ファイルに保存する（色・サイズの自動入力を作るための下調べ） */
+function inspectActiveVariation() {
+  return globalThis.RakuBuymaFill.inspectVariation(document);
+}
+async function saveVariationInfo() {
+  $('inspectVariation').disabled = true;
+  try {
+    setStatus('色・サイズ欄を調べています…（画面のタブが切り替わりますが、何も変えません）');
+    const info = await runInBuyma(inspectActiveVariation);
+    if (!info || !info.found) return setStatus('この画面に「色・サイズ」欄が見つかりませんでした（出品画面で押してください）');
+    const blob = new Blob([JSON.stringify(info, null, 1)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    await chrome.downloads.download({ url, filename: 'buyma-color-size.json' });
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setStatus('保存しました。「ダウンロード」フォルダの buyma-color-size.json をチャットに送ってください');
+  } catch (e) {
+    setStatus('調べられませんでした。ページを再読み込みしてから、もう一度お試しください。');
+  } finally {
+    $('inspectVariation').disabled = false;
+  }
+}
+
 // ---- はじめに ----
 async function init() {
   $('fCurrency').replaceChildren(...PF.CURRENCIES.map((c) => el('option', { value: c }, c)));
@@ -627,6 +649,7 @@ async function init() {
 $('extract').addEventListener('click', extract);
 $('fillBuyma').addEventListener('click', fillBuyma);
 $('importShipping').addEventListener('click', importShipping);
+$('inspectVariation').addEventListener('click', saveVariationInfo);
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

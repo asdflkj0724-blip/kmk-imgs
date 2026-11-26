@@ -251,3 +251,24 @@ test('カテゴリの名前の分け方と、はっきり合うものだけを�
   assert.equal(PF.localCategoryPick(['スカート', 'ロングスカート'], 'スカート'), 0, '完全に同じものを優先');
   assert.equal(PF.localCategoryPick(['ワンピース', 'オールインワン'], 'パンツ'), -1, '合わなければ AI に聞く');
 });
+
+test('色・サイズ欄の下調べ：タブ・選択欄の候補を集め、値は何も変えない', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(fs.readFileSync(path.join(__dirname, 'fixtures/buyma_pc_listing.html'), 'utf8'));
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/buyma-fill.js'), 'utf8') });
+    const before = await page.evaluate(() => document.body.innerHTML.length);
+    const info = await page.evaluate(() => RakuBuymaFill.inspectVariation(document));
+    assert.equal(info.found, true);
+    assert.ok(info.tabs.length >= 1);
+    assert.ok(info.tabs.every((t) => typeof t.html === 'string' && Array.isArray(t.selects)));
+    // 出品ボタンなどは押していない（ページの中身が大きく変わっていない）
+    const after = await page.evaluate(() => document.body.innerHTML.length);
+    assert.ok(Math.abs(after - before) < 2000);
+    const none = await page.evaluate(() => RakuBuymaFill.inspectVariation(document.createElement('div')));
+    assert.equal(none.found, false);
+  } finally {
+    await browser.close();
+  }
+});

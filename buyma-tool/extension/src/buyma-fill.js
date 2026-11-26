@@ -496,7 +496,61 @@
     return report;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, TEXT_FIELDS };
+  /**
+   * 「色・サイズ」欄の作りを調べる（自動入力を作るための下調べ。値は何も変えない）。
+   * 色・サイズのタブを順に開き、選択欄の候補・ボタン・入力欄・画面の作りを集めて返す。
+   * 調べるのはこの欄の中だけ（会員情報など、ほかの欄は読まない）。
+   */
+  async function inspectVariation(doc) {
+    const row = rowByTitle(doc, '色・サイズ');
+    if (!row) return { found: false };
+    const t = (el) => (el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const tabs = Array.from(row.querySelectorAll('[role="tab"]'));
+    const before = Math.max(0, tabs.findIndex((x) => /is-active|selected/.test(x.className)));
+    const out = { found: true, tabs: [] };
+    for (const tab of tabs.length ? tabs : [null]) {
+      if (tab) {
+        tab.click();
+        await wait(500);
+      }
+      const panel = row.querySelector('[role="tabpanel"].react-tabs__tab-panel--selected') || row;
+      const selects = [];
+      for (const sel of Array.from(panel.querySelectorAll('.Select'))) {
+        const control = sel.querySelector('.Select-control');
+        const item = { current: t(sel.querySelector('.Select-value')), options: [] };
+        if (control && !sel.classList.contains('is-disabled')) {
+          mouse(control, 'mousedown');
+          const opts = await waitFor(() => {
+            const list = Array.from(sel.querySelectorAll('.Select-option'));
+            return list.length ? list : null;
+          }, 1500);
+          item.options = (opts || []).slice(0, 300).map(t);
+          if (opts) mouse(control, 'mousedown'); // 開いた候補を閉じる（何も選ばない）
+          await wait(150);
+        }
+        selects.push(item);
+      }
+      out.tabs.push({
+        name: tab ? t(tab) : '',
+        selects,
+        buttons: Array.from(panel.querySelectorAll('button, [role="button"], a')).map(t).filter(Boolean),
+        inputs: Array.from(panel.querySelectorAll('input, textarea, select')).map((e) => ({
+          tag: e.tagName.toLowerCase(),
+          type: e.getAttribute('type') || '',
+          placeholder: e.getAttribute('placeholder') || '',
+          disabled: !!e.disabled,
+          checked: !!e.checked,
+          label: t(e.closest('label')),
+        })),
+        html: panel.outerHTML.replace(/<svg[\s\S]*?<\/svg>/g, '<svg/>').replace(/\svalue="[^"]*"/g, '').slice(0, 80000),
+      });
+    }
+    if (tabs[before]) tabs[before].click();
+    return out;
+  }
+
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
