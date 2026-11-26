@@ -128,10 +128,63 @@ function renderImages() {
         renderImages();
         saveState();
       });
-      box.append(cb, el('img', { src: item.thumb, alt: '' }));
+      const ja = item.thumbJa && item.texts && item.texts.length && item.translate !== false;
+      box.append(cb, el('img', { src: ja ? item.thumbJa : item.thumb, alt: '' }));
+      if (item.thumbJa && item.texts && item.texts.length) {
+        const t = el('button', { type: 'button', className: 'jaflag' + (item.translate === false ? ' off' : ''), title: item.translate === false ? '元の文字のまま（押すと日本語に書き換える）' : '日本語に書き換えています（押すと元の文字に戻す）' }, item.translate === false ? '原' : '訳');
+        t.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          item.translate = item.translate === false;
+          renderImages();
+          saveState();
+        });
+        box.append(t);
+      }
       return box;
     })
   );
+}
+
+/**
+ * 画像の中の外国語（中国語など）を日本語に書き換える。
+ * 文字の読み取りは拡張機能の中で行い（無料）、読み取った文字だけをサーバーで訳す（画像は送らない）。
+ */
+async function translateImagePlan() {
+  const plan = product && product.imagePlan;
+  if (!plan || !plan.length || !accountActive) return;
+  let ocr = null;
+  try {
+    setStatus('画像の中の文字を読み取っています…');
+    ocr = await RakuImageText.createOcr(chrome.runtime.getURL(''));
+    await BuymaImages.ocrPlan(plan, (c) => ocr.recognize(c), (i, n) => setStatus(`画像の中の文字を読み取っています… ${i}/${n}`));
+    // 訳す行を集める（同じ文字は1回だけ訳す）
+    const lines = [];
+    for (const it of plan) for (const l of it.ocr || []) if (RakuImageText.needsTranslation(l.text, l.confidence) && !lines.includes(l.text)) lines.push(l.text);
+    if (!lines.length) {
+      setStatus('画像の中に、書き換える外国語は見つかりませんでした');
+      return;
+    }
+    setStatus(`画像の中の文字（${lines.length}か所）を日本語にしています…`);
+    const { ja } = await api.imageText(product.title || '', lines.slice(0, 300));
+    const dict = new Map(lines.map((l, i) => [l, (ja && ja[i]) || '']));
+    const changed = [];
+    for (const it of plan) {
+      it.texts = (it.ocr || [])
+        .filter((l) => dict.get(l.text) && dict.get(l.text) !== l.text)
+        .map((l) => ({ x: l.x, y: l.y, w: l.w, h: l.h, ja: dict.get(l.text) }));
+      if (it.texts.length) changed.push(it);
+      delete it.ocr;
+    }
+    if (changed.length) await BuymaImages.rethumb(changed, 120);
+    renderImages();
+    await saveState();
+    setStatus(changed.length ? `${changed.length}枚の画像の文字を日本語に書き換えました。「訳」を押すと元の文字に戻せます` : '書き換える文字はありませんでした');
+  } catch (e) {
+    setStatus('画像の文字を日本語にできませんでした（画像はそのまま使えます）：' + e.message);
+  } finally {
+    if (ocr) ocr.terminate().catch(() => {});
+  }
 }
 
 /** 元の画像から、BUYMA に入れる画像の候補を作る（つなぎ直し・人ごとに分ける・正方形）。最大30枚、最初の20枚を使う */
@@ -149,6 +202,7 @@ async function prepareImagePlan() {
     product.imagePlan = items;
     renderImages();
     await saveState();
+    if (settings.translateImageText && items.length) await translateImagePlan();
     setStatus(items.length ? `画像を${Math.min(items.length, BUYMA_IMAGE_MAX)}枚用意しました。違う画像はチェックを外すと、次の候補が繰り上がります` : '画像を作れませんでした');
   } catch (e) {
     setStatus('画像を作れませんでした：' + e.message);

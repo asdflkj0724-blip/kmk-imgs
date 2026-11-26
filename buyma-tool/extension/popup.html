@@ -49,7 +49,7 @@
     <label for="fSpecs">仕様（1行に「名前: 内容」）</label>
     <textarea id="fSpecs" rows="4"></textarea>
     <label>BUYMA に入れる画像（違う画像はチェックを外す）<span id="imgcount" class="small muted"></span></label>
-    <p class="small muted">この順番のまま、上から20枚を BUYMA に入れます。チェックを外すと、次の候補が繰り上がります。</p>
+    <p class="small muted">この順番のまま、上から20枚を BUYMA に入れます。チェックを外すと、次の候補が繰り上がります。「訳」の付いた画像は、中の外国語を日本語に書き換えています（押すと元の文字に戻せます）。</p>
     <div id="images"></div>
     <button id="prepareImages" class="ghost" hidden>BUYMA に入れる画像を作る</button>
 
@@ -89,6 +89,8 @@
   <script src="src/api.js"></script>
   <script src="src/zip.js"></script>
   <script src="src/images.js"></script>
+  <script src="vendor/tesseract/tesseract.min.js"></script>
+  <script src="src/image-text.js"></script>
   <script src="src/page-reader.js"></script>
   <script src="src/product-form.js"></script>
   <script src="popup.js"></script>

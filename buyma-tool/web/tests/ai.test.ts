@@ -136,3 +136,13 @@ describe('BUYMA のカテゴリ選び', async () => {
     expect((await pickCategoryOption(input, client)).index).toBe(-1);
   });
 });
+
+describe('translateImageText（画像の中の文字を日本語に）', async () => {
+  const { translateImageText } = await import('@/lib/ai');
+  it('番号付きで渡し、同じ数の訳を返す（足りない分は訳さない）', async () => {
+    const { client, parse } = fakeClient({ stop_reason: 'end_turn', parsed_output: { ja: ['着丈', 'バスト'] }, model: 'm', usage: { input_tokens: 1, output_tokens: 1 } });
+    const r = await translateImageText({ title: 'ニット', lines: ['衣长', '胸围', 'mamc'] }, client);
+    expect(r.ja).toEqual(['着丈', 'バスト', '']);
+    expect(parse.mock.calls[0][0].messages[0].content).toContain('0: 衣长\n1: 胸围\n2: mamc');
+  });
+});
