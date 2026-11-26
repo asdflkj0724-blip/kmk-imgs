@@ -152,6 +152,7 @@ export async function POST(req: Request) {
       priceJpy: breakdown?.salePriceJpy ?? null,
       breakdown,
       priceError,
+      priceWarning: breakdown?.warning || null,
       colors,
       sizes,
       images: product.images,

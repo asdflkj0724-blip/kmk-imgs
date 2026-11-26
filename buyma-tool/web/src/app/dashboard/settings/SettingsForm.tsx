@@ -8,8 +8,9 @@ const FX_CURRENCIES = SUPPORTED_CURRENCIES.filter((c) => c !== 'JPY');
 
 type NumKey = Exclude<keyof PricingSettings, 'profitMode'>;
 const FIELDS: { key: NumKey; label: string; unit: '%' | '円' | '現地通貨' | ''; hint?: string }[] = [
-  { key: 'profitRate', label: '利益率', unit: '%', hint: '下の「利益の付け方」で意味が変わります' },
-  { key: 'minProfitJpy', label: '最低利益', unit: '円', hint: '安い商品でもこれだけは残るようにします' },
+  { key: 'addJpy', label: '上乗せする金額', unit: '円', hint: '「表示価格＋○円」のときだけ使います。表示価格を円にした金額に、この金額を足して売値にします' },
+  { key: 'profitRate', label: '利益率', unit: '%', hint: '下の「利益の付け方」で意味が変わります（「表示価格＋○円」では使いません）' },
+  { key: 'minProfitJpy', label: '最低利益', unit: '円', hint: '安い商品でもこれだけは残るようにします（「表示価格＋○円」では使いません）' },
   { key: 'buymaFeeRate', label: 'BUYMA の成約手数料率', unit: '%', hint: '仮の値です。ご自分の契約の率に直してください' },
   { key: 'internationalShippingJpy', label: '国際送料', unit: '円' },
   { key: 'domesticShippingCny', label: '仕入れ先の国内送料', unit: '現地通貨', hint: '仕入れ値と同じ通貨で入れます' },
@@ -90,7 +91,11 @@ export function SettingsForm(props: {
         <select value={s.profitMode} onChange={(e) => setS({ ...s, profitMode: e.target.value as PricingSettings['profitMode'] })}>
           <option value="margin">売値に対する利益率（売値の○%が利益）</option>
           <option value="markup">費用に対する上乗せ率（費用に○%を足す）</option>
+          <option value="fixed">表示価格＋○円（仕入れ先の表示価格を円にして、決まった金額を足す）</option>
         </select>
+        {s.profitMode === 'fixed' && (
+          <p className="hint">売値＝仕入れ先の表示価格×為替＋「上乗せする金額」です。下の送料・手数料などの設定は、利益の見込みの計算だけに使い、赤字になりそうなときは注意を出します。</p>
+        )}
         <div className="form-grid">
           {FIELDS.map((f) => (
             <div key={f.key}>
@@ -165,6 +170,7 @@ export function SettingsForm(props: {
               <tr><th>販売価格</th><th className="ok">¥{preview.salePriceJpy.toLocaleString()}</th></tr>
               <tr><td>BUYMA 手数料</td><td>¥{preview.buymaFeeJpy.toLocaleString()}</td></tr>
               <tr><th>利益</th><th>¥{preview.profitJpy.toLocaleString()}（売値の{Math.round(preview.profitRateOfSale * 100)}%）</th></tr>
+              {preview.warning && <tr><td colSpan={2} className="error small">{preview.warning}</td></tr>}
             </tbody>
           </table>
         ) : (

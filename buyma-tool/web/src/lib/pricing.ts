@@ -5,6 +5,8 @@
  * 利益の付け方は2通り：
  *  - margin（売値に対する利益率）: 売値 = 費用 ÷ (1 − 手数料率 − 利益率)
  *  - markup（費用に対する上乗せ率）: 売値 = 費用 × (1 + 上乗せ率) ÷ (1 − 手数料率)
+ *  - fixed（表示価格＋○円）: 売値 = 仕入れ値 × 為替（上乗せなし）＋ 上乗せ額
+ *    送料・手数料などは上乗せ額の中で考える。利益の見込みは費用の設定で計算し、赤字なら知らせる
  */
 export interface PricingSettings {
   /** 為替の上乗せ（カード手数料などの分）。0.03 = 3% */
@@ -22,9 +24,11 @@ export interface PricingSettings {
   dutyRate: number;
   /** BUYMA の成約手数料率（仮の値。必ず自分の契約の率に直す） */
   buymaFeeRate: number;
-  profitMode: 'margin' | 'markup';
-  /** margin なら売値に対する率、markup なら費用に対する率 */
+  profitMode: 'margin' | 'markup' | 'fixed';
+  /** margin なら売値に対する率、markup なら費用に対する率（fixed では使わない） */
   profitRate: number;
+  /** fixed のとき、表示価格（円）に足す金額 */
+  addJpy: number;
   /** 最低利益（円）。率で計算した利益がこれより少なければこちらを使う */
   minProfitJpy: number;
   /** 端数の切り上げ単位（10, 100 など） */
@@ -42,6 +46,7 @@ export const DEFAULT_PRICING: PricingSettings = {
   profitMode: 'margin',
   profitRate: 0.2,
   minProfitJpy: 1000,
+  addJpy: 3000,
   roundTo: 100,
 };
 
@@ -60,6 +65,8 @@ export interface PriceBreakdown {
   buymaFeeJpy: number;
   profitJpy: number;
   profitRateOfSale: number;
+  /** 赤字の見込みなど、出品前に知らせること（なければ空） */
+  warning: string;
 }
 
 export function validateSettings(s: PricingSettings): string[] {
@@ -73,6 +80,7 @@ export function validateSettings(s: PricingSettings): string[] {
     errors.push('手数料率と利益率の合計が大きすぎます（95% 未満にしてください）');
   }
   if (!(s.roundTo >= 1)) errors.push('切り上げ単位は 1 以上にしてください');
+  if (s.profitMode === 'fixed' && !(Number.isFinite(s.addJpy) && s.addJpy >= 0)) errors.push('上乗せする金額は 0 円以上にしてください');
   return errors;
 }
 
@@ -92,14 +100,19 @@ export function calculatePrice(costCny: number, fxRate: number, settings: Pricin
   const dutyJpy = productJpy * s.dutyRate;
   const totalCost = productJpy + agentFeeJpy + domesticShippingJpy + dutyJpy + s.internationalShippingJpy + s.otherCostJpy;
 
-  let sale =
-    s.profitMode === 'margin'
-      ? totalCost / (1 - s.buymaFeeRate - s.profitRate)
-      : (totalCost * (1 + s.profitRate)) / (1 - s.buymaFeeRate);
-
-  // 最低利益を下回るなら、最低利益が残る値段まで上げる
-  const minSale = (totalCost + s.minProfitJpy) / (1 - s.buymaFeeRate);
-  if (sale < minSale) sale = minSale;
+  let sale: number;
+  if (s.profitMode === 'fixed') {
+    // 表示価格を円にしただけ（カード手数料などの上乗せなし）＋ 指定の金額。自動で上げることはしない
+    sale = costCny * fxRate + s.addJpy;
+  } else {
+    sale =
+      s.profitMode === 'margin'
+        ? totalCost / (1 - s.buymaFeeRate - s.profitRate)
+        : (totalCost * (1 + s.profitRate)) / (1 - s.buymaFeeRate);
+    // 最低利益を下回るなら、最低利益が残る値段まで上げる
+    const minSale = (totalCost + s.minProfitJpy) / (1 - s.buymaFeeRate);
+    if (sale < minSale) sale = minSale;
+  }
 
   const salePriceJpy = Math.ceil(sale / s.roundTo) * s.roundTo;
   const buymaFeeJpy = salePriceJpy * s.buymaFeeRate;
@@ -120,6 +133,10 @@ export function calculatePrice(costCny: number, fxRate: number, settings: Pricin
     buymaFeeJpy: yen(buymaFeeJpy),
     profitJpy: yen(profitJpy),
     profitRateOfSale: Math.round((profitJpy / salePriceJpy) * 1000) / 1000,
+    warning:
+      profitJpy < 0
+        ? `赤字の見込みです（BUYMA の手数料・送料などを引くと、約${Math.abs(yen(profitJpy)).toLocaleString('ja-JP')}円のマイナス）。上乗せする金額か、販売価格を見直してください`
+        : '',
   };
 }
 
@@ -131,7 +148,7 @@ export function mergeSettings(partial: Partial<PricingSettings> | null | undefin
       const v = partial[k];
       if (v === undefined || v === null) continue;
       if (k === 'profitMode') {
-        if (v === 'margin' || v === 'markup') merged.profitMode = v;
+        if (v === 'margin' || v === 'markup' || v === 'fixed') merged.profitMode = v;
       } else if (typeof v === 'number' && Number.isFinite(v)) {
         (merged[k] as number) = v;
       }
