@@ -120,3 +120,8 @@ test('タイトルの文字数は BUYMA と同じ数え方（半角1・全角2�
   assert.equal(PF.buymaLength('ウール'), 6);
   assert.equal(PF.buymaLength('あ'.repeat(30)), 60);
 });
+
+test('「ブランドがわからなければブランド指定なし」は、はじめはオン', () => {
+  assert.equal(normalizeSettings({}).noBrandIfUnknown, true);
+  assert.equal(normalizeSettings({ noBrandIfUnknown: false }).noBrandIfUnknown, false);
+});

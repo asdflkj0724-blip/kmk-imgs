@@ -210,15 +210,76 @@
     if (chosen.length) report.filled.push('カテゴリ（' + chosen.join(' > ') + '）');
   }
 
+  /**
+   * カテゴリの i 段目（0から）を開いて、候補の名前を返す（AI に選んでもらうため）。
+   * すでに選ばれていれば selected に名前が入る。段がなければ exists: false。
+   */
+  async function categoryLevel(doc, i) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) return { exists: false };
+    const sel = await waitFor(() => row.querySelectorAll('.Select')[i], 2500);
+    if (!sel) return { exists: false };
+    const already = selectedLabel(sel);
+    if (already) return { exists: true, selected: already, options: [] };
+    const options = await openOptions(sel);
+    return { exists: true, selected: '', options: options ? options.map((o) => (o.textContent || '').trim()) : [] };
+  }
+
+  async function openOptions(sel) {
+    const now = () => {
+      const list = Array.from(sel.querySelectorAll('.Select-option'));
+      return list.length ? list : null;
+    };
+    if (now()) return now();
+    const control = sel.querySelector('.Select-control');
+    if (!control) return null;
+    mouse(control, 'mousedown');
+    return waitFor(now, 2500);
+  }
+
+  /** カテゴリの i 段目で、index 番目の候補を選ぶ（-1 なら閉じるだけ）。選んだ名前を返す */
+  async function categoryPick(doc, i, index) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    const sel = row && row.querySelectorAll('.Select')[i];
+    if (!sel) return '';
+    if (selectedLabel(sel)) return selectedLabel(sel);
+    const options = await openOptions(sel);
+    if (!options) return '';
+    if (index < 0 || index >= options.length) {
+      const control = sel.querySelector('.Select-control');
+      if (control) mouse(control, 'mousedown');
+      return '';
+    }
+    mouse(options[index], 'mousedown');
+    return (await waitFor(() => selectedLabel(sel), 2000)) || '';
+  }
+
   // ---- ブランド（候補が出たら、名前が完全に同じものだけ選ぶ） ----
-  async function fillBrand(doc, brand, report) {
+  async function fillBrand(doc, brand, report, noBrandIfUnknown) {
     const row = rowByTitle(doc, 'ブランド');
     if (!row) {
       if (brand) report.missing.push('ブランド');
       return;
     }
     if (!brand) {
-      report.notes.push('ブランドは仕入れ先で確認できなかったので入れていません。ブランドがない商品なら「ブランド指定なし」を選んでください。');
+      if (!noBrandIfUnknown) {
+        report.notes.push('ブランドは仕入れ先で確認できなかったので入れていません。ブランドがない商品なら「ブランド指定なし」を選んでください。');
+        return;
+      }
+      // 設定で「わからないときはブランド指定なし」にしているとき
+      const box = Array.from(row.querySelectorAll('label')).find((l) => /ブランド指定なし/.test(l.textContent || ''));
+      const cb = box && box.querySelector('input[type=checkbox]');
+      if (!cb) {
+        report.notes.push('「ブランド指定なし」が見つかりませんでした。ご自身で選んでください。');
+        return;
+      }
+      if (cb.checked) {
+        report.skipped.push('ブランド');
+        return;
+      }
+      box.click();
+      if (await waitFor(() => cb.checked, 800)) report.filled.push('ブランド（指定なし）');
+      else report.notes.push('「ブランド指定なし」にチェックを付けられませんでした。ご自身で選んでください。');
       return;
     }
     const input = row.querySelector('input[type=text]');
@@ -408,13 +469,16 @@
     const report = { filled: [], skipped: [], missing: [], notes: [] };
     showBanner(doc, ['ラク出品：入力しています…'], false);
     fillTextFields(doc, values, report);
-    try {
-      await selectCategory(doc, values.category, report);
-    } catch (e) {
-      report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
+    // カテゴリは、拡張機能の画面が AI と相談しながら1段ずつ選ぶ（categoryByPopup）。そうでなければここで選ぶ
+    if (!values.categoryByPopup) {
+      try {
+        await selectCategory(doc, values.category, report);
+      } catch (e) {
+        report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
+      }
     }
     try {
-      await fillBrand(doc, values.brand, report);
+      await fillBrand(doc, values.brand, report, values.noBrandIfUnknown === true);
     } catch (e) {
       report.notes.push('ブランドを入れられませんでした。ご自身で入れてください。');
     }
@@ -432,7 +496,61 @@
     return report;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, TEXT_FIELDS };
+  /**
+   * 「色・サイズ」欄の作りを調べる（自動入力を作るための下調べ。値は何も変えない）。
+   * 色・サイズのタブを順に開き、選択欄の候補・ボタン・入力欄・画面の作りを集めて返す。
+   * 調べるのはこの欄の中だけ（会員情報など、ほかの欄は読まない）。
+   */
+  async function inspectVariation(doc) {
+    const row = rowByTitle(doc, '色・サイズ');
+    if (!row) return { found: false };
+    const t = (el) => (el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const tabs = Array.from(row.querySelectorAll('[role="tab"]'));
+    const before = Math.max(0, tabs.findIndex((x) => /is-active|selected/.test(x.className)));
+    const out = { found: true, tabs: [] };
+    for (const tab of tabs.length ? tabs : [null]) {
+      if (tab) {
+        tab.click();
+        await wait(500);
+      }
+      const panel = row.querySelector('[role="tabpanel"].react-tabs__tab-panel--selected') || row;
+      const selects = [];
+      for (const sel of Array.from(panel.querySelectorAll('.Select'))) {
+        const control = sel.querySelector('.Select-control');
+        const item = { current: t(sel.querySelector('.Select-value')), options: [] };
+        if (control && !sel.classList.contains('is-disabled')) {
+          mouse(control, 'mousedown');
+          const opts = await waitFor(() => {
+            const list = Array.from(sel.querySelectorAll('.Select-option'));
+            return list.length ? list : null;
+          }, 1500);
+          item.options = (opts || []).slice(0, 300).map(t);
+          if (opts) mouse(control, 'mousedown'); // 開いた候補を閉じる（何も選ばない）
+          await wait(150);
+        }
+        selects.push(item);
+      }
+      out.tabs.push({
+        name: tab ? t(tab) : '',
+        selects,
+        buttons: Array.from(panel.querySelectorAll('button, [role="button"], a')).map(t).filter(Boolean),
+        inputs: Array.from(panel.querySelectorAll('input, textarea, select')).map((e) => ({
+          tag: e.tagName.toLowerCase(),
+          type: e.getAttribute('type') || '',
+          placeholder: e.getAttribute('placeholder') || '',
+          disabled: !!e.disabled,
+          checked: !!e.checked,
+          label: t(e.closest('label')),
+        })),
+        html: panel.outerHTML.replace(/<svg[\s\S]*?<\/svg>/g, '<svg/>').replace(/\svalue="[^"]*"/g, '').slice(0, 80000),
+      });
+    }
+    if (tabs[before]) tabs[before].click();
+    return out;
+  }
+
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
