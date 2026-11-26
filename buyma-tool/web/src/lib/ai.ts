@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { TITLE_MAX, fitTitle } from './listingRules';
-import type { Product } from './product';
+import { knownBrand, type Product } from './product';
 import type { TokenUsage } from './cost';
 
 export const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
@@ -44,7 +44,8 @@ const SYSTEM = `あなたは BUYMA（日本の海外通販サイト）のパー�
 - BUYMA で検索されやすいキーワードを、大事な順に入れる：アイテム名（例：ロングコート、ショルダーバッグ）→ 素材・特徴（例：ウール、ダブルフェイス、本革）→ 雰囲気・季節（例：きれいめ、秋冬）→ 色
 - キーワードをただ並べるのではなく、読んで意味が通る商品名にする。同じ意味の言葉を2回入れない（例：「コート アウター」）
 - 仕入れ元の情報に書かれていないことは書かない
-- ブランド名は、仕入れ元にはっきり正規品と書かれている場合以外は入れない。「同款」「大牌」は「〇〇風」の意味なのでブランド名に置き換えない
+- 「ブランド（確か）」が渡されたときは、商品名の先頭にそのブランド名を書く（英字のブランドは英字のまま、大文字・小文字は公式の書き方に合わせる。例：MAMC）。brand 欄にも同じ名前を入れる
+- 「ブランド（確か）」がないときは、仕入れ元にはっきり正規品と書かれている場合以外はブランド名を入れない。「同款」「大牌」は「〇〇風」の意味なのでブランド名に置き換えない
 - 「最安」「激安」「送料無料」「即納」「100%」などの誇大な言葉、記号の連打は使わない
 
 説明文のルール（売れている出品の型に合わせる）：
@@ -80,6 +81,8 @@ function productPrompt(p: Product): string {
   const lines = [
     `仕入れ先: ${p.source}`,
     `商品名（原文）: ${p.title}`,
+    p.shopName ? `お店: ${p.shopName}` : '',
+    knownBrand(p) ? `ブランド（確か）: ${knownBrand(p)}` : '',
     p.price ? `価格: ${p.price.min === p.price.max ? p.price.min : `${p.price.min}〜${p.price.max}`} ${p.price.currency}` : '',
     ...p.skus.map((g) => `${g.name}: ${g.values.map((v) => v.name + (v.disabled ? '（品切れ）' : '')).join(' / ')}`),
     ...(p.specs.length ? ['仕様:', ...p.specs.map((s) => `- ${s.name}: ${s.value}`)] : []),
@@ -338,7 +341,8 @@ export async function pickCategoryOption(
     `BUYMA の出品画面の、今の段の候補：\n${list}`,
     '',
     '今の段の候補の中から、この商品にいちばん合うものの番号を1つ選んでください。',
-    '性別（レディース・メンズ）や商品の種類がはっきり合わない候補しかないときは -1 にしてください。推測で無理に選ばないでください。',
+    '商品名と考えたカテゴリから、いちばん近いものを選んでください。性別が書かれていない服・小物は、商品の雰囲気から判断してかまいません（迷ったらレディース）。',
+    'どの候補も商品とまったく関係がないときだけ -1 にしてください。',
   ]
     .filter(Boolean)
     .join('\n');

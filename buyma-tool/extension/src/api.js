@@ -74,6 +74,9 @@
     // 販売価格の決め方：formula＝管理画面の設定の計算式、add＝表示価格（円）＋○円。
     // 前の版で金額だけ入れていた人は add として引き継ぐ
     out.priceMode = src.priceMode === 'add' || src.priceMode === 'formula' ? src.priceMode : out.addJpy != null ? 'add' : 'formula';
+    // 販売価格の計算式（x＝表示価格の円。例：×1.3+2000）。前の版の「＋○円」は「+○」として引き継ぐ
+    const expr = typeof src.priceExpr === 'string' ? src.priceExpr.replace(/[\r\n]+/g, ' ').trim().slice(0, 60) : '';
+    out.priceExpr = expr || (out.addJpy != null ? `+${out.addJpy}` : '');
     const q = Number(out.jpegQuality);
     out.jpegQuality = q > 0 && q <= 1 ? q : DEFAULT_SETTINGS.jpegQuality;
     return out;
@@ -190,14 +193,14 @@
       refresh,
       request,
       me: () => request('/api/me'),
-      generate: (product, templateId, instruction, addJpy) =>
+      generate: (product, templateId, instruction, priceExpr) =>
         request('/api/generate', {
           method: 'POST',
           body: {
             product,
             templateId: templateId || undefined,
             instruction: instruction || undefined,
-            addJpy: typeof addJpy === 'number' && addJpy >= 0 ? addJpy : undefined,
+            priceExpr: typeof priceExpr === 'string' && priceExpr.trim() ? priceExpr.trim().slice(0, 60) : undefined,
           },
         }),
       // どのサイトでも：ページの中身から AI が商品情報を抜き出す

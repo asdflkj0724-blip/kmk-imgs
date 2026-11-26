@@ -6,7 +6,7 @@ import { CURRENCY_LABELS, SUPPORTED_CURRENCIES, isSaneRate, type Currency } from
 
 const FX_CURRENCIES = SUPPORTED_CURRENCIES.filter((c) => c !== 'JPY');
 
-type NumKey = Exclude<keyof PricingSettings, 'profitMode'>;
+type NumKey = Exclude<keyof PricingSettings, 'profitMode' | 'priceExpr'>;
 const FIELDS: { key: NumKey; label: string; unit: '%' | '円' | '現地通貨' | ''; hint?: string }[] = [
   { key: 'addJpy', label: '上乗せする金額', unit: '円', hint: '「表示価格＋○円」のときだけ使います。表示価格を円にした金額に、この金額を足して売値にします' },
   { key: 'profitRate', label: '利益率', unit: '%', hint: '下の「利益の付け方」で意味が変わります（「表示価格＋○円」では使いません）' },
@@ -92,7 +92,15 @@ export function SettingsForm(props: {
           <option value="margin">売値に対する利益率（売値の○%が利益）</option>
           <option value="markup">費用に対する上乗せ率（費用に○%を足す）</option>
           <option value="fixed">表示価格＋○円（仕入れ先の表示価格を円にして、決まった金額を足す）</option>
+          <option value="expr">計算式（表示価格を円にしたものを x として、式で計算する）</option>
         </select>
+        {s.profitMode === 'expr' && (
+          <>
+            <label htmlFor="priceExpr">計算式</label>
+            <input id="priceExpr" value={s.priceExpr} maxLength={60} onChange={(e) => setS({ ...s, priceExpr: e.target.value })} placeholder="例：×1.3+2000" />
+            <p className="hint">x は表示価格（円）。例：×1.3+2000（1.3倍して2,000円足す）、+3000、(x+500)×1.2。数字・x・＋−×÷・かっこが使えます。</p>
+          </>
+        )}
         {s.profitMode === 'fixed' && (
           <p className="hint">売値＝仕入れ先の表示価格×為替＋「上乗せする金額」です。下の送料・手数料などの設定は、利益の見込みの計算だけに使い、赤字になりそうなときは注意を出します。</p>
         )}
