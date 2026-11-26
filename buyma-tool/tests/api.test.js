@@ -93,3 +93,11 @@ test('「＋○円」を出品データづくりに送る（空なら送らな�
   assert.equal(sent[0].addJpy, 3000);
   assert.equal('addJpy' in sent[1], false);
 });
+
+test('販売価格の決め方：選んだほうを覚える。前の版で金額だけ入れていた人は「＋○円」を引き継ぐ', () => {
+  assert.equal(normalizeSettings({}).priceMode, 'formula');
+  assert.equal(normalizeSettings({ addJpy: 3000 }).priceMode, 'add');
+  assert.equal(normalizeSettings({ addJpy: 3000, priceMode: 'formula' }).priceMode, 'formula');
+  assert.equal(normalizeSettings({ priceMode: 'add', addJpy: 2000 }).addJpy, 2000);
+  assert.equal(normalizeSettings({ priceMode: 'weird' }).priceMode, 'formula');
+});

@@ -64,6 +64,8 @@ async function loadAccount() {
     const a = me.allowance || {};
     if (me.titleMax > 0) TITLE_MAX = me.titleMax;
     accountActive = me.active === true;
+    // ログインの確認が終わる前にボタンを押したときの、古いお知らせを消す
+    if (accountActive && $('status').textContent === inactiveMessage) setStatus('');
     if (!accountActive) inactiveMessage = me.inactiveReason || inactiveMessage;
     $('account').textContent = `${me.email}｜${me.planName || me.plan}｜残り ${a.remaining ?? '-'} / ${a.limit ?? '-'} 件` + (a.reason ? `（${a.reason}）` : '');
     $('generate').disabled = a.allowed === false;
@@ -367,7 +369,8 @@ async function generate() {
   setStatus('出品データを作っています…（10〜30秒ほど）');
   $('generate').disabled = true;
   try {
-    const res = await api.generate(product, $('template').value, $('instruction').value.trim(), settings.addJpy == null ? undefined : settings.addJpy);
+    const useAdd = settings.priceMode === 'add' && settings.addJpy != null;
+    const res = await api.generate(product, $('template').value, $('instruction').value.trim(), useAdd ? settings.addJpy : undefined);
     listing = res.listing;
     renderListing(listing);
     await saveState();
@@ -662,7 +665,7 @@ async function init() {
   settings = await api.getSettings();
   if (tab && PF.isBuymaUrl(tab.url)) await showBuymaBox();
   await loadState();
-  $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
+  renderPriceMode();
   if (product) renderForm(product);
   if (listing) renderListing(listing);
   loadAccount();
@@ -672,13 +675,28 @@ $('extract').addEventListener('click', extract);
 $('fillBuyma').addEventListener('click', fillBuyma);
 $('importShipping').addEventListener('click', importShipping);
 $('inspectVariation').addEventListener('click', saveVariationInfo);
-// 「＋○円」は入れた時点で覚え、次の商品でもそのまま使う
-$('addJpy').addEventListener('change', async () => {
-  const raw = $('addJpy').value.trim();
-  settings = await api.saveSettings({ addJpy: raw === '' ? null : raw });
+// 販売価格の決め方（設定の計算式／表示価格＋○円）。選んだもの・入れた金額は覚えて、次の商品でも使う
+function renderPriceMode() {
+  $('pmFormula').checked = settings.priceMode !== 'add';
+  $('pmAdd').checked = settings.priceMode === 'add';
   $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
-  setStatus(settings.addJpy == null ? '「＋○円」を空にしました。管理画面の設定の計算方法で決めます' : `販売価格は「仕入れ先の値段（円）＋${settings.addJpy.toLocaleString()}円」で計算します。次の商品からも同じです`);
-});
+  $('addJpy').disabled = settings.priceMode !== 'add';
+}
+async function savePriceMode(mode) {
+  const raw = $('addJpy').value.trim();
+  const patch = { priceMode: mode, addJpy: raw === '' ? null : raw };
+  if (mode === 'add' && patch.addJpy == null) patch.addJpy = 3000; // はじめて選んだときの金額
+  settings = await api.saveSettings(patch);
+  renderPriceMode();
+  setStatus(
+    settings.priceMode === 'add'
+      ? `販売価格は「表示価格（円）＋${settings.addJpy.toLocaleString()}円」で計算します。次の商品からも同じです`
+      : '販売価格は、管理画面の「設定」の計算式で計算します。次の商品からも同じです'
+  );
+}
+$('pmFormula').addEventListener('change', () => savePriceMode('formula'));
+$('pmAdd').addEventListener('change', () => savePriceMode('add'));
+$('addJpy').addEventListener('change', () => savePriceMode('add'));
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

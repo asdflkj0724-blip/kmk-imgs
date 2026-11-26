@@ -67,6 +67,9 @@
     // 販売価格＝仕入れ先の値段（円）＋この金額。一度入れたら次の商品でも使う。空（null）なら管理画面の計算方法
     const add = src.addJpy === '' || src.addJpy == null ? NaN : Number(src.addJpy);
     out.addJpy = Number.isFinite(add) && add >= 0 && add <= 1000000 ? Math.round(add) : null;
+    // 販売価格の決め方：formula＝管理画面の設定の計算式、add＝表示価格（円）＋○円。
+    // 前の版で金額だけ入れていた人は add として引き継ぐ
+    out.priceMode = src.priceMode === 'add' || src.priceMode === 'formula' ? src.priceMode : out.addJpy != null ? 'add' : 'formula';
     const q = Number(out.jpegQuality);
     out.jpegQuality = q > 0 && q <= 1 ? q : DEFAULT_SETTINGS.jpegQuality;
     return out;
