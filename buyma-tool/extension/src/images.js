@@ -233,7 +233,64 @@
   const WATERMARK_STYLE = { color: 'rgba(128, 128, 128, 0.35)', outline: 'rgba(255, 255, 255, 0.25)' };
 
   /** 画像の一部（crop）を、正方形・透かし入りの JPEG にする。ほぼ一色なら null */
-  async function renderSquare(bmp, crop, maxPx, quality, watermark) {
+  /**
+   * 書き換える文字の位置の、まわりの色（いちばん多い明るさに近い色）。文字を消すときの塗りつぶしに使う
+   */
+  function surroundColor(ctx, x, y, w, h) {
+    const pad = Math.max(2, Math.round(h * 0.15));
+    const X = Math.max(0, Math.floor(x - pad));
+    const Y = Math.max(0, Math.floor(y - pad));
+    const W = Math.min(ctx.canvas.width - X, Math.ceil(w + pad * 2));
+    const H = Math.min(ctx.canvas.height - Y, Math.ceil(h + pad * 2));
+    if (W <= 0 || H <= 0) return [255, 255, 255];
+    const d = ctx.getImageData(X, Y, W, H).data;
+    const ring = [];
+    for (let yy = 0; yy < H; yy++) {
+      for (let xx = 0; xx < W; xx++) {
+        const inside = xx >= pad && xx < W - pad && yy >= pad && yy < H - pad;
+        if (inside) continue;
+        const i = (yy * W + xx) * 4;
+        ring.push([d[i], d[i + 1], d[i + 2]]);
+      }
+    }
+    if (!ring.length) return [255, 255, 255];
+    // 明るさで並べて、まん中の色（文字や線が少し入っても引っぱられない）
+    ring.sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]));
+    return ring[Math.floor(ring.length / 2)];
+  }
+
+  /**
+   * 文字を日本語に書き換える。texts の位置は、描いた範囲（area）に対する割合（0〜1）。
+   * 元の文字はまわりの色で消し、同じ場所に、入る大きさの日本語を書く。
+   */
+  function paintTexts(ctx, area, texts) {
+    for (const t of texts || []) {
+      if (!t || !t.ja) continue;
+      const x = area.x + t.x * area.w;
+      const y = area.y + t.y * area.h;
+      const w = Math.max(4, t.w * area.w);
+      const h = Math.max(4, t.h * area.h);
+      const bg = surroundColor(ctx, x, y, w, h);
+      const m = Math.max(1, h * 0.06);
+      ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+      ctx.fillRect(x - m, y - m, w + m * 2, h + m * 2);
+      const light = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2] > 140;
+      ctx.fillStyle = light ? '#222222' : '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      let size = Math.max(6, h * 0.95);
+      const font = (px) => `500 ${px}px "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif`;
+      ctx.font = font(size);
+      // 横幅に入るまで小さくする（元の幅より少しはみ出すのは許す）
+      while (size > 6 && ctx.measureText(t.ja).width > Math.max(w * 1.15, h * 1.2)) {
+        size -= 1;
+        ctx.font = font(size);
+      }
+      ctx.fillText(t.ja, x, y + h / 2, Math.max(w * 1.3, h * 1.5));
+    }
+  }
+
+  async function renderSquare(bmp, crop, maxPx, quality, watermark, texts) {
     const c = crop || { sx: 0, sy: 0, sw: bmp.width, sh: bmp.height };
     if (crop) {
       // 切り分けたときだけ、ほぼ白いだけの部分を捨てる
@@ -249,6 +306,7 @@
     ctx.fillRect(0, 0, L.side, L.side);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(bmp, c.sx, c.sy, c.sw, c.sh, L.dx, L.dy, L.dw, L.dh);
+    if (texts && texts.length) paintTexts(ctx, { x: L.dx, y: L.dy, w: L.dw, h: L.dh }, texts);
     if (watermark && watermark.trim()) {
       const W = watermarkLayout(L.side);
       ctx.font = `600 ${W.fontSize}px sans-serif`;
@@ -430,8 +488,10 @@
       for (let k = 0; k < items.length; k++) {
         if (onProgress) onProgress(k, items.length);
         try {
-          const data = await renderSquare(await sourceOf(items[k]), items[k].crop, maxPx, quality, watermark);
-          if (data) files.push({ name: imageFileName(itemId, files.length), data });
+          const it = items[k];
+          const texts = it.translate !== false ? it.texts : null;
+          const data = await renderSquare(await sourceOf(it), it.crop, maxPx, quality, watermark, texts);
+          if (data) files.push({ name: imageFileName(itemId, files.length), data, index: k });
         } catch (e) {
           failed.push(k + 1);
         }
@@ -441,6 +501,68 @@
     }
     if (onProgress) onProgress(items.length, items.length);
     return { files, failed };
+  }
+
+  /**
+   * 候補の1枚ずつについて、画像の中の文字を読み取る（recognize は RakuImageText.createOcr の recognize）。
+   * 文字の位置は、その1枚（正方形にする前の範囲）に対する割合（0〜1）で item.ocr に入れる。
+   */
+  async function ocrPlan(items, recognize, onProgress) {
+    const cache = new Map();
+    const sourceOf = async (item) => {
+      const key = (item.stitched ? 's|' : 'b|') + item.parts.join('|');
+      if (!cache.has(key)) {
+        const bitmaps = [];
+        for (const u of item.parts) bitmaps.push(await loadUrl(u));
+        cache.set(key, { bitmaps, source: item.stitched ? stitch(bitmaps).canvas : bitmaps[0] });
+      }
+      return cache.get(key).source;
+    };
+    try {
+      for (let k = 0; k < items.length; k++) {
+        if (onProgress) onProgress(k, items.length);
+        const it = items[k];
+        try {
+          const src = await sourceOf(it);
+          const c = it.crop || { sx: 0, sy: 0, sw: src.width, sh: src.height };
+          // 文字が読みやすい大きさ（横1000点くらい）にして読む
+          const scale = Math.min(2, 1000 / c.sw);
+          const cw = Math.max(1, Math.round(c.sw * scale));
+          const ch = Math.max(1, Math.round(c.sh * scale));
+          const canvas = new OffscreenCanvas(cw, ch);
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, cw, ch);
+          ctx.drawImage(src, c.sx, c.sy, c.sw, c.sh, 0, 0, cw, ch);
+          const lines = await recognize(canvas);
+          it.ocr = lines.map((l) => ({
+            text: l.text,
+            confidence: l.confidence,
+            x: l.bbox.x0 / cw,
+            y: l.bbox.y0 / ch,
+            w: (l.bbox.x1 - l.bbox.x0) / cw,
+            h: (l.bbox.y1 - l.bbox.y0) / ch,
+          }));
+        } catch (e) {
+          it.ocr = [];
+        }
+      }
+    } finally {
+      for (const v of cache.values()) for (const b of v.bitmaps) if (b.close) b.close();
+    }
+    if (onProgress) onProgress(items.length, items.length);
+    return items;
+  }
+
+  /** 見本（小さな画像）を作り直す。日本語に書き換えたものを thumbJa に入れる */
+  async function rethumb(items, thumbPx) {
+    const out = await renderPlan(
+      items.map((x) => ({ ...x, translate: true })),
+      'thumb',
+      { maxPx: thumbPx || 120, quality: 0.7 }
+    );
+    for (const f of out.files) items[f.index].thumbJa = 'data:image/jpeg;base64,' + bytesToBase64(f.data);
+    return items;
   }
 
   /**
@@ -459,7 +581,7 @@
     return btoa(bin);
   }
 
-  const api = { buildImagesZip, buildImageFiles, planImages, renderPlan, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, segmentByGaps, isBlankPixels, toJpeg };
+  const api = { buildImagesZip, buildImageFiles, planImages, renderPlan, ocrPlan, rethumb, paintTexts, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, segmentByGaps, isBlankPixels, toJpeg };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaImages = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

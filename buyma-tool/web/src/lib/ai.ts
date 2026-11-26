@@ -354,3 +354,52 @@ export async function pickCategoryOption(
   const index = typeof raw === 'number' && raw >= 0 && raw < input.options.length ? raw : -1;
   return { index, usage: readUsage(res.usage), model: res.model };
 }
+
+/**
+ * 画像の中の文字（拡張機能で読み取ったもの）を、日本語に訳す。
+ * 訳さないもの（ブランド名・ロゴ・型番・数字だけ・読み取りの失敗で意味のない文字）は空文字にする。
+ */
+export const ImageTextSchema = z.object({
+  title: z.string().max(300).default(''),
+  lines: z.array(z.string().max(200)).min(1).max(300),
+});
+export type ImageTextInput = z.infer<typeof ImageTextSchema>;
+
+const ImageTextResultSchema = z.object({
+  ja: z.array(z.string()).describe('lines と同じ順番・同じ数の日本語訳。訳さないものは空文字'),
+});
+
+export async function translateImageText(
+  input: ImageTextInput,
+  client = anthropic()
+): Promise<{ ja: string[]; usage: TokenUsage; model: string }> {
+  const list = input.lines.map((l, i) => `${i}: ${l}`).join('\n');
+  const content = [
+    `商品名：${input.title || '（不明）'}`,
+    '次は、この商品の画像（サイズ表・説明の画像など）の中から読み取った文字です。1行ずつ、BUYMA（日本の通販）の画像にそのまま書ける自然な日本語にしてください。',
+    '',
+    list,
+    '',
+    'ルール：',
+    '- ja は上と同じ順番・同じ数にする',
+    '- 画像の同じ場所に書くので、元と同じくらい短くする（説明を足さない）',
+    '- サイズ表の用語は日本の通販の言い方にする（例：衣长→着丈、胸围→バスト、肩宽→肩幅、袖长→袖丈、腰围→ウエスト、臀围→ヒップ、裤长→パンツ丈、尺码→サイズ、厘米→cm、均码→フリーサイズ）',
+    '- 数字・単位・サイズ記号（S/M/L）はそのまま残す',
+    '- ブランド名・ロゴ・型番・お店の名前は訳さず空文字にする',
+    '- 文字の読み取りで、形の似た字に間違えていることがある（例：矿码表→尺码表、太码→尺码、肩训→肩宽）。前後から意味がわかるときは、正しい意味で訳す',
+    '- 読み取りの失敗で意味の通らない文字の並びは、空文字にする',
+    '- 誇大な言葉（最安・激安・正規品保証など）は使わない',
+  ].join('\n');
+  const res = await client.beta.messages.parse({
+    model: MODEL,
+    max_tokens: 8000,
+    ...(MODEL.includes('haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
+    output_config: { effort: 'low', format: betaZodOutputFormat(ImageTextResultSchema) },
+    messages: [{ role: 'user', content }],
+  });
+  if (res.stop_reason === 'refusal') throw new AiRefusalError('画像の文字を訳せませんでした');
+  const got = res.parsed_output?.ja ?? [];
+  // 数が合わないときは、合う分だけ使う（足りない分は訳さない）
+  const ja = input.lines.map((_, i) => String(got[i] ?? '').trim().slice(0, 100));
+  return { ja, usage: readUsage(res.usage), model: res.model };
+}

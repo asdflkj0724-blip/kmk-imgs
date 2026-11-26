@@ -10,6 +10,7 @@ async function load() {
   $('watermarkEnabled').checked = s.watermarkEnabled;
   $('noBrandIfUnknown').checked = s.noBrandIfUnknown;
   $('autoScroll').checked = s.autoScroll;
+  $('translateImageText').checked = s.translateImageText;
   $('watermarkText').value = s.watermarkText;
   const auth = await api.getAuth();
   $('auth').textContent = auth ? `ログイン中：${auth.email || '（メール不明）'}` : 'ログインしていません';
@@ -24,6 +25,7 @@ async function save() {
     watermarkEnabled: $('watermarkEnabled').checked,
     noBrandIfUnknown: $('noBrandIfUnknown').checked,
     autoScroll: $('autoScroll').checked,
+    translateImageText: $('translateImageText').checked,
     watermarkText: $('watermarkText').value,
   });
   await load();

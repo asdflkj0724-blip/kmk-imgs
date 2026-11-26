@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "ラク出品（開発版）",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "通販サイトの商品ページから、BUYMAの出品画面にそのまま貼れる日本語の出品データと画像ZIPを作ります。BUYMAへの登録はご自身で行います。",
-  "permissions": ["storage", "activeTab", "scripting", "downloads"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "downloads"
+  ],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://*.vercel.app/*",
@@ -11,16 +16,24 @@
     "https://*.taobaocdn.com/*",
     "https://*.tbcdn.cn/*"
   ],
-  "optional_host_permissions": ["https://*/*"],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "externally_connectable": {
-    "matches": ["https://*.vercel.app/*", "http://localhost:3000/*"]
+    "matches": [
+      "https://*.vercel.app/*",
+      "http://localhost:3000/*"
+    ]
   },
   "action": {
     "default_title": "この商品の情報を取る",
     "default_popup": "popup.html"
   },
-  "options_page": "options.html"
+  "options_page": "options.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
 }
