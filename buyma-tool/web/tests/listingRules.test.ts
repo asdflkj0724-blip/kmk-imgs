@@ -99,6 +99,8 @@ describe('fixChineseTerms（中国語が残ったら日本語に直す）', () =
     expect(fixChineseTerms('耳钉（スタッドタイプ）').text).toBe('スタッドピアス（スタッドタイプ）');
     expect(fixChineseTerms('衣丈は短め。方襟で高腰').text).toBe('着丈は短め。スクエアネックでハイウエスト');
     expect(fixChineseTerms('マヘア35%').text).toBe('モヘア35%');
+    expect(fixChineseTerms('ゆったりとした宽松型で').text).toBe('ゆったりとしたリラックスシルエットで');
+    expect(fixChineseTerms('チェック柄ストール 披肩にもなる2WAY').text).toBe('チェック柄ストール ショールにもなる2WAY');
   });
 
   it('日本語の文章や、1文字・漢字なしの原文は変えない', () => {
