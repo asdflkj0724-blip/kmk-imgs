@@ -110,6 +110,122 @@
     return Math.sqrt(Math.max(0, sq / n - mean * mean)) < 4;
   }
 
+  /**
+   * 商品説明の長い画像（つなぎ直したもの）を、白い・一色のすき間で「まとまり」に分ける。
+   * rows：上から下まで等間隔の各行について、その行が一色（すき間）なら true。
+   * 返すのは元の大きさでの {sy, sh}。人1人・サイズ表1つ、のようなまとまりになるようにする：
+   *  - 小さな切れ端（見出しの文字など）は、次（なければ前）のまとまりにくっつける
+   *  - すき間がなく長すぎるまとまり（幅の2.2倍超）は、いちばん一色に近い行で切る
+   */
+  function segmentByGaps(w, h, blankRows, busyRows) {
+    const n = blankRows.length;
+    if (!n) return [{ sy: 0, sh: h }];
+    const k = h / n; // 1行あたりの元の高さ
+    const minGap = Math.max(1, Math.round(Math.max(12, w * 0.03) / k));
+    // 中身のある範囲（すき間で区切られたもの）を集める
+    const parts = [];
+    let i = 0;
+    while (i < n) {
+      while (i < n && blankRows[i]) i++;
+      if (i >= n) break;
+      let j = i;
+      let gap = 0;
+      // 短いすき間（文字の行間など）は、まとまりの中とみなす
+      while (j < n) {
+        if (blankRows[j]) {
+          gap++;
+          if (gap >= minGap) break;
+        } else gap = 0;
+        j++;
+      }
+      const end = (j < n ? j + 1 : j) - gap; // すき間の手前まで
+      parts.push({ sy: Math.round(i * k), ey: Math.round(end * k) });
+      i = j;
+    }
+    // 小さな切れ端をくっつける（間のすき間ごと）
+    const tiny = w * 0.06;
+    const small = w * 0.3;
+    const maxH = w * 2.2;
+    const merged = [];
+    for (let p = 0; p < parts.length; p++) {
+      let cur = { ...parts[p] };
+      const hh = cur.ey - cur.sy;
+      if (hh < small && p + 1 < parts.length && parts[p + 1].ey - cur.sy <= maxH) {
+        parts[p + 1] = { sy: cur.sy, ey: parts[p + 1].ey };
+        continue;
+      }
+      if (hh < small && merged.length && cur.ey - merged[merged.length - 1].sy <= maxH) {
+        merged[merged.length - 1].ey = cur.ey;
+        continue;
+      }
+      if (hh < tiny) continue; // 細い線などは捨てる
+      merged.push(cur);
+    }
+    // 長すぎるまとまりは、いちばん一色に近い行で切る
+    const out = [];
+    for (const m of merged) {
+      const sh = m.ey - m.sy;
+      if (sh <= maxH) {
+        out.push({ sy: m.sy, sh });
+        continue;
+      }
+      const a = Math.floor(m.sy / k);
+      const b = Math.max(a + 1, Math.ceil(m.ey / k));
+      const slice = busyRows ? busyRows.slice(a, b) : null;
+      for (const t of tilePlan(w, sh, 8, slice && slice.length ? slice : null)) {
+        out.push({ sy: m.sy + t.sy, sh: t.sh });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 各行が一色か（すき間か）と、行の「にぎやかさ」を調べる。細い線や小さな文字も拾えるよう、横128点で見る。
+   * 返す rows は上から下まで等間隔に n 行。
+   */
+  function rowScan(source, w, h, n) {
+    const W = 128;
+    const H = Math.max(1, Math.min(n, h));
+    const c = new OffscreenCanvas(W, H);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(source, 0, 0, w, h, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const blank = [];
+    const busy = [];
+    for (let y = 0; y < H; y++) {
+      let min = 255;
+      let max = 0;
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      blank.push(max - min < 12);
+      busy.push(max - min);
+    }
+    return { blank, busy };
+  }
+
+  /** 同じ幅の説明の画像を、上から順に1枚の長い画像につなぎ直す（高さは最大2万4千点まで） */
+  function stitch(bitmaps) {
+    const w = bitmaps[0].width;
+    const scaled = bitmaps.map((b) => ({ b, h: Math.round((b.height * w) / b.width) }));
+    const h = scaled.reduce((t, x) => t + x.h, 0);
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    let y = 0;
+    for (const x of scaled) {
+      ctx.drawImage(x.b, 0, y, w, x.h);
+      y += x.h;
+    }
+    return { canvas, w, h };
+  }
+
   /** この大きさより小さい画像（アイコン・飾り）は使わない */
   const MIN_SIDE = 250;
 
@@ -172,26 +288,81 @@
     const limit = opts.limit || urls.length;
     const files = [];
     const failed = [];
-    for (let i = 0; i < urls.length && files.length < limit; i++) {
+    const desc = new Set(opts.descUrls || []);
+    const add = async (source, crop) => {
+      const data = await renderSquare(source, crop, maxPx, quality, watermark);
+      if (data) files.push({ name: imageFileName(itemId, files.length), data });
+    };
+    const load = async (i) => {
+      const res = await fetch(urls[i], { credentials: 'omit' });
+      if (!res.ok) throw new Error(String(res.status));
+      return createImageBitmap(await res.blob());
+    };
+    let i = 0;
+    while (i < urls.length && files.length < limit) {
       if (onProgress) onProgress(Math.min(files.length, limit), limit);
+      // 商品説明の画像が続くところ：同じ幅のものをつなぎ直し、白いすき間で「人1人・サイズ表1つ」ずつに分ける
+      if (desc.has(urls[i])) {
+        const group = [];
+        let j = i;
+        let total = 0;
+        while (j < urls.length && desc.has(urls[j])) {
+          let b = null;
+          try {
+            b = await load(j);
+          } catch (e) {
+            failed.push(j + 1);
+            j++;
+            continue;
+          }
+          if (Math.max(b.width, b.height) < MIN_SIDE) {
+            if (b.close) b.close();
+            j++;
+            continue;
+          }
+          const sameWidth = !group.length || Math.abs(group[0].width - b.width) <= 4;
+          const h = group.length ? (b.height * group[0].width) / b.width : b.height;
+          if (!sameWidth || total + h > 24000) {
+            if (b.close) b.close();
+            break; // 幅が違う・長すぎる → ここまででいったん区切る（この画像は次の回で扱う）
+          }
+          group.push(b);
+          total += h;
+          j++;
+        }
+        if (group.length) {
+          try {
+            const { canvas, w, h } = stitch(group);
+            const scan = rowScan(canvas, w, h, Math.min(6000, Math.ceil(h / 2)));
+            for (const seg of segmentByGaps(w, h, scan.blank, scan.busy)) {
+              if (files.length >= limit) break;
+              await add(canvas, { sx: 0, sy: seg.sy, sw: w, sh: seg.sh });
+            }
+          } finally {
+            for (const b of group) if (b.close) b.close();
+          }
+        }
+        i = Math.max(j, i + 1);
+        continue;
+      }
+      // メインの画像・色ごとの画像：1枚ずつ（とても長い画像だけ、白い帯で切る）
       let bmp = null;
       try {
-        const res = await fetch(urls[i], { credentials: 'omit' });
-        if (!res.ok) throw new Error(String(res.status));
-        bmp = await createImageBitmap(await res.blob());
-        if (Math.max(bmp.width, bmp.height) < MIN_SIDE) continue; // アイコンなど
-        const tall = bmp.height > bmp.width * 2;
-        const tiles = tilePlan(bmp.width, bmp.height, opts.maxTiles || 4, tall ? rowProfile(bmp, 400) : null);
-        for (const t of tiles) {
-          if (files.length >= limit) break;
-          const data = await renderSquare(bmp, tiles.length > 1 ? t : null, maxPx, quality, watermark);
-          if (data) files.push({ name: imageFileName(itemId, files.length), data });
+        bmp = await load(i);
+        if (Math.max(bmp.width, bmp.height) >= MIN_SIDE) {
+          const tall = bmp.height > bmp.width * 2;
+          const tiles = tilePlan(bmp.width, bmp.height, opts.maxTiles || 4, tall ? rowProfile(bmp, 400) : null);
+          for (const t of tiles) {
+            if (files.length >= limit) break;
+            await add(bmp, tiles.length > 1 ? t : null);
+          }
         }
       } catch (e) {
         failed.push(i + 1);
       } finally {
         if (bmp && bmp.close) bmp.close();
       }
+      i++;
     }
     if (onProgress) onProgress(limit, limit);
     return { files, failed };
@@ -213,7 +384,7 @@
     return btoa(bin);
   }
 
-  const api = { buildImagesZip, buildImageFiles, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, isBlankPixels, toJpeg };
+  const api = { buildImagesZip, buildImageFiles, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, segmentByGaps, isBlankPixels, toJpeg };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaImages = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

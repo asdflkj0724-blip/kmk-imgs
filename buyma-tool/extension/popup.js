@@ -443,7 +443,7 @@ async function buildZip(current) {
     const { zip, ok, failed } = await BuymaImages.buildImagesZip(
       current.images,
       itemId,
-      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20 },
+      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: current.descImages || [] },
       (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
     );
     if (!ok) return setStatus('画像を1枚も取れませんでした');
@@ -454,6 +454,35 @@ async function buildZip(current) {
   } finally {
     $('zip').disabled = false;
   }
+}
+
+/** BUYMA に入れる画像（正方形・つなぎ直し・20枚まで）を、入れる前に見る */
+function previewImages() {
+  const current = product ? PF.productFromForm(readForm(), product) : null;
+  if (!current || !current.images.length) return setStatus('画像がありません');
+  askImageAccess(current.images).then(async (granted) => {
+    if (!granted) return setStatus('画像の場所への許可がないため、見られませんでした');
+    $('previewImages').disabled = true;
+    try {
+      const s = await api.getSettings();
+      const p = PF.ensureItemId(current, BuymaPageReader.shortHash);
+      const { files } = await BuymaImages.buildImageFiles(
+        p.images,
+        p.itemId,
+        { maxPx: 400, quality: 0.8, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: p.descImages || [] },
+        (i, n) => setStatus(`仕上がりを作っています… ${i}/${n}`)
+      );
+      const box = $('preview');
+      for (const img of box.querySelectorAll('img')) URL.revokeObjectURL(img.src);
+      box.replaceChildren(...files.map((f) => el('img', { src: URL.createObjectURL(new Blob([f.data], { type: 'image/jpeg' })), alt: f.name, title: f.name })));
+      box.hidden = false;
+      setStatus(`BUYMA にはこの${files.length}枚を、この順番で入れます。違う画像は、上の一覧でチェックを外してください`);
+    } catch (e) {
+      setStatus('仕上がりを作れませんでした：' + e.message);
+    } finally {
+      $('previewImages').disabled = false;
+    }
+  });
 }
 
 // ---- BUYMA に反映 ----
@@ -602,7 +631,7 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
       const { files } = await BuymaImages.buildImageFiles(
         p.images,
         p.itemId,
-        { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20 },
+        { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: p.descImages || [] },
         (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
       );
       values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
@@ -711,6 +740,7 @@ $('copyAll').addEventListener('click', () => copyText(PF.listingText(readListing
 $('saveListing').addEventListener('click', () => patchListing({}, '保存しました'));
 $('markListed').addEventListener('click', () => patchListing({ status: 'listed' }, '出品済みにしました'));
 $('zip').addEventListener('click', downloadZip);
+$('previewImages').addEventListener('click', previewImages);
 $('openOptions').addEventListener('click', (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();

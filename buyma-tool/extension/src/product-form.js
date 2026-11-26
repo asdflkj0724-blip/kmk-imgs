@@ -104,6 +104,7 @@
       skus,
       specs,
       images,
+      descImages: (base.descImages || []).filter((u) => images.includes(u)),
       complete: !!(title && price && images.length),
       warnings: [],
     };
