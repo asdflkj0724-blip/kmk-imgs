@@ -173,6 +173,33 @@
   }
 
   /** BUYMA の出品画面に入れる値（「BUYMAに反映」用） */
+  /**
+   * 買付先メモに入れる URL。タオバオ・天猫は、追跡用の長い文字を外して商品番号だけにする
+   * （例：https://item.taobao.com/item.htm?id=123）。ほかのサイトはそのまま。
+   */
+  function cleanSourceUrl(url) {
+    try {
+      const u = new URL(url);
+      if (/(^|\.)(taobao\.com|tmall\.com|tmall\.hk)$/.test(u.hostname) && u.searchParams.get('id')) {
+        return u.origin + u.pathname + '?id=' + u.searchParams.get('id');
+      }
+      return u.href;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function siteName(url) {
+    try {
+      const h = new URL(url).hostname;
+      if (/(^|\.)tmall\.(com|hk)$/.test(h)) return '天猫';
+      if (/(^|\.)taobao\.com$/.test(h)) return 'タオバオ';
+      return h.replace(/^www\./, '');
+    } catch (e) {
+      return '';
+    }
+  }
+
   function buymaValues(listing, product) {
     const l = listing || {};
     const p = product || {};
@@ -191,6 +218,10 @@
       brand: l.brand || '',
       category: l.category || '',
       shipping: l.shippingMethod || '',
+      // 買付先メモ（URL などを残しておく欄。出品リストから探すのに使える）
+      sourceUrl: cleanSourceUrl(p.url || ''),
+      sourceName: p.shopName || siteName(p.url || ''),
+      sourceNote: memo.length ? memo.filter((m) => m.startsWith('仕入れ値')).join('') : '',
     };
   }
 
@@ -222,7 +253,7 @@
       .filter(Boolean);
   }
 
-  const api = { localCategoryPick, categorySegments, buymaValues, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
+  const api = { localCategoryPick, categorySegments, buymaValues, cleanSourceUrl, isBuymaUrl, buymaLength, CURRENCIES, chooseProduct, formFromProduct, productFromForm, ensureItemId, listingText, pickShipping, noticeItems };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaProductForm = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

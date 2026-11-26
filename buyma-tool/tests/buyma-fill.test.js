@@ -272,3 +272,38 @@ test('色・サイズ欄の下調べ：タブ・選択欄の候補を集め、�
     await browser.close();
   }
 });
+
+test('買付先メモ：仕入れ先の URL・買付先名・仕入れ値を入れる。入っていれば変えず、行の追加は押さない', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const v = { ...FULL, images: [], sourceUrl: 'https://item.taobao.com/item.htm?id=7001', sourceName: 'MAMC旗舰店', sourceNote: '仕入れ値：199〜239 CNY' };
+    const r = await page.evaluate((x) => {
+      document.getElementById('memoAdd').addEventListener('click', () => (window.__memoAdd = true));
+      return RakuBuymaFill.fillBuymaAll(document, x);
+    }, v);
+    const got = await page.evaluate(() => ({
+      url: document.getElementById('memoUrl').value,
+      name: document.getElementById('memoName').value,
+      note: document.getElementById('memoNote').value,
+      added: !!window.__memoAdd,
+    }));
+    assert.deepEqual(got, { url: 'https://item.taobao.com/item.htm?id=7001', name: 'MAMC旗舰店', note: '仕入れ値：199〜239 CNY', added: false });
+    assert.ok(r.filled.includes('買付先メモ（URL）'));
+    const again = await page.evaluate((x) => RakuBuymaFill.fillBuymaAll(document, { ...x, sourceUrl: 'https://example.com/other' }), v);
+    assert.ok(again.skipped.includes('買付先メモ（URL）'));
+    assert.equal(await page.evaluate(() => document.getElementById('memoUrl').value), 'https://item.taobao.com/item.htm?id=7001');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('買付先メモの URL：タオバオ・天猫は商品番号だけにし、名前がなければサイト名', () => {
+  assert.equal(PF.cleanSourceUrl('https://item.taobao.com/item.htm?spm=a1z10.1&id=7001&ns=1&abbucket=3#detail'), 'https://item.taobao.com/item.htm?id=7001');
+  assert.equal(PF.cleanSourceUrl('https://detail.tmall.com/item.htm?id=6002&skuId=9'), 'https://detail.tmall.com/item.htm?id=6002');
+  assert.equal(PF.cleanSourceUrl('https://shop.example.com/p/1?color=red'), 'https://shop.example.com/p/1?color=red');
+  assert.equal(PF.cleanSourceUrl('not a url'), '');
+  const v = PF.buymaValues({ title: 'x' }, { url: 'https://item.taobao.com/item.htm?id=1', price: { min: 199, max: 239, currency: 'CNY' } });
+  assert.equal(v.sourceUrl, 'https://item.taobao.com/item.htm?id=1');
+  assert.equal(v.sourceName, 'タオバオ');
+  assert.equal(v.sourceNote, '仕入れ値：199〜239 CNY');
+});

@@ -464,11 +464,53 @@
     return report;
   }
 
+  /**
+   * 「買付先メモ」の1行目に、買付先名・URL・説明（仕入れ値）を入れる。
+   * それぞれ、すでに入っている欄は変えない。「買付先メモを追加」は押さない。
+   */
+  function fillSourceMemo(doc, values, report) {
+    if (!values.sourceUrl) return;
+    const row = rowByTitle(doc, '買付先メモ');
+    if (!row) {
+      report.missing.push('買付先メモ（URL）');
+      return;
+    }
+    const field = (unit) => {
+      for (const u of Array.from(row.querySelectorAll('.bmm-c-custom-text__unit'))) {
+        if (norm(u.textContent) !== norm(unit)) continue;
+        const box = u.closest('.bmm-c-custom-text') || u.parentElement;
+        const input = box && box.querySelector('input, textarea');
+        if (input) return input;
+      }
+      return null;
+    };
+    const url = field('URL');
+    if (!url) {
+      report.missing.push('買付先メモ（URL）');
+      return;
+    }
+    if (url.value.trim()) {
+      report.skipped.push('買付先メモ（URL）');
+      return;
+    }
+    setValue(url, values.sourceUrl);
+    const name = field('買付先名');
+    if (name && !name.value.trim() && values.sourceName) setValue(name, values.sourceName.slice(0, 100));
+    const note = field('説明');
+    if (note && !note.value.trim() && values.sourceNote) setValue(note, values.sourceNote.slice(0, 200));
+    report.filled.push('買付先メモ（URL）');
+  }
+
   /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
   async function fillBuymaAll(doc, values) {
     const report = { filled: [], skipped: [], missing: [], notes: [] };
     showBanner(doc, ['ラク出品：入力しています…'], false);
     fillTextFields(doc, values, report);
+    try {
+      fillSourceMemo(doc, values, report);
+    } catch (e) {
+      report.notes.push('買付先メモに URL を入れられませんでした。ご自身で入れてください。');
+    }
     // カテゴリは、拡張機能の画面が AI と相談しながら1段ずつ選ぶ（categoryByPopup）。そうでなければここで選ぶ
     if (!values.categoryByPopup) {
       try {
