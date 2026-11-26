@@ -28,9 +28,14 @@ test('新しいタオバオのページ', async () => {
   assert.equal(p.title, '2024新款 双面羊毛大衣女 中长款');
   assert.equal(p.shopName, 'MAMC旗舰店');
   assert.equal(p.price.min, 459); // 割引後の価格を優先
+  // メイン → 色ごとの画像 → 商品説明の画像（飾り・透明の画像・小さいアイコンは除く）
   assert.deepEqual(p.images, [
     'https://img.alicdn.com/imgextra/i1/111/O1CN01a.jpg',
     'https://img.alicdn.com/imgextra/i2/111/O1CN01b.jpg',
+    'https://img.alicdn.com/c1.jpg',
+    'https://img.alicdn.com/imgextra/i3/111/desc1.jpg',
+    'https://img.alicdn.com/imgextra/i3/111/O1CN01a.jpg',
+    'https://img.alicdn.com/imgextra/i3/111/sizechart.png',
   ]);
   assert.equal(p.skus.length, 2);
   assert.equal(p.skus[0].name, '颜色分类');
@@ -53,6 +58,7 @@ test('古い天猫のページ', async () => {
   assert.deepEqual(p.images, [
     'https://img.alicdn.com/bao/uploaded/i1/p1.jpg',
     'https://img.alicdn.com/bao/uploaded/i2/p2.png',
+    'https://img.alicdn.com/s1.jpg',
   ]);
   assert.equal(p.skus[0].name, '颜色分类');
   assert.equal(p.skus[0].values[0].image, 'https://img.alicdn.com/s1.jpg');
