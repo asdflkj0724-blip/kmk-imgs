@@ -9,7 +9,7 @@ import { fxFor, getAllowance, getProfile, settingsFor } from '@/lib/account';
 import { ProductSchema, colorsAndSizes, sourceText } from '@/lib/product';
 import { AiRefusalError, composeDescription, generateListing } from '@/lib/ai';
 import { calculatePrice } from '@/lib/pricing';
-import { autoFixText, checkListing, fitTitle } from '@/lib/listingRules';
+import { autoFixText, checkListing, fixChineseTerms, fitTitle } from '@/lib/listingRules';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { CURRENCY_LABELS, normalizeCurrency } from '@/lib/fx';
@@ -56,11 +56,31 @@ export async function POST(req: Request) {
     throw e;
   }
   // 根拠のない誇大表現（「高級」など）は、警告ではなく自動で消す
-  const fixedTitle = autoFixText(result.generated.title, true);
-  const fixedBody = autoFixText(result.generated.description);
-  const g = { ...result.generated, title: fitTitle(fixedTitle.text), description: fixedBody.text };
+  // 中国語が残っていたら日本語に直す（色・サイズの原文 → AI が付けた日本語、よく残る用語 → 決まった日本語）
+  const zhPairs = [...result.generated.colors, ...result.generated.sizes];
+  const zhFixed: string[] = [];
+  const fixZh = (t: string) => {
+    const r = fixChineseTerms(t, zhPairs);
+    zhFixed.push(...r.replaced);
+    return r.text;
+  };
+  const gen = {
+    ...result.generated,
+    title: fixZh(result.generated.title),
+    // 見出し【商品について】はこちらで付けるので、AI が付けてしまったら外す
+    description: fixZh(result.generated.description).replace(/^\s*【商品について】\s*/, ''),
+    sizeNote: fixZh(result.generated.sizeNote),
+    material: fixZh(result.generated.material),
+    colors: result.generated.colors.map((c) => ({ ...c, ja: fixZh(c.ja) })),
+    sizes: result.generated.sizes.map((c) => ({ ...c, ja: fixZh(c.ja) })),
+  };
+  const fixedTitle = autoFixText(gen.title, true);
+  const fixedBody = autoFixText(gen.description);
+  const g = { ...gen, title: fitTitle(fixedTitle.text), description: fixedBody.text };
   const removedWords = Array.from(new Set([...fixedTitle.removed, ...fixedBody.removed]));
   const fixes = removedWords.length ? [`根拠のない表現（${removedWords.map((w) => `「${w}」`).join('')}）を自動で消しました`] : [];
+  const zhList = Array.from(new Set(zhFixed));
+  if (zhList.length) fixes.push(`中国語の言葉を日本語に直しました（${zhList.join('、')}）`);
   const description = composeDescription(g, template?.body ?? '');
 
   // 価格：手で入れた値 → 商品の最低価格 の順に使う。通貨は商品ページの通貨
