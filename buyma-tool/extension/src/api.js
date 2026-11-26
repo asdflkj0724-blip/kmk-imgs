@@ -63,6 +63,8 @@
     out.lastShipping = out.shippingMethods.includes(last) ? last : '';
     out.noBrandIfUnknown = src.noBrandIfUnknown !== false;
     out.watermarkEnabled = src.watermarkEnabled === true;
+    // 読み取りの前に、ページを下まで送って商品説明の画像を読み込む（オフなら、自分でスクロールしてから押す）
+    out.autoScroll = src.autoScroll !== false;
     out.watermarkText = String(src.watermarkText == null ? '' : src.watermarkText).replace(/[\r\n]+/g, ' ').slice(0, 40);
     // 販売価格＝仕入れ先の値段（円）＋この金額。一度入れたら次の商品でも使う。空（null）なら管理画面の計算方法
     const add = src.addJpy === '' || src.addJpy == null ? NaN : Number(src.addJpy);

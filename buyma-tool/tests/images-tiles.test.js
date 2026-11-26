@@ -6,15 +6,16 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const IMG = require('../extension/src/images.js');
 
-test('切り出す範囲：縦長は幅と同じ高さで上から切り分け、小さな切れ端は捨てる', () => {
+test('切り出す範囲：人物の写真（1:2まで）は切らない。とても長い画像だけ、白い帯で切り分ける', () => {
   assert.deepEqual(IMG.tilePlan(800, 800), [{ sx: 0, sy: 0, sw: 800, sh: 800 }]);
-  assert.deepEqual(IMG.tilePlan(800, 1000), [{ sx: 0, sy: 0, sw: 800, sh: 1000 }]); // 少し縦長なら1枚
-  assert.deepEqual(
-    IMG.tilePlan(750, 2000).map((t) => [t.sy, t.sh]),
-    [[0, 750], [750, 750], [1500, 500]]
-  );
-  assert.deepEqual(IMG.tilePlan(750, 1600).map((t) => t.sy), [0, 750]); // 残り100pxは捨てる
+  assert.deepEqual(IMG.tilePlan(750, 1125), [{ sx: 0, sy: 0, sw: 750, sh: 1125 }]); // 2:3 の着用写真
+  assert.deepEqual(IMG.tilePlan(750, 1500), [{ sx: 0, sy: 0, sw: 750, sh: 1500 }]); // 1:2 までは切らない
+  // 白い帯の情報がなければ、幅と同じ高さで切る
+  assert.deepEqual(IMG.tilePlan(750, 2000).map((t) => [t.sy, t.sh]), [[0, 750], [750, 750], [1500, 500]]);
   assert.equal(IMG.tilePlan(750, 20000, 4).length, 4); // 1枚から切り出すのは4枚まで
+  // 900px のところに白い帯があれば、そこで切る（写っているものの途中で切らない）
+  const rows = Array.from({ length: 400 }, (_, i) => (Math.abs(i * (3000 / 400) - 900) < 10 ? 0 : 50));
+  assert.ok(Math.abs(IMG.tilePlan(750, 3000, 4, rows)[0].sh - 900) <= 15);
 });
 
 test('ほぼ一色（白いだけ）の部分を見分ける', () => {
@@ -49,12 +50,13 @@ test('実際の画像で：メイン画像＋縦長の説明画像を切り分�
       };
       const main = await make(800, 800, stripes);
       const icon = await make(40, 40, stripes); // 小さいので使わない
-      const tall = await make(750, 2250, stripes); // 3枚に切り分け
-      const blankBottom = await make(750, 1500, (ctx, w) => {
+      const tall = await make(750, 2250, stripes); // とても長い → 3枚に切り分け
+      const photo = await make(750, 1125, stripes); // 着用写真（2:3）→ 切らずに1枚
+      const blankBottom = await make(750, 3000, (ctx, w) => {
         ctx.fillStyle = '#333';
-        ctx.fillRect(0, 0, w, 600); // 下半分は白いだけ → 2枚目は捨てる
+        ctx.fillRect(0, 0, w, 600); // 上だけ絵があり、残りは白いだけ → 白い部分は捨てる
       });
-      const one = await BuymaImages.buildImageFiles([main, icon, tall, blankBottom], '9', { maxPx: 600, limit: 20 });
+      const one = await BuymaImages.buildImageFiles([main, icon, tall, photo, blankBottom], '9', { maxPx: 600, limit: 20 });
       const many = await BuymaImages.buildImageFiles(Array(10).fill(tall), '9', { maxPx: 300, limit: 20 });
       return {
         n: one.files.length,
@@ -63,8 +65,8 @@ test('実際の画像で：メイン画像＋縦長の説明画像を切り分�
         many: many.files.length,
       };
     });
-    assert.equal(r.n, 1 + 3 + 1);
-    assert.deepEqual(r.names, ['taobao_9_01.jpg', 'taobao_9_02.jpg', 'taobao_9_03.jpg', 'taobao_9_04.jpg', 'taobao_9_05.jpg']);
+    assert.equal(r.n, 1 + 3 + 1 + 1);
+    assert.deepEqual(r.names, ['01', '02', '03', '04', '05', '06'].map((n) => `taobao_9_${n}.jpg`));
     assert.deepEqual(r.failed, []);
     assert.equal(r.many, 20); // 上限の20枚ちょうどまで入れる
   } finally {

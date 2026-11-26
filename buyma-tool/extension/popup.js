@@ -280,20 +280,23 @@ function readActivePage() {
 
 /**
  * タオバオ・天猫：商品説明の画像は、下までスクロールしないと読み込まれないことがあるので、
- * 少しずつ下まで送ってから元の位置に戻す（最大で約5秒）。ページの中身は変えない。
+ * 人が読むくらいの速さで（なめらかに、間隔も少しずつ変えて）下まで送り、最後に元の位置へ戻す。
+ * 長くても約15秒で止める。ページの中身は変えず、画像の読み込みはページ自身に任せる。
  */
 async function scrollToLoadImages() {
   const host = location.hostname;
   if (!/(^|\.)(taobao\.com|tmall\.com|tmall\.hk)$/.test(host)) return;
   const start = window.scrollY;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  for (let i = 0; i < 30; i++) {
-    window.scrollBy(0, Math.round(window.innerHeight * 0.9));
-    await wait(150);
+  const until = Date.now() + 15000;
+  while (Date.now() < until) {
+    const step = Math.round(window.innerHeight * (0.55 + Math.random() * 0.25));
+    window.scrollBy({ top: step, behavior: 'smooth' });
+    await wait(600 + Math.random() * 500);
     if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 5) break;
   }
-  await wait(500);
-  window.scrollTo(0, start);
+  await wait(800);
+  window.scrollTo({ top: start, behavior: 'smooth' });
 }
 
 async function extract() {
@@ -303,8 +306,10 @@ async function extract() {
   try {
     let read;
     try {
-      setStatus('商品説明の画像も読み込んでいます…（数秒）');
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: scrollToLoadImages });
+      if (settings.autoScroll) {
+        setStatus('商品説明の画像も読み込むため、ページをゆっくり下まで送っています…（10秒ほど）');
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: scrollToLoadImages });
+      }
       setStatus('読み取り中…');
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/extractor.js', 'src/page-reader.js'] });
       [{ result: read }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readActivePage });

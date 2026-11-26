@@ -23,7 +23,7 @@ button.copy { margin: 0; padding: 4px 8px; font-size: 12px; background: #fff; co
 .row3 { display: grid; grid-template-columns: 1fr 1fr 80px; gap: 6px; }
 #images { display: flex; flex-wrap: wrap; gap: 4px; }
 .imgpick { position: relative; display: block; margin: 0; font-weight: normal; }
-.imgpick img { width: 64px; height: 64px; object-fit: cover; border: 2px solid #c33; border-radius: 4px; display: block; }
+.imgpick img { width: 64px; height: 64px; object-fit: contain; background: #fff; border: 2px solid #c33; border-radius: 4px; display: block; }
 .imgpick input { position: absolute; top: 2px; left: 2px; margin: 0; }
 .imgpick.off img { border-color: #ddd; opacity: .35; }
 .note { background: #fdecee; border-radius: 6px; padding: 8px; margin: 6px 0; }
