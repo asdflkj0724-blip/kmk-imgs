@@ -16,7 +16,7 @@
 | 権利 | `scripts/mamc_bgm.py` の作曲機能で作ったオリジナル曲。外部の音源・サンプル素材は一切使っていません |
 | ライセンス | `Owned by FABMIC`。商用・SNS 投稿・広告に使えます。クレジット表記は不要です |
 | 著作権チェック | 他人の登録曲と一致しないため、Instagram で消音される心配がほぼありません |
-| 長さ・音量 | 11秒。最初0.25秒でフェードイン、最後1.5秒でフェードアウト。-14 LUFS（SNS の標準的な大きさ） |
+| 長さ・音量 | 動画の長さに合わせて 7秒・11秒・15秒 の3種類（同じ3曲）。最初0.25秒でフェードイン、最後1.5秒でフェードアウト。-14 LUFS（SNS の標準的な大きさ） |
 | 検証 | AAC 変換で「プチッ」というノイズが出ていないこと、ピークが -1 dB 以下であることを確認済み |
 
 入手元・ライセンス・ハッシュ値・作曲の設計は `tracks.json` に記録しています。
@@ -47,7 +47,7 @@
 必要な記録: `id` `file` `title` `source_url` `license` `license_url` `commercial_use`(true) `sns_use`(true)
 `ad_use`(true) `attribution_required`(false) `sha256` `retrieved`。ファイルは 11秒・AAC・48kHz・ステレオの `.m4a` にしてください。
 
-3曲を作り直すときは、手元で `python scripts/mamc_bgm.py build` を実行します（作曲・仕上げ・検証・`tracks.json` の書き直しまで自動）。
+3曲を作り直すときは、手元で `python scripts/mamc_bgm.py build --lengths 7 11 15` を実行します（作曲・仕上げ・検証・`tracks.json` の書き直しまで自動）。
 
 ## BGM を止めたいとき
 

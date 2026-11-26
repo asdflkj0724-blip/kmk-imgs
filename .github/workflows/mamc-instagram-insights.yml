@@ -49,6 +49,12 @@ jobs:
           MAMC_IG_USER_ID: ${{ secrets.MAMC_IG_USER_ID }}
         run: python scripts/mamc_instagram_growth.py collect
 
+      # 長さのテスト（A 7秒・B 11秒・C 15秒）の比較レポートを毎日更新する
+      # （mamc_instagram_reports/ に保存。数字が少ないうちは優劣を判断しない）
+      - name: 長さテストのレポートを更新
+        if: ${{ always() }}
+        run: python scripts/mamc_instagram_growth.py report > /dev/null
+
       - name: 週次分析（月曜、または手動で指定したとき）
         if: ${{ always() }}
         env:

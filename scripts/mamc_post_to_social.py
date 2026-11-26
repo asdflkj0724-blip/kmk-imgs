@@ -61,6 +61,23 @@ def use_history(platform: str) -> None:
     """Instagram 用の関数が読み書きする履歴ファイルを、この SNS のものに差し替える。
     （内容の選び方・企画・BGM の順番が、この SNS の履歴にもとづいて決まる）"""
     ig.IG_HISTORY_JSON = PLATFORMS[platform]["history"]
+    # Instagram だけで行う「長さのテスト（7・11・15秒）」と「選び方・コツ」の企画は、この SNS では使わない
+    import mamc_instagram_growth as growth
+
+    load = growth.load_plan
+
+    def plan_without_test() -> dict:
+        plan = load()
+        plan.pop("test", None)
+        plan["weights"]["template"] = {k: v for k, v in plan["weights"]["template"].items() if k != "tips"}
+        plan["weights"]["duration"] = {"11": 1}
+        return plan
+
+    growth.load_plan = plan_without_test
+
+
+# この SNS の動画の締めの文字（Instagram の長さテストの前と同じ：コーデ比較だけに出す）
+CLOSING = {"compare": "お気に入りの\n着こなしを\n見つけてね"}
 
 
 def record_error(platform: str, history: dict, stage: str, message: str) -> None:
@@ -486,6 +503,7 @@ def main() -> int:
     try:
         url = xbase.get_shop_url(allow_placeholder=args.dry_run)
         post = ig.compose(args.source, now, "reel", args.template, "11")
+        post["variant"]["end_cta"] = CLOSING.get(post["variant"]["template"])
         apply_caption(platform, post, history, now, url)
         out = Path(args.video_out) if args.video_out else (
             Path(os.environ.get("RUNNER_TEMP", "/tmp")) / f"mamc_{platform}_{now:%Y%m%d}.mp4")

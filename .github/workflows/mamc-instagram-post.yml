@@ -50,18 +50,18 @@ on:
         type: boolean
         default: false
       samples:
-        description: '3種類（比較・デザイン紹介・広告風）のサンプル動画を作る（投稿しない）'
+        description: 'A（7秒）・B（11秒）・C（15秒）のサンプル動画を作る（投稿しない）'
         type: boolean
         default: false
       template:
-        description: '動画の種類（auto = 計画にしたがって選ぶ / compare = コーデ比較 / detail = デザイン紹介 / ad = 広告風）'
+        description: '動画の種類（auto = 計画にしたがって選ぶ / compare = コーデ比較 / detail = デザイン紹介 / ad = コーデ提案 / tips = 選び方・コツ）'
         type: choice
-        options: [auto, compare, detail, ad]
+        options: [auto, compare, detail, ad, tips]
         default: auto
       duration:
-        description: '動画の長さ（11秒）'
+        description: '動画の長さ（auto = A 7秒→B 11秒→C 15秒の順 / 7 / 11 / 15）'
         type: choice
-        options: [auto, '11']
+        options: [auto, '7', '11', '15']
         default: auto
 
 permissions:
@@ -220,8 +220,8 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$SAMPLES" = "true" ]; then
-            # 3種類のサンプル動画を作るだけ（投稿・履歴の更新はしない）
-            python scripts/mamc_post_to_instagram.py --samples --source "$SOURCE" \
+            # サンプル動画を作るだけ（投稿・履歴の更新はしない）
+            python scripts/mamc_post_to_instagram.py --samples --source "$SOURCE" --template "$TEMPLATE" \
               --duration "$DURATION" --video-out "$RUNNER_TEMP/mamc_reels"
             exit 0
           fi
