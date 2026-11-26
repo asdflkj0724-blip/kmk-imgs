@@ -19,14 +19,18 @@ export default function TestCompare() {
   }
 
   async function run() {
+    const cacheMode = new URLSearchParams(location.search).get('mode') === 'cache';
     setRunning(true);
     const out: Row[] = [];
     let spent = 0;
     try {
-      setStatus('修正前のエラー確認中…');
-      out.push({ check: 'haiku-before-fix', ...(await call({ index: 0, model: 'haiku-before-fix' })) });
+      if (!cacheMode) {
+        setStatus('修正前のエラー確認中…');
+        out.push({ check: 'haiku-before-fix', ...(await call({ index: 0, model: 'haiku-before-fix' })) });
+      }
+      const models = cacheMode ? (['sonnet-cache'] as const) : (['sonnet', 'haiku'] as const);
       for (let i = 0; i < 10; i++) {
-        for (const model of ['sonnet', 'haiku'] as const) {
+        for (const model of models) {
           if (spent * JPY > BUDGET_JPY) throw new Error(`費用が目安を超えそうなので止めました（約${Math.round(spent * JPY)}円）`);
           setStatus(`${i + 1}/10件目・${model} を実行中…（ここまで約${(spent * JPY).toFixed(1)}円）`);
           const r = await call({ index: i, model });

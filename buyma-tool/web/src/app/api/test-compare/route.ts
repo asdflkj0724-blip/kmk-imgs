@@ -12,7 +12,7 @@ import raw from './products.json';
 export const maxDuration = 60;
 const EXPIRES = Date.parse('2026-12-04T00:00:00Z');
 const MODELS = { sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' } as const;
-const Body = z.object({ index: z.number().int().min(0).max(9), model: z.enum(['sonnet', 'haiku', 'haiku-before-fix']) });
+const Body = z.object({ index: z.number().int().min(0).max(9), model: z.enum(['sonnet', 'haiku', 'haiku-before-fix', 'sonnet-cache']) });
 
 function blocked() {
   return process.env.VERCEL_ENV === 'production' || Date.now() > EXPIRES;
@@ -43,11 +43,17 @@ export async function POST(req: Request) {
   }
 
   const product = ProductSchema.parse((raw as unknown[])[index]);
-  const id = MODELS[model];
+  const cache = model === 'sonnet-cache';
+  const id = cache ? MODELS.sonnet : MODELS[model as 'sonnet' | 'haiku'];
   const t = Date.now();
   try {
-    const r = await generateListing(product, '', anthropic(), 'polite', id);
-    return Response.json({ ok: true, index, requested: id, served: r.model, ms: Date.now() - t, usage: r.usage, usd: costUsd(id, r.usage), generated: r.generated });
+    const r = await generateListing(product, '', anthropic(), 'polite', id, cache);
+    // キャッシュのテストは公開価格で正確に計算する（Sonnet 5.5：入力$2・出力$10・キャッシュ読み$0.10・書き込み$2.50 / 100万）
+    const u = r.usage;
+    const usd = cache
+      ? (u.input_tokens * 2 + u.output_tokens * 10 + (u.cache_read_input_tokens ?? 0) * 0.1 + (u.cache_creation_input_tokens ?? 0) * 2.5) / 1e6
+      : costUsd(id, u);
+    return Response.json({ ok: true, index, requested: id + (cache ? '+cache' : ''), served: r.model, ms: Date.now() - t, usage: u, usd, generated: r.generated });
   } catch (e) {
     const err = e as { status?: number; message?: string };
     return Response.json({ ok: false, index, requested: id, ms: Date.now() - t, status: err.status ?? null, message: String(err.message ?? 'error').slice(0, 300) });

@@ -107,7 +107,8 @@ export async function generateListing(
   extraInstruction = '',
   client = anthropic(),
   tone: Tone = 'polite',
-  model: string = MODEL
+  model: string = MODEL,
+  cache = false
 ): Promise<GenerateResult> {
   // 言い回しは毎回変わりうるので、system ではなくこちらに入れる（system を固定してキャッシュを効かせるため）
   const content =
@@ -119,7 +120,8 @@ export async function generateListing(
     max_tokens: 16000,
     // 断られたときは、サーバー側で別のモデルに自動で切り替える（Haiku はこの指定に対応していないので付けない）
     ...(model.includes('haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
-    system: SYSTEM,
+    // cache=true のときは、毎回同じ指示文（system）を割引料金で使い回す
+    system: cache ? [{ type: 'text' as const, text: SYSTEM, cache_control: { type: 'ephemeral' as const } }] : SYSTEM,
     output_config: { effort: EFFORT, format: betaZodOutputFormat(GeneratedSchema) },
     messages: [{ role: 'user', content }],
   });
