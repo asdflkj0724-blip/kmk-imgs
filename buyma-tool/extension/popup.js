@@ -346,7 +346,7 @@ async function generate() {
   setStatus('出品データを作っています…（10〜30秒ほど）');
   $('generate').disabled = true;
   try {
-    const res = await api.generate(product, $('template').value, $('instruction').value.trim());
+    const res = await api.generate(product, $('template').value, $('instruction').value.trim(), settings.addJpy == null ? undefined : settings.addJpy);
     listing = res.listing;
     renderListing(listing);
     await saveState();
@@ -641,6 +641,7 @@ async function init() {
   settings = await api.getSettings();
   if (tab && PF.isBuymaUrl(tab.url)) await showBuymaBox();
   await loadState();
+  $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
   if (product) renderForm(product);
   if (listing) renderListing(listing);
   loadAccount();
@@ -650,6 +651,13 @@ $('extract').addEventListener('click', extract);
 $('fillBuyma').addEventListener('click', fillBuyma);
 $('importShipping').addEventListener('click', importShipping);
 $('inspectVariation').addEventListener('click', saveVariationInfo);
+// 「＋○円」は入れた時点で覚え、次の商品でもそのまま使う
+$('addJpy').addEventListener('change', async () => {
+  const raw = $('addJpy').value.trim();
+  settings = await api.saveSettings({ addJpy: raw === '' ? null : raw });
+  $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
+  setStatus(settings.addJpy == null ? '「＋○円」を空にしました。管理画面の設定の計算方法で決めます' : `販売価格は「仕入れ先の値段（円）＋${settings.addJpy.toLocaleString()}円」で計算します。次の商品からも同じです`);
+});
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

@@ -23,6 +23,8 @@ const Body = z.object({
   instruction: z.string().max(1000).optional(),
   /** 価格を手で決めたいとき（商品と同じ通貨） */
   costCny: z.number().positive().optional(),
+  /** 拡張機能で入れた「＋○円」。あれば「表示価格＋○円」で計算する */
+  addJpy: z.number().min(0).max(1_000_000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json(req, { error: '送られてきた商品データの形が正しくありません' }, 400);
-  const { product, templateId, instruction, costCny } = parsed.data;
+  const { product, templateId, instruction, costCny, addJpy } = parsed.data;
   if (!product.title) return json(req, { error: '商品名がないため作れません。スクショで補ってください' }, 400);
 
   const profile = await getProfile(user.id);
@@ -93,7 +95,8 @@ export async function POST(req: Request) {
     priceError = `通貨（${product.price?.currency ?? '不明'}）に対応していません。価格を確認・修正してください`;
   } else if (cny && fx) {
     try {
-      breakdown = calculatePrice(cny, fx.rate, settingsFor(profile));
+      const base = settingsFor(profile);
+      breakdown = calculatePrice(cny, fx.rate, addJpy === undefined ? base : { ...base, profitMode: 'fixed', addJpy: Math.round(addJpy) });
     } catch (e) {
       priceError = (e as Error).message;
     }
