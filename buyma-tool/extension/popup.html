@@ -48,11 +48,10 @@
     <textarea id="fSizes" rows="3"></textarea>
     <label for="fSpecs">仕様（1行に「名前: 内容」）</label>
     <textarea id="fSpecs" rows="4"></textarea>
-    <label>画像（違う画像はチェックを外す）<span id="imgcount" class="small muted"></span></label>
-    <p class="small muted">上から順に、BUYMA の上限の20枚まで使います。人物の写真は切らずに、白い余白を足して正方形にします。商品説明の画像は細かく切られていることが多いので、つなぎ直してから、白いすき間で「人1人・サイズ表1つ」ずつに分けます。</p>
+    <label>BUYMA に入れる画像（違う画像はチェックを外す）<span id="imgcount" class="small muted"></span></label>
+    <p class="small muted">この順番のまま、上から20枚を BUYMA に入れます。チェックを外すと、次の候補が繰り上がります。</p>
     <div id="images"></div>
-    <button id="previewImages" class="ghost">BUYMA に入れる画像の仕上がりを見る（20枚まで・数秒）</button>
-    <div id="preview" class="preview" hidden></div>
+    <button id="prepareImages" class="ghost" hidden>BUYMA に入れる画像を作る</button>
 
     <label>販売価格の決め方（選んだほうを次の商品からも使います）</label>
     <div class="pricemode">

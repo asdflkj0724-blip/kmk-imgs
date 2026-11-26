@@ -127,3 +127,54 @@ test('実際の画像で：細かく切られた説明の画像をつなぎ直�
     await browser.close();
   }
 });
+
+test('候補の一覧（見本つき）を作り、チェックしたものだけを本番の大きさで作り直せる', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<html><body></body></html>');
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/images.js'), 'utf8') });
+    const r = await page.evaluate(async () => {
+      const W = 750;
+      const blocks = [1000, 1000, 500];
+      const H = blocks.reduce((t, b) => t + b + 80, 80);
+      const poster = new OffscreenCanvas(W, H);
+      const ctx = poster.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, W, H);
+      let y = 80;
+      for (const b of blocks) {
+        for (let k = 0; k < b; k += 30) {
+          ctx.fillStyle = k % 60 ? '#a33' : '#333';
+          ctx.fillRect(150, y + k, 450, 15);
+        }
+        y += b + 80;
+      }
+      const urls = [];
+      for (let sy = 0; sy < H; sy += 900) {
+        const h = Math.min(900, H - sy);
+        const c = new OffscreenCanvas(W, h);
+        c.getContext('2d').drawImage(poster, 0, sy, W, h, 0, 0, W, h);
+        urls.push(URL.createObjectURL(await c.convertToBlob({ type: 'image/png' })));
+      }
+      const plan = await BuymaImages.planImages(urls, { descUrls: urls, limit: 30, thumbPx: 80 });
+      const chosen = plan.items.filter((_, i) => i !== 1); // 2番目を使わない
+      const out = await BuymaImages.renderPlan(chosen, '9', { maxPx: 300 });
+      const bmp = await createImageBitmap(new Blob([out.files[0].data], { type: 'image/jpeg' }));
+      return {
+        planned: plan.items.length,
+        thumbs: plan.items.every((x) => x.thumb.startsWith('data:image/jpeg;base64,')),
+        rendered: out.files.map((f) => f.name),
+        size: [bmp.width, bmp.height],
+        failed: out.failed,
+      };
+    });
+    assert.equal(r.planned, 3);
+    assert.ok(r.thumbs);
+    assert.deepEqual(r.rendered, ['taobao_9_01.jpg', 'taobao_9_02.jpg']);
+    assert.deepEqual(r.size, [300, 300]);
+    assert.deepEqual(r.failed, []);
+  } finally {
+    await browser.close();
+  }
+});
