@@ -10,7 +10,7 @@ import { ProductSchema } from '@/lib/product';
 import raw from './products.json';
 
 export const maxDuration = 60;
-const EXPIRES = Date.parse('2026-11-25T00:00:00Z');
+const EXPIRES = Date.parse('2026-12-04T00:00:00Z');
 const MODELS = { sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' } as const;
 const Body = z.object({ index: z.number().int().min(0).max(9), model: z.enum(['sonnet', 'haiku', 'haiku-before-fix']) });
 
