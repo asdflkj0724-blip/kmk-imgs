@@ -198,6 +198,45 @@
     return Array.from(new Set(urls));
   }
 
+  /**
+   * 商品説明（ページの下のほう）の画像：着用写真・細部・サイズ表など。
+   * 読み込み前の画像は data-src などに本当の URL が入っている。小さな飾りや透明の画像は除く。
+   */
+  function extractDescImages(doc) {
+    const containers = Array.from(
+      doc.querySelectorAll(
+        [
+          '#J_DivItemDesc',
+          '#description',
+          '.ke-post',
+          cls('descV8'),
+          cls('desc--'),
+          cls('Desc--'),
+          cls('detailDesc'),
+          cls('imageTextInfo'),
+          cls('graphicPic'),
+        ].join(',')
+      )
+    );
+    const urls = [];
+    for (const c of containers) {
+      for (const img of Array.from(c.querySelectorAll('img'))) {
+        const src = normalizeImageUrl(
+          img.getAttribute('data-src') ||
+            img.getAttribute('data-ks-lazyload') ||
+            img.getAttribute('data-lazyload') ||
+            img.getAttribute('src')
+        );
+        if (!src || /spaceball|blank|pixel|transparent|\.gif$/i.test(src)) continue;
+        const w = Number(img.getAttribute('width')) || 0;
+        const h = Number(img.getAttribute('height')) || 0;
+        if ((w && w < 200) || (h && h < 100)) continue; // 小さな飾り
+        urls.push(src);
+      }
+    }
+    return urls;
+  }
+
   /** お店の名前（BUYMA の「買付先ショップ名」に使う）。ブランド名とは別もの */
   function extractShopName(doc) {
     const el = first(doc, [
@@ -214,6 +253,15 @@
 
   function extractProduct(doc, url) {
     const pageUrl = url || (doc.location && doc.location.href) || '';
+    const skus = extractSkus(doc);
+    // 画像の順番：メインの画像 → 色ごとの画像 → 商品説明の画像（着用写真・サイズ表など）。重複は除き、最大50枚
+    const images = Array.from(
+      new Set([
+        ...extractImages(doc),
+        ...skus.flatMap((g) => g.values.map((v) => v.image)).filter(Boolean),
+        ...extractDescImages(doc),
+      ])
+    ).slice(0, 50);
     const result = {
       source: detectSource(pageUrl),
       itemId: itemIdOf(pageUrl),
@@ -221,9 +269,9 @@
       shopName: extractShopName(doc),
       title: extractTitle(doc),
       price: extractPrice(doc),
-      skus: extractSkus(doc),
+      skus,
       specs: extractSpecs(doc),
-      images: extractImages(doc),
+      images,
       extractedAt: new Date().toISOString(),
       warnings: [],
     };

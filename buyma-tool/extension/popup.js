@@ -276,6 +276,24 @@ function readActivePage() {
   };
 }
 
+/**
+ * タオバオ・天猫：商品説明の画像は、下までスクロールしないと読み込まれないことがあるので、
+ * 少しずつ下まで送ってから元の位置に戻す（最大で約5秒）。ページの中身は変えない。
+ */
+async function scrollToLoadImages() {
+  const host = location.hostname;
+  if (!/(^|\.)(taobao\.com|tmall\.com|tmall\.hk)$/.test(host)) return;
+  const start = window.scrollY;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < 30; i++) {
+    window.scrollBy(0, Math.round(window.innerHeight * 0.9));
+    await wait(150);
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 5) break;
+  }
+  await wait(500);
+  window.scrollTo(0, start);
+}
+
 async function extract() {
   if (!requireActive()) return;
   setStatus('読み取り中…');
@@ -283,6 +301,9 @@ async function extract() {
   try {
     let read;
     try {
+      setStatus('商品説明の画像も読み込んでいます…（数秒）');
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: scrollToLoadImages });
+      setStatus('読み取り中…');
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/extractor.js', 'src/page-reader.js'] });
       [{ result: read }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readActivePage });
     } catch (e) {
@@ -414,7 +435,7 @@ async function buildZip(current) {
     const { zip, ok, failed } = await BuymaImages.buildImagesZip(
       current.images,
       itemId,
-      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '' },
+      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20 },
       (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
     );
     if (!ok) return setStatus('画像を1枚も取れませんでした');

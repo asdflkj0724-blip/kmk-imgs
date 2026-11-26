@@ -19,7 +19,7 @@
     <select id="buymaShipping"></select>
     <label class="small"><input type="checkbox" id="fillImages" checked> 画像も入れる（正方形・透かし入り。20枚まで）</label>
     <button id="fillBuyma">BUYMAに反映</button>
-    <p class="small muted">商品名・商品コメント・価格・カテゴリ・ブランド・配送方法・買付先ショップ名・出品メモ・画像を入れます。すでに入っている欄は変えません。最後の確定はご自身で押してください。</p>
+    <p class="small muted">商品名・商品コメント・価格・カテゴリ・ブランド・配送方法・買付先ショップ名・出品メモ・買付先メモ（仕入れ先のURL）・画像を入れます。すでに入っている欄は変えません。最後の確定はご自身で押してください。</p>
     <button id="importShipping" class="ghost">この画面の配送方法を設定に取り込む</button>
     <button id="inspectVariation" class="ghost">色・サイズ欄を調べて保存（自動入力の準備用）</button>
   </section>
@@ -49,6 +49,7 @@
     <label for="fSpecs">仕様（1行に「名前: 内容」）</label>
     <textarea id="fSpecs" rows="4"></textarea>
     <label>画像（違う画像はチェックを外す）<span id="imgcount" class="small muted"></span></label>
+    <p class="small muted">上から順に、BUYMA の上限の20枚まで使います。商品説明やサイズ表のような縦に長い画像は、正方形に切り分けて入れます。</p>
     <div id="images"></div>
 
     <label for="addJpy">販売価格＝仕入れ先の値段（円）＋</label>
