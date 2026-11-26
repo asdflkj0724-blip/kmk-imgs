@@ -102,22 +102,95 @@ function renderForm(p) {
   $('vision').hidden = !!p.complete;
 }
 
+/** BUYMA に入れる画像（正方形にしたもの）だけを並べる。元の画像（途中で切れているもの）は見せない */
+const BUYMA_IMAGE_MAX = 20;
 function renderImages() {
-  $('imgcount').textContent = `（${formImages.filter((i) => i.keep).length} / ${formImages.length}枚）`;
+  const plan = product && product.imagePlan;
+  if (!plan) {
+    $('imgcount').textContent = '';
+    $('images').replaceChildren();
+    $('prepareImages').hidden = !(product && product.images && product.images.length);
+    return;
+  }
+  $('prepareImages').hidden = true;
+  const used = plan.filter((x) => x.keep).length;
+  $('imgcount').textContent = `（使う ${Math.min(used, BUYMA_IMAGE_MAX)}枚 / BUYMA は${BUYMA_IMAGE_MAX}枚まで）`;
+  let n = 0;
   $('images').replaceChildren(
-    ...formImages.map((img, i) => {
-      const box = el('label', { className: 'imgpick' + (img.keep ? '' : ' off'), title: img.url });
-      const cb = el('input', { type: 'checkbox', checked: img.keep });
-      cb.setAttribute('aria-label', `${i + 1}枚目を使う`);
+    ...plan.map((item, i) => {
+      const order = item.keep ? ++n : 0;
+      const over = order > BUYMA_IMAGE_MAX;
+      const box = el('label', { className: 'imgpick' + (item.keep && !over ? '' : ' off'), title: item.keep ? (over ? '20枚を超えるので入りません' : `${order}枚目`) : '使わない' });
+      const cb = el('input', { type: 'checkbox', checked: item.keep });
+      cb.setAttribute('aria-label', `${i + 1}番目の画像を使う`);
       cb.addEventListener('change', () => {
-        img.keep = cb.checked;
+        item.keep = cb.checked;
         renderImages();
         saveState();
       });
-      box.append(cb, el('img', { src: img.url, referrerPolicy: 'no-referrer', alt: '' }));
+      box.append(cb, el('img', { src: item.thumb, alt: '' }));
       return box;
     })
   );
+}
+
+/** 元の画像から、BUYMA に入れる画像の候補を作る（つなぎ直し・人ごとに分ける・正方形）。最大30枚、最初の20枚を使う */
+async function prepareImagePlan() {
+  if (!product || !product.images || !product.images.length) return;
+  $('prepareImages').disabled = true;
+  try {
+    setStatus('BUYMA に入れる画像を作っています…（数秒〜20秒ほど）');
+    const { items } = await BuymaImages.planImages(
+      product.images,
+      { descUrls: product.descImages || [], limit: 30, thumbPx: 120 },
+      (i, n) => setStatus(`BUYMA に入れる画像を作っています… ${i}/${n}`)
+    );
+    items.forEach((x, i) => (x.keep = i < BUYMA_IMAGE_MAX));
+    product.imagePlan = items;
+    renderImages();
+    await saveState();
+    setStatus(items.length ? `画像を${Math.min(items.length, BUYMA_IMAGE_MAX)}枚用意しました。違う画像はチェックを外すと、次の候補が繰り上がります` : '画像を作れませんでした');
+  } catch (e) {
+    setStatus('画像を作れませんでした：' + e.message);
+  } finally {
+    $('prepareImages').disabled = false;
+  }
+}
+
+/** 画像の置き場所への許可がすでにあれば、すぐに候補を作る（なければボタンを出す） */
+async function autoPrepareImages() {
+  if (!product || product.imagePlan || !product.images || !product.images.length) return renderImages();
+  const origins = imageOrigins(product.images);
+  const ok = !origins.length || (await chrome.permissions.contains({ origins }));
+  if (ok) await prepareImagePlan();
+  else renderImages();
+}
+
+function imageOrigins(urls) {
+  return Array.from(
+    new Set(
+      (urls || [])
+        .map((u) => {
+          try {
+            return new URL(u);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter((u) => u && !FIXED_IMAGE_HOSTS.test(u.hostname))
+        .map((u) => u.origin + '/*')
+    )
+  );
+}
+
+/** 使う画像（チェックあり・上から20枚まで）を、本番の大きさで作る */
+async function buildChosenImages(p, s, onProgress) {
+  const opts = { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: BUYMA_IMAGE_MAX, descUrls: p.descImages || [] };
+  if (Array.isArray(p.imagePlan) && p.imagePlan.length) {
+    const chosen = p.imagePlan.filter((x) => x.keep).slice(0, BUYMA_IMAGE_MAX);
+    return BuymaImages.renderPlan(chosen, p.itemId, opts, onProgress);
+  }
+  return BuymaImages.buildImageFiles(p.images, p.itemId, opts, onProgress);
 }
 
 function readForm() {
@@ -332,6 +405,7 @@ async function extract() {
     renderForm(product);
     setStatus(product.complete ? '読み取りました。内容を確認してください' : '一部の情報が取れませんでした。直すか、「スクショで補う」を試せます');
     await saveState();
+    await autoPrepareImages();
     loadAccount();
   } catch (e) {
     setStatus(e.message);
@@ -440,12 +514,9 @@ async function buildZip(current) {
   const itemId = PF.ensureItemId(current, BuymaPageReader.shortHash).itemId;
   $('zip').disabled = true;
   try {
-    const { zip, ok, failed } = await BuymaImages.buildImagesZip(
-      current.images,
-      itemId,
-      { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: current.descImages || [] },
-      (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
-    );
+    const { files, failed } = await buildChosenImages({ ...current, itemId }, s, (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`));
+    const ok = files.length;
+    const zip = BuymaZip.makeZip(files);
     if (!ok) return setStatus('画像を1枚も取れませんでした');
     const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
     await chrome.downloads.download({ url, filename: `taobao_${itemId}_images.zip` });
@@ -454,35 +525,6 @@ async function buildZip(current) {
   } finally {
     $('zip').disabled = false;
   }
-}
-
-/** BUYMA に入れる画像（正方形・つなぎ直し・20枚まで）を、入れる前に見る */
-function previewImages() {
-  const current = product ? PF.productFromForm(readForm(), product) : null;
-  if (!current || !current.images.length) return setStatus('画像がありません');
-  askImageAccess(current.images).then(async (granted) => {
-    if (!granted) return setStatus('画像の場所への許可がないため、見られませんでした');
-    $('previewImages').disabled = true;
-    try {
-      const s = await api.getSettings();
-      const p = PF.ensureItemId(current, BuymaPageReader.shortHash);
-      const { files } = await BuymaImages.buildImageFiles(
-        p.images,
-        p.itemId,
-        { maxPx: 400, quality: 0.8, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: p.descImages || [] },
-        (i, n) => setStatus(`仕上がりを作っています… ${i}/${n}`)
-      );
-      const box = $('preview');
-      for (const img of box.querySelectorAll('img')) URL.revokeObjectURL(img.src);
-      box.replaceChildren(...files.map((f) => el('img', { src: URL.createObjectURL(new Blob([f.data], { type: 'image/jpeg' })), alt: f.name, title: f.name })));
-      box.hidden = false;
-      setStatus(`BUYMA にはこの${files.length}枚を、この順番で入れます。違う画像は、上の一覧でチェックを外してください`);
-    } catch (e) {
-      setStatus('仕上がりを作れませんでした：' + e.message);
-    } finally {
-      $('previewImages').disabled = false;
-    }
-  });
 }
 
 // ---- BUYMA に反映 ----
@@ -628,12 +670,7 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
     if (withImages) {
       const s = await api.getSettings();
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
-      const { files } = await BuymaImages.buildImageFiles(
-        p.images,
-        p.itemId,
-        { maxPx: s.imageMaxPx, quality: s.jpegQuality, watermark: s.watermarkEnabled ? s.watermarkText : '', limit: 20, descUrls: p.descImages || [] },
-        (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`)
-      );
+      const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`));
       values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
     }
     setStatus('BUYMA の画面に入れています…');
@@ -700,7 +737,10 @@ async function init() {
   if (tab && PF.isBuymaUrl(tab.url)) await showBuymaBox();
   await loadState();
   renderPriceMode();
-  if (product) renderForm(product);
+  if (product) {
+    renderForm(product);
+    autoPrepareImages();
+  }
   if (listing) renderListing(listing);
   loadAccount();
 }
@@ -740,7 +780,10 @@ $('copyAll').addEventListener('click', () => copyText(PF.listingText(readListing
 $('saveListing').addEventListener('click', () => patchListing({}, '保存しました'));
 $('markListed').addEventListener('click', () => patchListing({ status: 'listed' }, '出品済みにしました'));
 $('zip').addEventListener('click', downloadZip);
-$('previewImages').addEventListener('click', previewImages);
+$('prepareImages').addEventListener('click', () => {
+  if (!product) return;
+  askImageAccess(product.images).then((granted) => (granted ? prepareImagePlan() : setStatus('画像の場所への許可がないため、画像を作れませんでした')));
+});
 $('openOptions').addEventListener('click', (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();

@@ -274,42 +274,35 @@
     }
   }
 
+  async function loadUrl(url) {
+    const res = await fetch(url, { credentials: 'omit' });
+    if (!res.ok) throw new Error(String(res.status));
+    return createImageBitmap(await res.blob());
+  }
+
   /**
-   * 画像を取って、正方形・透かし入りの JPEG にする（ZIP と「BUYMAに反映」の両方で使う）。
-   * 縦に長い画像（商品説明・サイズ表など）は正方形に切り分け、limit 枚（BUYMA は20枚）に近づくまで入れる。
-   * 小さいアイコンや、白いだけの部分は入れない。ファイル名の番号は、できた順の通し番号。
-   * @returns {Promise<{files: {name: string, data: Uint8Array}[], failed: number[]}>} failed は 1 から数えた画像の番号
+   * 画像を順に見て、BUYMA に入れる1枚ずつ（どの画像の・どの範囲か）を決める。決まるたびに take を呼ぶ。
+   *  - 商品説明の画像が続くところ：同じ幅のものをつなぎ直し、白いすき間で「人1人・サイズ表1つ」ずつに分ける
+   *  - メインの画像・色ごとの画像：1枚ずつ（とても長い画像だけ、白い帯で切る）
+   * take(source, crop, parts, stitched) が true を返したら1枚として数える。limit 枚で止める。
    */
-  async function buildImageFiles(urls, itemId, opts, onProgress) {
-    opts = opts || {};
-    const maxPx = opts.maxPx || 1200;
-    const quality = opts.quality || 0.9;
-    const watermark = opts.watermark || '';
+  async function walkImages(urls, opts, take, onProgress) {
     const limit = opts.limit || urls.length;
-    const files = [];
-    const failed = [];
     const desc = new Set(opts.descUrls || []);
-    const add = async (source, crop) => {
-      const data = await renderSquare(source, crop, maxPx, quality, watermark);
-      if (data) files.push({ name: imageFileName(itemId, files.length), data });
-    };
-    const load = async (i) => {
-      const res = await fetch(urls[i], { credentials: 'omit' });
-      if (!res.ok) throw new Error(String(res.status));
-      return createImageBitmap(await res.blob());
-    };
+    const failed = [];
+    let count = 0;
     let i = 0;
-    while (i < urls.length && files.length < limit) {
-      if (onProgress) onProgress(Math.min(files.length, limit), limit);
-      // 商品説明の画像が続くところ：同じ幅のものをつなぎ直し、白いすき間で「人1人・サイズ表1つ」ずつに分ける
+    while (i < urls.length && count < limit) {
+      if (onProgress) onProgress(Math.min(count, limit), limit);
       if (desc.has(urls[i])) {
         const group = [];
+        const parts = [];
         let j = i;
         let total = 0;
         while (j < urls.length && desc.has(urls[j])) {
           let b = null;
           try {
-            b = await load(j);
+            b = await loadUrl(urls[j]);
           } catch (e) {
             failed.push(j + 1);
             j++;
@@ -327,6 +320,7 @@
             break; // 幅が違う・長すぎる → ここまででいったん区切る（この画像は次の回で扱う）
           }
           group.push(b);
+          parts.push(urls[j]);
           total += h;
           j++;
         }
@@ -335,8 +329,8 @@
             const { canvas, w, h } = stitch(group);
             const scan = rowScan(canvas, w, h, Math.min(6000, Math.ceil(h / 2)));
             for (const seg of segmentByGaps(w, h, scan.blank, scan.busy)) {
-              if (files.length >= limit) break;
-              await add(canvas, { sx: 0, sy: seg.sy, sw: w, sh: seg.sh });
+              if (count >= limit) break;
+              if (await take(canvas, { sx: 0, sy: seg.sy, sw: w, sh: seg.sh }, parts, true)) count++;
             }
           } finally {
             for (const b of group) if (b.close) b.close();
@@ -345,16 +339,15 @@
         i = Math.max(j, i + 1);
         continue;
       }
-      // メインの画像・色ごとの画像：1枚ずつ（とても長い画像だけ、白い帯で切る）
       let bmp = null;
       try {
-        bmp = await load(i);
+        bmp = await loadUrl(urls[i]);
         if (Math.max(bmp.width, bmp.height) >= MIN_SIDE) {
           const tall = bmp.height > bmp.width * 2;
           const tiles = tilePlan(bmp.width, bmp.height, opts.maxTiles || 4, tall ? rowProfile(bmp, 400) : null);
           for (const t of tiles) {
-            if (files.length >= limit) break;
-            await add(bmp, tiles.length > 1 ? t : null);
+            if (count >= limit) break;
+            if (await take(bmp, tiles.length > 1 ? t : null, [urls[i]], false)) count++;
           }
         }
       } catch (e) {
@@ -365,6 +358,88 @@
       i++;
     }
     if (onProgress) onProgress(limit, limit);
+    return failed;
+  }
+
+  /**
+   * 画像を取って、正方形・透かし入りの JPEG にする（ZIP と「BUYMAに反映」の両方で使う）。
+   * 小さいアイコンや、白いだけの部分は入れない。ファイル名の番号は、できた順の通し番号。
+   * @returns {Promise<{files: {name: string, data: Uint8Array}[], failed: number[]}>} failed は 1 から数えた画像の番号
+   */
+  async function buildImageFiles(urls, itemId, opts, onProgress) {
+    opts = opts || {};
+    const maxPx = opts.maxPx || 1200;
+    const quality = opts.quality || 0.9;
+    const watermark = opts.watermark || '';
+    const files = [];
+    const failed = await walkImages(
+      urls,
+      opts,
+      async (source, crop) => {
+        const data = await renderSquare(source, crop, maxPx, quality, watermark);
+        if (!data) return false;
+        files.push({ name: imageFileName(itemId, files.length), data });
+        return true;
+      },
+      onProgress
+    );
+    return { files, failed };
+  }
+
+  /**
+   * BUYMA に入れる画像の「候補の一覧」を作る（拡張機能の画面に、最初からこの形で見せる）。
+   * 1つずつ、どの画像の・どの範囲かと、小さな見本（thumb）を持つ。中身はあとで renderPlan で作る。
+   */
+  async function planImages(urls, opts, onProgress) {
+    opts = opts || {};
+    const thumbPx = opts.thumbPx || 120;
+    const items = [];
+    const failed = await walkImages(
+      urls,
+      opts,
+      async (source, crop, parts, stitched) => {
+        const data = await renderSquare(source, crop, thumbPx, 0.7, '');
+        if (!data) return false;
+        items.push({ parts: parts.slice(), stitched, crop: crop ? { ...crop } : null, thumb: 'data:image/jpeg;base64,' + bytesToBase64(data) });
+        return true;
+      },
+      onProgress
+    );
+    return { items, failed };
+  }
+
+  /** 候補の一覧（planImages で作ったもの）から、本番の正方形 JPEG を作る。同じ元画像は1回だけ読み込む */
+  async function renderPlan(items, itemId, opts, onProgress) {
+    opts = opts || {};
+    const maxPx = opts.maxPx || 1200;
+    const quality = opts.quality || 0.9;
+    const watermark = opts.watermark || '';
+    const files = [];
+    const failed = [];
+    const cache = new Map();
+    const sourceOf = async (item) => {
+      const key = (item.stitched ? 's|' : 'b|') + item.parts.join('|');
+      if (!cache.has(key)) {
+        const bitmaps = [];
+        for (const u of item.parts) bitmaps.push(await loadUrl(u));
+        cache.set(key, { bitmaps, source: item.stitched ? stitch(bitmaps).canvas : bitmaps[0] });
+      }
+      return cache.get(key).source;
+    };
+    try {
+      for (let k = 0; k < items.length; k++) {
+        if (onProgress) onProgress(k, items.length);
+        try {
+          const data = await renderSquare(await sourceOf(items[k]), items[k].crop, maxPx, quality, watermark);
+          if (data) files.push({ name: imageFileName(itemId, files.length), data });
+        } catch (e) {
+          failed.push(k + 1);
+        }
+      }
+    } finally {
+      for (const v of cache.values()) for (const b of v.bitmaps) if (b.close) b.close();
+    }
+    if (onProgress) onProgress(items.length, items.length);
     return { files, failed };
   }
 
@@ -384,7 +459,7 @@
     return btoa(bin);
   }
 
-  const api = { buildImagesZip, buildImageFiles, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, segmentByGaps, isBlankPixels, toJpeg };
+  const api = { buildImagesZip, buildImageFiles, planImages, renderPlan, bytesToBase64, imageFileName, squareLayout, watermarkLayout, tilePlan, segmentByGaps, isBlankPixels, toJpeg };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BuymaImages = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

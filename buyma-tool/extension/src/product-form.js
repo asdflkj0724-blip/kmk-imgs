@@ -105,6 +105,8 @@
       specs,
       images,
       descImages: (base.descImages || []).filter((u) => images.includes(u)),
+      // BUYMA に入れる画像の候補（正方形にする範囲・見本・使うかどうか）
+      imagePlan: Array.isArray(base.imagePlan) ? base.imagePlan : null,
       complete: !!(title && price && images.length),
       warnings: [],
     };
