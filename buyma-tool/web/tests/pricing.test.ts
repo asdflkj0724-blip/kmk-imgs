@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePrice, DEFAULT_PRICING, mergeSettings, validateSettings, type PricingSettings } from '@/lib/pricing';
+import { basePriceOf, calculatePrice, DEFAULT_PRICING, mergeSettings, validateSettings, type PricingSettings } from '@/lib/pricing';
 
 const base: PricingSettings = {
   ...DEFAULT_PRICING,
@@ -102,5 +102,14 @@ describe('表示価格＋○円（fixed）', () => {
     expect(m.addJpy).toBe(2500);
     expect(mergeSettings({}).addJpy).toBe(3000);
     expect(validateSettings(fixed(-1)).length).toBeGreaterThan(0);
+  });
+});
+
+describe('basePriceOf（計算に使う仕入れ値）', () => {
+  it('値段に幅があれば一番高い値段を使う', () => {
+    expect(basePriceOf({ min: 199, max: 239 })).toBe(239);
+    expect(basePriceOf({ min: 199, max: 199 })).toBe(199);
+    expect(basePriceOf(null)).toBeNull();
+    expect(basePriceOf({ min: 0, max: 0 })).toBeNull();
   });
 });

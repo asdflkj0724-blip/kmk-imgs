@@ -8,7 +8,7 @@ import { json, preflight } from '@/lib/http';
 import { fxFor, getAllowance, getProfile, settingsFor } from '@/lib/account';
 import { ProductSchema, colorsAndSizes, sourceText } from '@/lib/product';
 import { AiRefusalError, composeDescription, generateListing } from '@/lib/ai';
-import { calculatePrice } from '@/lib/pricing';
+import { basePriceOf, calculatePrice } from '@/lib/pricing';
 import { autoFixText, checkListing, fixChineseTerms, fitTitle } from '@/lib/listingRules';
 import { costUsd } from '@/lib/cost';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -83,8 +83,8 @@ export async function POST(req: Request) {
   if (zhList.length) fixes.push(`中国語の言葉を日本語に直しました（${zhList.join('、')}）`);
   const description = composeDescription(g, template?.body ?? '');
 
-  // 価格：手で入れた値 → 商品の最低価格 の順に使う。通貨は商品ページの通貨
-  const cny = costCny ?? product.price?.min ?? null;
+  // 価格：手で入れた値 → 商品の一番高い価格（幅があるとき）の順に使う
+  const cny = costCny ?? basePriceOf(product.price);
   const currency = normalizeCurrency(product.price?.currency || 'CNY');
   const fx = currency ? await fxFor(profile, currency) : null;
   let breakdown = null;

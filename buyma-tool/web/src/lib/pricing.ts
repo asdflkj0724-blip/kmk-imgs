@@ -86,6 +86,16 @@ export function validateSettings(s: PricingSettings): string[] {
 
 const yen = (n: number) => Math.round(n);
 
+/**
+ * 価格の計算に使う仕入れ値。色・サイズで値段に幅があるときは、一番高い値段を使う
+ * （どの色・サイズが売れても赤字にならないように）。
+ */
+export function basePriceOf(price: { min: number; max: number } | null | undefined): number | null {
+  if (!price) return null;
+  const v = Math.max(Number(price.min) || 0, Number(price.max) || 0);
+  return v > 0 ? v : null;
+}
+
 export function calculatePrice(costCny: number, fxRate: number, settings: PricingSettings): PriceBreakdown {
   if (!(costCny > 0)) throw new Error('仕入れ値（人民元）が正しくありません');
   if (!(fxRate > 0)) throw new Error('為替レートが正しくありません');
