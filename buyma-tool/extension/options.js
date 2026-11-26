@@ -9,6 +9,7 @@ async function load() {
   $('shippingMethods').value = s.shippingMethods.join('\n');
   $('watermarkEnabled').checked = s.watermarkEnabled;
   $('noBrandIfUnknown').checked = s.noBrandIfUnknown;
+  $('autoScroll').checked = s.autoScroll;
   $('watermarkText').value = s.watermarkText;
   const auth = await api.getAuth();
   $('auth').textContent = auth ? `ログイン中：${auth.email || '（メール不明）'}` : 'ログインしていません';
@@ -22,6 +23,7 @@ async function save() {
     shippingMethods: $('shippingMethods').value.split(/\r?\n/),
     watermarkEnabled: $('watermarkEnabled').checked,
     noBrandIfUnknown: $('noBrandIfUnknown').checked,
+    autoScroll: $('autoScroll').checked,
     watermarkText: $('watermarkText').value,
   });
   await load();

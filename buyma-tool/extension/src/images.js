@@ -32,20 +32,66 @@
   }
 
   /**
-   * 切り出す範囲。縦に長い画像（商品説明の画像など）は、幅と同じ高さの正方形に上から切り分ける。
-   * 最後の小さな切れ端（幅の3割未満）は捨てる。1枚から切り出すのは maxTiles 枚まで。
-   * 縦長でない画像は、そのまま1枚（正方形にするときは白い余白を足す）。
+   * 切り出す範囲。人物の写真（縦横比 1:2 まで）は切らずに1枚のまま（正方形にするときは白い余白を足す）。
+   * それより縦に長い画像（商品説明をつなげた長い画像など）だけ、上から切り分ける。
+   * 切る位置は、目安（幅と同じ高さ）の前後で、いちばん「白い・一色の帯」に近い行を選ぶ
+   * （手や足など、写っているものの途中で切らないため）。rows は上から下まで等間隔に並んだ各行のばらつき。
+   * 1枚から切り出すのは maxTiles 枚まで。最後の小さな切れ端（幅の3割未満）は捨てる。
    */
-  function tilePlan(w, h, maxTiles) {
+  function tilePlan(w, h, maxTiles, rows) {
     const max = maxTiles || 4;
-    if (!(h > w * 1.3)) return [{ sx: 0, sy: 0, sw: w, sh: h }];
+    if (!(h > w * 2)) return [{ sx: 0, sy: 0, sw: w, sh: h }];
+    const scoreAt = (y) => (rows && rows.length ? rows[Math.min(rows.length - 1, Math.floor((y / h) * rows.length))] : 0);
     const tiles = [];
-    for (let sy = 0; sy < h && tiles.length < max; sy += w) {
-      const sh = Math.min(w, h - sy);
-      if (sh < w * 0.3) break;
-      tiles.push({ sx: 0, sy, sw: w, sh });
+    let sy = 0;
+    while (sy < h && tiles.length < max) {
+      const rest = h - sy;
+      if (rest < w * 0.3) break;
+      if (rest <= w * 1.3) {
+        tiles.push({ sx: 0, sy, sw: w, sh: rest });
+        break;
+      }
+      let cut = sy + w;
+      if (rows && rows.length) {
+        // 目安の前後（幅の 0.7〜1.3 倍）で、いちばん一色に近い行。同じくらいなら目安に近いほう
+        let best = Infinity;
+        const step = Math.max(1, Math.floor(h / rows.length));
+        for (let y = sy + Math.round(w * 0.7); y <= Math.min(h - 1, sy + Math.round(w * 1.3)); y += step) {
+          const score = scoreAt(y) + Math.abs(y - (sy + w)) / w; // 少しだけ目安に寄せる
+          if (score < best) {
+            best = score;
+            cut = y;
+          }
+        }
+      }
+      tiles.push({ sx: 0, sy, sw: w, sh: cut - sy });
+      sy = cut;
     }
     return tiles;
+  }
+
+  /** 各行の明るさのばらつき（上から下まで n 行ぶん）。白い帯は 0 に近い */
+  function rowProfile(bmp, n) {
+    const W = 32;
+    const H = Math.max(1, Math.min(n || 400, bmp.height));
+    const c = new OffscreenCanvas(W, H);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const rows = [];
+    for (let y = 0; y < H; y++) {
+      let sum = 0;
+      let sq = 0;
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        sum += v;
+        sq += v * v;
+      }
+      const mean = sum / W;
+      rows.push(Math.sqrt(Math.max(0, sq / W - mean * mean)));
+    }
+    return rows;
   }
 
   /** ほぼ一色（白い余白だけなど）の部分か。RGBA の並びを受け取り、明るさのばらつきで決める */
@@ -134,7 +180,8 @@
         if (!res.ok) throw new Error(String(res.status));
         bmp = await createImageBitmap(await res.blob());
         if (Math.max(bmp.width, bmp.height) < MIN_SIDE) continue; // アイコンなど
-        const tiles = tilePlan(bmp.width, bmp.height, opts.maxTiles || 4);
+        const tall = bmp.height > bmp.width * 2;
+        const tiles = tilePlan(bmp.width, bmp.height, opts.maxTiles || 4, tall ? rowProfile(bmp, 400) : null);
         for (const t of tiles) {
           if (files.length >= limit) break;
           const data = await renderSquare(bmp, tiles.length > 1 ? t : null, maxPx, quality, watermark);
