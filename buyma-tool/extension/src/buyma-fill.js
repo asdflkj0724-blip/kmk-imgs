@@ -120,13 +120,14 @@
    */
   function typeInto(el, value) {
     const win = el.ownerDocument.defaultView;
-    el.focus();
+    focusLikeUser(el);
     const proto = el.tagName === 'TEXTAREA' ? win.HTMLTextAreaElement.prototype : win.HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, String(value));
     const last = String(value).slice(-1) || 'a';
     el.dispatchEvent(new win.KeyboardEvent('keydown', { bubbles: true, key: last }));
     el.dispatchEvent(new win.Event('input', { bubbles: true }));
     el.dispatchEvent(new win.KeyboardEvent('keyup', { bubbles: true, key: last }));
+    el.dispatchEvent(new win.Event('change', { bubbles: true }));
   }
 
   /** キーボードの操作を知らせる（↓・Enter など。選択欄をキーボードで選ぶときに使う） */
@@ -148,6 +149,23 @@
     if (!el.isConnected) return; // mousedown で選ばれて一覧が閉じた
     mouse(el, 'mouseup');
     if (el.isConnected) el.click();
+  }
+
+  /** 候補の中の、いちばん内側の部品から押す（中の部品にだけ「押したとき」の仕組みがある作りに備える。外側にも伝わる） */
+  function pressDeep(el) {
+    let leaf = el;
+    while (leaf.firstElementChild) leaf = leaf.firstElementChild;
+    press(leaf);
+    return leaf !== el;
+  }
+
+  /** 入力欄を「選ばれている状態」にする（画面が別の窓の後ろにあっても、ページに伝わるように知らせる） */
+  function focusLikeUser(el) {
+    const win = el.ownerDocument.defaultView;
+    press(el);
+    el.focus();
+    el.dispatchEvent(new win.FocusEvent('focus', { bubbles: false }));
+    el.dispatchEvent(new win.FocusEvent('focusin', { bubbles: true }));
   }
 
   // ---- 文字の欄 ----
@@ -290,14 +308,19 @@
     }
     const want = (options[index].textContent || '').trim();
     const label = () => selectedLabel(currentSel(doc, i) || sel);
-    press(options[index]);
+    // 候補の中の部品から押す（おすすめカテゴリの候補は、中に名前と場所の部品がある）
+    pressDeep(options[index]);
     let got = await waitFor(label, 2500);
+    if (!got && options[index].isConnected) {
+      press(options[index]);
+      got = await waitFor(label, 2000);
+    }
     if (!got) {
       // まだ選ばれていなければ、開き直して同じ名前の候補をもう一度押す
       const again = await openOptions(currentSel(doc, i) || sel);
       const same = again && again.find((o) => (o.textContent || '').trim() === want);
       if (same) {
-        press(same);
+        pressDeep(same);
         got = await waitFor(label, 2500);
       }
     }
@@ -399,7 +422,15 @@
       }
       return null;
     };
-    const match = await waitFor(find, 5000);
+    let match = await waitFor(find, 4000);
+    if (!match) {
+      // 一覧が出なければ、前の入れ方（入れて離れる）でもう一度
+      setValue(input, '');
+      setValue(input, brand);
+      input.dispatchEvent(new input.ownerDocument.defaultView.KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
+      focusLikeUser(input);
+      match = await waitFor(find, 4000);
+    }
     // 見つからなかったときの手がかり：ブランド名を含む文字が、ページのどこに出ているか
     const hint = () =>
       Array.from(doc.body.querySelectorAll('*'))
@@ -408,7 +439,7 @@
         .map((el) => `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ')[0]}「${(el.textContent || '').trim().slice(0, 20)}」${el.getClientRects().length ? '' : '（見えていない）'}`)
         .join('、');
     if (match) {
-      press(match);
+      pressDeep(match);
       // 選ばれると、欄の中身が候補の名前になるか、一覧が閉じる
       await waitFor(() => !match.isConnected || norm(input.value) !== w || !match.getClientRects().length, 1500);
       report.filled.push('ブランド');
@@ -679,6 +710,7 @@
     return (!label || /指定なし|選択してください/.test(label)) && (!input || !String(input.value || '').trim());
   }
 
+  let lastRowInfo = '';
   /** 空いている行を探す。なければ「追加」を押して行を増やす */
   async function nextEmptyRow(panel) {
     const rows = () => Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select'));
@@ -688,10 +720,18 @@
     const add = Array.from(panel.querySelectorAll('a, button, [role=button], span, p')).find(
       (el) => /追加/.test(el.textContent || '') && el.childElementCount <= 2 && el.getClientRects().length
     );
-    if (!add) return null;
-    press(add);
-    await waitFor(() => rows().length > before, 2000);
-    return rows().find(rowEmpty) || null;
+    if (!add) {
+      lastRowInfo = '「追加」が見つかりませんでした';
+      return null;
+    }
+    pressDeep(add);
+    if (!(await waitFor(() => rows().length > before, 1500))) {
+      press(add);
+      await waitFor(() => rows().length > before, 1500);
+    }
+    const added = rows().find(rowEmpty) || null;
+    if (!added) lastRowInfo = `「${(add.textContent || '').trim()}」を押したあとの行：${rows().length}行（押す前 ${before}行）`;
+    return added;
   }
 
   /** 1行に「選択欄（系統・サイズ）」と「名前の欄」を入れる */
@@ -735,7 +775,7 @@
       done++;
     }
     if (done) report.filled.push(`色（${done}色）`);
-    if (done < list.length) report.notes.push(`色は${list.length}色のうち${done}色を入れました。残り（${list.slice(done).join('・')}）はご自身で入れてください。`);
+    if (done < list.length) report.notes.push(`色は${list.length}色のうち${done}色を入れました。残り（${list.slice(done).join('・')}）はご自身で入れてください。` + (lastRowInfo ? `（くわしく：${lastRowInfo}）` : ''));
     if (unsure.length) report.notes.push(`色の系統がわからなかった色（${unsure.join('・')}）は「マルチカラー」にしました。確認してください。`);
   }
 
@@ -872,6 +912,20 @@
       });
     }
     if (tabs[before]) tabs[before].click();
+    // カテゴリの欄（候補を開いた状態）と、ブランドの欄の作りも残す（自動で選べないときの原因を調べるため）
+    const clean = (el) => (el ? el.outerHTML.replace(/<svg[\s\S]*?<\/svg>/g, '<svg/>').slice(0, 60000) : '');
+    const cat = rowByTitle(doc, 'カテゴリ');
+    if (cat) {
+      const sel = cat.querySelector('.Select');
+      if (sel && !selectedLabel(sel)) {
+        await openOptions(sel);
+        await wait(300);
+      }
+      out.category = clean(cat);
+      const control = sel && sel.querySelector('.Select-control');
+      if (control && sel.querySelector('.Select-option')) mouse(control, 'mousedown');
+    }
+    out.brand = clean(rowByTitle(doc, 'ブランド'));
     return out;
   }
 
