@@ -269,8 +269,67 @@
     if (!sel) return { exists: false };
     const already = selectedLabel(sel);
     if (already) return { exists: true, selected: already, options: [] };
-    const options = await openOptions(sel);
-    return { exists: true, selected: '', options: options ? options.map(optionText) : [] };
+    const scan = await scanAllOptions(sel);
+    return { exists: true, selected: '', options: scan.texts, scan: scan.info };
+  }
+
+  /**
+   * 候補の一覧を、下まで少しずつスクロールしながら全部集める（候補が多いと、見えている分しか画面に出さない作りがあるため）
+   */
+  async function scanAllOptions(sel) {
+    const first = await openOptions(sel);
+    if (!first) return { texts: [], info: { opened: false } };
+    const texts = [];
+    const seen = new Set();
+    const collect = () => {
+      for (const o of Array.from(sel.querySelectorAll('.Select-option'))) {
+        const t = optionText(o);
+        if (!seen.has(t)) {
+          seen.add(t);
+          texts.push(t);
+        }
+      }
+    };
+    collect();
+    const menu = sel.querySelector('.Select-menu') || sel.querySelector('.Select-menu-outer');
+    const info = { opened: true, rendered: texts.length, scrollHeight: menu ? menu.scrollHeight : 0, clientHeight: menu ? menu.clientHeight : 0, steps: 0 };
+    if (menu && menu.scrollHeight > menu.clientHeight + 2) {
+      for (let n = 0; n < 300; n++) {
+        const before = menu.scrollTop;
+        menu.scrollTop = before + Math.max(20, menu.clientHeight * 0.8);
+        menu.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 80));
+        collect();
+        info.steps++;
+        if (menu.scrollTop === before || menu.scrollTop + menu.clientHeight >= menu.scrollHeight - 2) break;
+      }
+      menu.scrollTop = 0;
+      menu.dispatchEvent(new Event('scroll', { bubbles: true }));
+    }
+    info.total = texts.length;
+    return { texts, info };
+  }
+
+  /** 名前（optionText と同じ書き方）の候補を、一覧をスクロールしながら探す */
+  async function findOption(sel, want) {
+    const opts = await openOptions(sel);
+    if (!opts) return null;
+    const look = () => Array.from(sel.querySelectorAll('.Select-option')).find((o) => optionText(o) === want) || null;
+    let hit = look();
+    const menu = sel.querySelector('.Select-menu') || sel.querySelector('.Select-menu-outer');
+    if (!hit && menu) {
+      menu.scrollTop = 0;
+      for (let n = 0; n < 300 && !hit; n++) {
+        const before = menu.scrollTop;
+        menu.scrollTop = before + Math.max(20, menu.clientHeight * 0.8);
+        menu.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 80));
+        hit = look();
+        if (menu.scrollTop === before) break;
+      }
+    }
+    if (hit && hit.scrollIntoView) hit.scrollIntoView({ block: 'nearest' });
+    return hit;
   }
 
   /** 候補の名前。見出し（押せないもの）は「—」、名前と場所が分かれている候補は「名前（場所）」にする */
@@ -305,6 +364,18 @@
     const sel = row && row.querySelectorAll('.Select')[i];
     if (!sel) return '';
     if (selectedLabel(sel)) return selectedLabel(sel);
+    // 名前で渡されたときは、一覧をスクロールしながら探して、その候補を押す
+    if (typeof index === 'string') {
+      const hit = index ? await findOption(sel, index) : null;
+      if (!hit) {
+        const control = sel.querySelector('.Select-control');
+        if (control && sel.querySelector('.Select-option')) mouse(control, 'mousedown');
+        if (index) lastPickInfo = `「${index}」が一覧の中に見つかりませんでした`;
+        return '';
+      }
+      const all = Array.from(sel.querySelectorAll('.Select-option'));
+      index = all.indexOf(hit);
+    }
     const options = await openOptions(sel);
     if (!options) {
       lastPickInfo = `候補の一覧が開きませんでした（欄の印「${(sel.className || '').slice(0, 80)}」）`;
@@ -943,6 +1014,10 @@
         await wait(300);
       }
       out.category = clean(cat);
+      if (sel && !selectedLabel(sel)) {
+        const scan = await scanAllOptions(sel);
+        out.categoryScan = { info: scan.info, texts: scan.texts.slice(0, 500) };
+      }
       const control = sel && sel.querySelector('.Select-control');
       if (control && sel.querySelector('.Select-option')) mouse(control, 'mousedown');
     }

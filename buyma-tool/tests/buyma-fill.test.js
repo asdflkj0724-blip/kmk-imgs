@@ -219,7 +219,7 @@ test('カテゴリ：候補を読んで、番号で選ぶ（拡張機能の画�
   const { browser, page } = await openPcPage();
   try {
     const lv0 = await page.evaluate(() => RakuBuymaFill.categoryLevel(document, 0));
-    assert.deepEqual(lv0, { exists: true, selected: '', options: ['レディースファッション', 'メンズファッション'] });
+    assert.deepEqual({ exists: lv0.exists, selected: lv0.selected, options: lv0.options }, { exists: true, selected: '', options: ['レディースファッション', 'メンズファッション'] });
     // 名前がはっきり合えば、AI に聞かずに選べる
     assert.equal(PF.localCategoryPick(lv0.options, 'レディース'), 0);
     assert.equal(await page.evaluate(() => RakuBuymaFill.categoryPick(document, 0, 0)), 'レディースファッション');
@@ -334,6 +334,63 @@ test('配送方法を複数選ぶ', async () => {
     const checked = await page.evaluate(() => Array.from(document.querySelectorAll('#ship input')).map((i) => i.checked));
     assert.deepEqual(checked.slice(0, 2), [true, true]);
     assert.ok(r.filled.includes('配送方法（2件）'));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('カテゴリ：候補が多くて見えている分しか出さない一覧でも、スクロールして全部集め、名前で選べる', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<html><body>
+      <div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">カテゴリ</p></div></div>
+      <div class="bmm-l-col bmm-l-col-9"><div class="Select" id="s"><div class="Select-control"><div class="Select-placeholder">選択してください</div></div></div></div></div>
+      <script>
+        const ALL = ['レディースファッション', 'メンズファッション', 'ベビー・キッズ', 'ビューティー', 'ライフスタイル', 'スポーツ', 'ホビー', 'ペット', 'グルメ', 'その他'];
+        const sel = document.getElementById('s');
+        sel.querySelector('.Select-control').addEventListener('mousedown', () => {
+          const open = sel.querySelector('.Select-menu-outer');
+          if (open) return open.remove();
+          const outer = document.createElement('div');
+          outer.className = 'Select-menu-outer';
+          const menu = document.createElement('div');
+          menu.className = 'Select-menu';
+          menu.style.cssText = 'height:60px;overflow:auto;position:relative';
+          const inner = document.createElement('div');
+          inner.style.height = ALL.length * 30 + 'px';
+          menu.appendChild(inner);
+          // 見えている分（2〜3件）だけを出す作り
+          const render = () => {
+            inner.innerHTML = '';
+            const from = Math.floor(menu.scrollTop / 30);
+            for (let k = from; k < Math.min(ALL.length, from + 3); k++) {
+              const o = document.createElement('div');
+              o.className = 'Select-option';
+              o.style.cssText = 'position:absolute;top:' + k * 30 + 'px;height:30px';
+              o.textContent = ALL[k];
+              o.addEventListener('mousedown', () => {
+                outer.remove();
+                sel.querySelector('.Select-control').innerHTML = '<div class="Select-value"><span class="Select-value-label">' + ALL[k] + '</span></div>';
+              });
+              inner.appendChild(o);
+            }
+          };
+          menu.addEventListener('scroll', render);
+          outer.appendChild(menu);
+          sel.appendChild(outer);
+          render();
+        });
+      </script></body></html>`);
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/buyma-fill.js'), 'utf8') });
+    const r = await page.evaluate(async () => {
+      const lv = await RakuBuymaFill.categoryLevel(document, 0);
+      const name = await RakuBuymaFill.categoryPick(document, 0, 'ペット');
+      return { n: lv.options.length, last: lv.options[lv.options.length - 1], name };
+    });
+    assert.equal(r.n, 10, 'スクロールして10件すべて集める');
+    assert.equal(r.last, 'その他');
+    assert.equal(r.name, 'ペット', '見えていない候補も、スクロールして探して選ぶ');
   } finally {
     await browser.close();
   }

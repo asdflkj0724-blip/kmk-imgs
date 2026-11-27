@@ -670,10 +670,10 @@ async function chooseCategory(wanted, title) {
       const want = segs.join('>');
       const hit = lv.options.findIndex((o) => path(o) && (path(o) === want || want.startsWith(path(o))));
       if (hit < 0) {
-        await runInBuyma(pickActiveCategory, [i, -1]);
+        await runInBuyma(pickActiveCategory, [i, '']);
         return { chosen, note: `カテゴリの候補が「最近出品したカテゴリ」（${lv.options.filter((o) => !o.startsWith('—')).join('・')}）だけで、この商品（${wanted || '不明'}）に合うものがなかったので選んでいません。ご自身で選んでください。` };
       }
-      const picked = (await runInBuyma(pickActiveCategory, [i, hit])) || {};
+      const picked = (await runInBuyma(pickActiveCategory, [i, lv.options[hit]])) || {};
       if (!picked.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
       chosen.push(picked.name);
       continue;
@@ -688,10 +688,10 @@ async function chooseCategory(wanted, title) {
       }
     }
     if (index < 0) {
-      await runInBuyma(pickActiveCategory, [i, -1]);
+      await runInBuyma(pickActiveCategory, [i, '']);
       return { chosen, note: `カテゴリの${i + 1}段目は、合う候補がはっきりしなかったので選んでいません。ご自身で選んでください。` };
     }
-    const picked = (await runInBuyma(pickActiveCategory, [i, index])) || {};
+    const picked = (await runInBuyma(pickActiveCategory, [i, lv.options[index]])) || {};
     const name = picked.name;
     if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` + `（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
     chosen.push(name);
