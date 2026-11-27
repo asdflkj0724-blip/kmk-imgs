@@ -203,6 +203,12 @@
     }
   }
 
+  /** 「A / B / C」の文字でも配列でも、名前の一覧にする */
+  function listOf(v) {
+    const arr = Array.isArray(v) ? v : String(v || '').split(/\s*[\/／、,，\n]\s*/);
+    return arr.map((x) => String(x).trim()).filter(Boolean);
+  }
+
   function buymaValues(listing, product) {
     const l = listing || {};
     const p = product || {};
@@ -221,6 +227,9 @@
       brand: l.brand || '',
       category: l.category || '',
       shipping: l.shippingMethod || '',
+      // 色・サイズの表に入れる名前（日本語）
+      colors: listOf(l.colors),
+      sizes: listOf(l.sizes),
       // 買付先メモ（URL などを残しておく欄。出品リストから探すのに使える）
       sourceUrl: cleanSourceUrl(p.url || ''),
       sourceName: p.shopName || siteName(p.url || ''),

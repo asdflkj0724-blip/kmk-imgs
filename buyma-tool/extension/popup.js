@@ -602,7 +602,7 @@ function showActiveReport(r) {
   if (r.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + r.skipped.join('・'));
   if (r.missing.length) lines.push('見つからなかった欄：' + r.missing.join('・') + '（ご自身で入れてください）');
   lines.push(...r.notes);
-  lines.push('色とサイズの表は、ご自身で選んでください。内容を確かめてから「入力内容を確認する」を押してください。');
+  lines.push('内容を確かめてから「入力内容を確認する」を押してください。');
   F.showBanner(document, lines, !r.filled.length);
 }
 function readActiveCategoryLevel(i) {

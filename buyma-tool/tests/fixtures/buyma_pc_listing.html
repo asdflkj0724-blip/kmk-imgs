@@ -20,7 +20,9 @@
   <label class="bmm-c-checkbox"><input class="bmm-c-checkbox__input" type="checkbox" id="noBrand"><span class="bmm-c-checkbox__body">ブランド指定なし</span></label></div></div></div>
 
 <div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">色・サイズ<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
-  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="sell-variation"><table><tbody><tr><td><input type="text" class="bmm-c-text-field" placeholder="色指定なし" id="colorName"></td></tr></tbody></table>
+  <div class="bmm-l-col bmm-l-col-9"><div class="bmm-c-field"><div class="sell-variation"><div class="react-tabs"><ul class="sell-variation__tab" role="tablist"><li class="sell-variation__tab-item is-active" role="tab" id="tabColor">色</li><li class="sell-variation__tab-item" role="tab" id="tabSize">サイズ</li></ul>
+  <div class="react-tabs__tab-panel react-tabs__tab-panel--selected" role="tabpanel" id="panelColor"><table><tbody id="colorRows"></tbody></table><div class="bmm-c-form-table__foot"><a id="colorAdd">色を追加</a></div></div>
+  <div class="react-tabs__tab-panel" role="tabpanel" id="panelSize"><p class="sell-size-box-note">カテゴリーを選択してください。</p></div></div>
   <div class="bmm-c-field"><p class="bmm-c-field__label">色・サイズ補足情報<span class="bmm-c-label bmm-c-label--optional">任意</span></p><div class="bmm-c-field__input"><textarea class="bmm-c-textarea" id="sizeNote"></textarea></div></div></div></div></div></div>
 
 <div class="bmm-l-grid"><div class="bmm-l-col bmm-l-col-3"><div class="bmm-c-summary"><p class="bmm-c-summary__ttl">配送方法<span class="bmm-c-label bmm-c-label--required">必須</span></p></div></div>
@@ -88,6 +90,68 @@
     levels.appendChild(item);
   }
   addLevel(Object.keys(TREE));
+
+  // ---- 色・サイズ：本物の画面と同じく、タブ・行ごとの選択欄・名前の欄（系統を選ぶまで使えない）・「追加」 ----
+  function makeSelect(options, placeholder, onPick) {
+    const sel = document.createElement('div');
+    sel.className = 'Select bmm-c-custom-select Select--single has-value';
+    sel.innerHTML = '<div class="Select-control"><span class="Select-multi-value-wrapper"><div class="Select-value"><span class="Select-value-label">' + placeholder + '</span></div></span></div>';
+    const control = sel.querySelector('.Select-control');
+    control.addEventListener('mousedown', (e) => {
+      const open = sel.querySelector('.Select-menu-outer');
+      if (open) { open.remove(); return; }
+      setTimeout(() => {
+        const menu = document.createElement('div');
+        menu.className = 'Select-menu-outer';
+        menu.innerHTML = options.map((o) => '<div class="Select-option">' + o + '</div>').join('');
+        // 本物の画面には「押した（click）」で選ばれる一覧もあるので、ここでは click で選ぶ
+        for (const opt of menu.querySelectorAll('.Select-option')) {
+          opt.addEventListener('click', () => {
+            menu.remove();
+            sel.querySelector('.Select-value-label').textContent = opt.textContent;
+            onPick(opt.textContent);
+          });
+        }
+        sel.appendChild(menu);
+      }, 30);
+    });
+    return sel;
+  }
+  const COLOR_FAMILIES = ['ホワイト（白）系', 'ブラック（黒）系', 'グレー（灰色）系', 'ブラウン（茶色）系', 'ベージュ系', 'グリーン（緑）系', 'ブルー（青）系', 'ネイビー（紺）系', 'ピンク系', 'レッド（赤）系', 'マルチカラー'];
+  function addColorRow() {
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td2.innerHTML = '<input type="text" class="bmm-c-text-field color-name" placeholder="色指定なし" disabled>';
+    td1.appendChild(makeSelect(COLOR_FAMILIES, '色指定なし', () => { td2.firstChild.disabled = false; }));
+    tr.append(td1, td2);
+    document.getElementById('colorRows').appendChild(tr);
+  }
+  addColorRow();
+  document.getElementById('colorAdd').addEventListener('click', addColorRow);
+  function selectTab(which) {
+    for (const [t, p] of [['tabColor', 'panelColor'], ['tabSize', 'panelSize']]) {
+      const on = t === which;
+      document.getElementById(t).className = 'sell-variation__tab-item' + (on ? ' is-active' : '');
+      document.getElementById(p).className = 'react-tabs__tab-panel' + (on ? ' react-tabs__tab-panel--selected' : '');
+    }
+  }
+  document.getElementById('tabColor').addEventListener('click', () => selectTab('tabColor'));
+  document.getElementById('tabSize').addEventListener('click', () => {
+    selectTab('tabSize');
+    const panel = document.getElementById('panelSize');
+    if ((window.__category || []).length < 3 || panel.querySelector('table')) return;
+    panel.innerHTML = '<table><tbody id="sizeRows"></tbody></table><a id="sizeAdd">サイズを追加</a>';
+    const addSizeRow = () => {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.appendChild(makeSelect(['XS', 'S', 'M', 'L', 'XL', 'フリーサイズ'], '選択してください', () => {}));
+      tr.appendChild(td);
+      document.getElementById('sizeRows').appendChild(tr);
+    };
+    addSizeRow();
+    document.getElementById('sizeAdd').addEventListener('click', addSizeRow);
+  });
 
   // ---- 配送方法：行を押すとチェックが付く ----
   for (const tr of document.querySelectorAll('#ship tr')) {
