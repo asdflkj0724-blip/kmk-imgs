@@ -635,12 +635,12 @@ function showActiveReport(r) {
   lines.push('内容を確かめてから「入力内容を確認する」を押してください。');
   F.showBanner(document, lines, !r.filled.length);
 }
-function readActiveCategoryLevel(i) {
-  return globalThis.RakuBuymaFill.categoryLevel(document, i);
+function readActiveCategoryLevel(i, reopen) {
+  return globalThis.RakuBuymaFill.categoryLevel(document, i, reopen);
 }
-function pickActiveCategory(i, index) {
+function pickActiveCategory(i, index, force) {
   const F = globalThis.RakuBuymaFill;
-  return F.categoryPick(document, i, index).then((name) => ({ name, info: F.categoryPickInfo() }));
+  return F.categoryPick(document, i, index, force).then((name) => ({ name, info: F.categoryPickInfo() }));
 }
 
 /**
@@ -650,51 +650,65 @@ function pickActiveCategory(i, index) {
 async function chooseCategory(wanted, title) {
   const segs = PF.categorySegments(wanted);
   const chosen = [];
-  // カテゴリの手がかりがなくても、商品名から AI に選んでもらう
+  const ver = chrome.runtime.getManifest().version;
+  const isRecent = (o) => /（.+>.+）$/.test(o);
+  const isHead = (o) => o.startsWith('—');
+  const recentPath = (o) => {
+    const m = o.match(/^(.*)（(.+)）$/);
+    return m ? PF.categorySegments(m[2] + ' > ' + m[1]) : [];
+  };
+  const same = (a, b) => String(a || '').normalize('NFKC').replace(/\s+/g, '') === String(b || '').normalize('NFKC').replace(/\s+/g, '');
+
+  let lv0 = await runInBuyma(readActiveCategoryLevel, [0, false]);
+  if (!lv0 || !lv0.exists) return { chosen, note: '' };
+  if (lv0.selected) return { chosen: [], note: 'カテゴリはすでに選ばれていたので、そのままにしました。', skipped: true };
+
+  // 最初は「最近出品したカテゴリ」しか出ない作り：まず近いものを1つ選んで、3段の選択欄に切り替える
+  const full0 = lv0.options.filter((o) => !isHead(o) && !isRecent(o));
+  if (!full0.length) {
+    const recents = lv0.options.filter(isRecent);
+    if (!recents.length) return { chosen, note: `カテゴリの候補が出ませんでした。ご自身で選んでください。（版 ${ver}）` };
+    const exact = recents.find((o) => recentPath(o).join('>') === segs.join('>'));
+    const starter = exact || recents.find((o) => segs[0] && same(recentPath(o)[0], segs[0])) || recents[0];
+    setStatus('【1/3】カテゴリの選択欄を準備しています…');
+    const p = (await runInBuyma(pickActiveCategory, [0, starter, false])) || {};
+    if (!p.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${p.info || '理由不明'}・版 ${ver}）` };
+  }
+
+  // 1段目から順に、正しいカテゴリに選び直す（選択欄の候補は全部のカテゴリ）
   for (let i = 0; i < 4; i++) {
-    const lv = await runInBuyma(readActiveCategoryLevel, [i]);
+    const lv = await runInBuyma(readActiveCategoryLevel, [i, true]);
     if (!lv || !lv.exists) break;
-    if (lv.selected) {
-      if (i === 0) return { chosen: [], note: 'カテゴリはすでに選ばれていたので、そのままにしました。', skipped: true };
-      chosen.push(lv.selected);
+    const opts = lv.options.filter((o) => !isHead(o) && !isRecent(o));
+    if (!opts.length) {
+      if (lv.selected) chosen.push(lv.selected);
       continue;
     }
-    if (!lv.options.length) return { chosen, note: `カテゴリの${i + 1}段目の候補が出ませんでした。ご自身で選んでください。` };
-    // 「最近出品したカテゴリ」だけが出ている作り（候補が「名前（場所）」）：場所まで同じものだけを選ぶ。違うものを AI に選ばせない
-    const recent = lv.options.filter((o) => /（.+>.+）$/.test(o)).length >= Math.max(1, lv.options.filter((o) => !o.startsWith('—')).length);
-    if (recent) {
-      const path = (o) => {
-        const m = o.match(/^(.*)（(.+)）$/);
-        return m ? PF.categorySegments(m[2] + ' > ' + m[1]).join('>') : '';
-      };
-      const want = segs.join('>');
-      const hit = lv.options.findIndex((o) => path(o) && (path(o) === want || want.startsWith(path(o))));
-      if (hit < 0) {
-        await runInBuyma(pickActiveCategory, [i, '']);
-        return { chosen, note: `カテゴリの候補が「最近出品したカテゴリ」（${lv.options.filter((o) => !o.startsWith('—')).join('・')}）だけで、この商品（${wanted || '不明'}）に合うものがなかったので選んでいません。ご自身で選んでください。` };
-      }
-      const picked = (await runInBuyma(pickActiveCategory, [i, lv.options[hit]])) || {};
-      if (!picked.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
-      chosen.push(picked.name);
-      continue;
-    }
-    let index = segs[i] ? PF.localCategoryPick(lv.options, segs[i]) : -1;
+    let index = segs[i] ? PF.localCategoryPick(opts, segs[i]) : -1;
     if (index < 0) {
-      setStatus(`カテゴリの${i + 1}段目を選んでいます…`);
+      setStatus(`【1/3】カテゴリの${i + 1}段目を選んでいます…`);
       try {
-        index = (await api.pickCategory({ title: title || '', wanted: wanted || title || '（不明）', chosen, options: lv.options.slice(0, 300) })).index;
+        index = (await api.pickCategory({ title: title || '', wanted: wanted || title || '（不明）', chosen, options: opts.slice(0, 300) })).index;
       } catch (e) {
         index = -1;
       }
     }
     if (index < 0) {
-      await runInBuyma(pickActiveCategory, [i, '']);
+      if (lv.selected) {
+        // 合う候補がはっきりしないときは、今選ばれているものを残す
+        chosen.push(lv.selected);
+        continue;
+      }
       return { chosen, note: `カテゴリの${i + 1}段目は、合う候補がはっきりしなかったので選んでいません。ご自身で選んでください。` };
     }
-    const picked = (await runInBuyma(pickActiveCategory, [i, lv.options[index]])) || {};
-    const name = picked.name;
-    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` + `（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
-    chosen.push(name);
+    const target = opts[index];
+    if (lv.selected && same(lv.selected, target)) {
+      chosen.push(lv.selected);
+      continue;
+    }
+    const picked = (await runInBuyma(pickActiveCategory, [i, target, true])) || {};
+    if (!picked.name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${ver}）` };
+    chosen.push(picked.name);
   }
   return { chosen, note: '' };
 }

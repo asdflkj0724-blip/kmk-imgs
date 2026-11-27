@@ -262,13 +262,19 @@
    * カテゴリの i 段目（0から）を開いて、候補の名前を返す（AI に選んでもらうため）。
    * すでに選ばれていれば selected に名前が入る。段がなければ exists: false。
    */
-  async function categoryLevel(doc, i) {
+  async function categoryLevel(doc, i, reopen) {
     const row = rowByTitle(doc, 'カテゴリ');
     if (!row) return { exists: false };
     const sel = await waitFor(() => row.querySelectorAll('.Select')[i], 2500);
     if (!sel) return { exists: false };
     const already = selectedLabel(sel);
-    if (already) return { exists: true, selected: already, options: [] };
+    if (already && !reopen) return { exists: true, selected: already, options: [] };
+    if (already) {
+      // 選ばれていても、選び直すために候補を全部読む（読んだら閉じる）
+      const scan = await scanAllOptions(sel);
+      categoryClose(doc, i);
+      return { exists: true, selected: already, options: scan.texts, scan: scan.info };
+    }
     const scan = await scanAllOptions(sel);
     return { exists: true, selected: '', options: scan.texts, scan: scan.info };
   }
@@ -359,11 +365,19 @@
   }
 
   /** カテゴリの i 段目で、index 番目の候補を選ぶ（-1 なら閉じるだけ）。選んだ名前を返す */
-  async function categoryPick(doc, i, index) {
+  /** カテゴリの i 段目の一覧が開いていたら閉じる */
+  function categoryClose(doc, i) {
+    const sel = currentSel(doc, i);
+    const control = sel && sel.querySelector('.Select-control');
+    if (control && sel.querySelector('.Select-option')) mouse(control, 'mousedown');
+  }
+
+  async function categoryPick(doc, i, index, force) {
     const row = rowByTitle(doc, 'カテゴリ');
     const sel = row && row.querySelectorAll('.Select')[i];
     if (!sel) return '';
-    if (selectedLabel(sel)) return selectedLabel(sel);
+    if (selectedLabel(sel) && !force) return selectedLabel(sel);
+    const before = selectedLabel(sel);
     // 名前で渡されたときは、一覧をスクロールしながら探して、その候補を押す
     if (typeof index === 'string') {
       const hit = index ? await findOption(sel, index) : null;
@@ -388,7 +402,11 @@
     }
     if (/is-disabled/.test(options[index].className || '')) return '';
     const want = (options[index].textContent || '').trim();
-    const label = () => selectedLabel(currentSel(doc, i) || sel);
+    // 選び直すときは、前と違う名前になったら選べたとみなす
+    const label = () => {
+      const l = selectedLabel(currentSel(doc, i) || sel);
+      return l && (!before || l !== before || norm(l) === norm(want)) ? l : '';
+    };
     // 候補の中の部品から押す（おすすめカテゴリの候補は、中に名前と場所の部品がある）
     pressDeep(options[index]);
     let got = await waitFor(label, 2500);
