@@ -609,7 +609,8 @@ function readActiveCategoryLevel(i) {
   return globalThis.RakuBuymaFill.categoryLevel(document, i);
 }
 function pickActiveCategory(i, index) {
-  return globalThis.RakuBuymaFill.categoryPick(document, i, index);
+  const F = globalThis.RakuBuymaFill;
+  return F.categoryPick(document, i, index).then((name) => ({ name, info: F.categoryPickInfo() }));
 }
 
 /**
@@ -642,8 +643,9 @@ async function chooseCategory(wanted, title) {
       await runInBuyma(pickActiveCategory, [i, -1]);
       return { chosen, note: `カテゴリの${i + 1}段目は、合う候補がはっきりしなかったので選んでいません。ご自身で選んでください。` };
     }
-    const name = await runInBuyma(pickActiveCategory, [i, index]);
-    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` };
+    const picked = (await runInBuyma(pickActiveCategory, [i, index])) || {};
+    const name = picked.name;
+    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` + (picked.info ? `（くわしく：${picked.info}）` : '') };
     chosen.push(name);
   }
   return { chosen, note: '' };
@@ -682,14 +684,28 @@ async function setupBuymaShipping() {
       if (found && found.length) settings = await api.saveSettings({ shippingMethods: found });
     } catch (e) {}
   }
-  const sel = $('buymaShipping');
+  // 配送方法：いくつでも選べる。選んだものは覚えて、次の商品からも使う
+  const box = $('buymaShipping');
   const list = settings.shippingMethods;
-  sel.replaceChildren(el('option', { value: '' }, list.length ? '（選んでください）' : '（この画面に配送方法の一覧がありません）'), ...list.map((n) => el('option', { value: n }, n)));
-  sel.value = settings.lastShipping || '';
-  sel.onchange = async () => {
-    settings = await api.saveSettings({ lastShipping: sel.value });
-    setStatus(sel.value ? '配送方法を覚えました。次の商品からも自動で使います' : '配送方法を未選択にしました');
-  };
+  if (!list.length) {
+    box.replaceChildren(el('p', { className: 'small muted' }, '（この画面に配送方法の一覧がありません）'));
+    return;
+  }
+  box.replaceChildren(
+    ...list.map((n) => {
+      const cb = el('input', { type: 'checkbox', checked: settings.shippingChosen.includes(n) });
+      cb.addEventListener('change', async () => {
+        const chosen = Array.from(box.querySelectorAll('input[type=checkbox]'))
+          .map((c, k) => (c.checked ? list[k] : null))
+          .filter(Boolean);
+        settings = await api.saveSettings({ shippingChosen: chosen, lastShipping: chosen[0] || '' });
+        setStatus(chosen.length ? `配送方法を${chosen.length}件覚えました。次の商品からも自動で使います` : '配送方法を未選択にしました');
+      });
+      const lab = el('label', { className: 'small shipopt' });
+      lab.append(cb, document.createTextNode(' ' + n));
+      return lab;
+    })
+  );
 }
 
 async function showBuymaBox() {
@@ -720,7 +736,8 @@ function fillBuyma() {
 async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   const values = PF.buymaValues(lastForBuyma.listing, lastForBuyma.product);
   // 配送方法：この画面で選んだもの（＝最後に選んだもの）を使う
-  values.shipping = $('buymaShipping').value || values.shipping || settings.lastShipping || '';
+  values.shippingList = settings.shippingChosen.length ? settings.shippingChosen : [];
+  values.shipping = settings.shippingChosen[0] || values.shipping || settings.lastShipping || '';
   values.noBrandIfUnknown = settings.noBrandIfUnknown;
   values.categoryByPopup = true;
   $('fillBuyma').disabled = true;

@@ -107,3 +107,10 @@ test('計算式：入れた式を覚える。前の版の「＋○円」は「+�
   assert.equal(normalizeSettings({ addJpy: 3000 }).priceExpr, '+3000');
   assert.equal(normalizeSettings({}).priceExpr, '');
 });
+
+test('配送方法はいくつでも選べる。前の版の1つだけの選択を引き継ぎ、一覧にないものは捨てる', () => {
+  const methods = ['A｜a', 'B｜b', 'C｜c'];
+  assert.deepEqual(normalizeSettings({ shippingMethods: methods, shippingChosen: ['A｜a', 'C｜c', 'X｜x', 'A｜a'] }).shippingChosen, ['A｜a', 'C｜c']);
+  assert.deepEqual(normalizeSettings({ shippingMethods: methods, lastShipping: 'B｜b' }).shippingChosen, ['B｜b']);
+  assert.deepEqual(normalizeSettings({ shippingMethods: methods }).shippingChosen, []);
+});
