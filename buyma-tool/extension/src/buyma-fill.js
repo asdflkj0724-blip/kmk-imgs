@@ -423,7 +423,7 @@
     // 候補の中の部品から押す（おすすめカテゴリの候補は、中に名前と場所の部品がある）
     pressDeep(options[index]);
     // カテゴリを選ぶと、BUYMA が次の段の候補を読み込むので、少し長めに待つ
-    let got = await waitFor(label, 6000);
+    let got = await waitFor(label, 4000);
     if (!got && options[index].isConnected) {
       press(options[index]);
       got = await waitFor(label, 2000);
