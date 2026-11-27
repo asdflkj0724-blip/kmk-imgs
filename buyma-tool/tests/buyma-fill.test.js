@@ -416,3 +416,32 @@ test('カテゴリ：選ばれている段も、候補を読み直して別の�
     await browser.close();
   }
 });
+
+test('カテゴリ（最後の手段）：画面のしくみ（React）の「押したときの処理」を直接呼んで選ぶ', async () => {
+  const src = fs.readFileSync(path.join(__dirname, '../extension/popup.js'), 'utf8');
+  const fn = src.slice(src.indexOf('async function pickCategoryInPage'), src.indexOf('async function runInPage'));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<html><body>
+      <div class="bmm-l-grid"><p class="bmm-c-summary__ttl">カテゴリ</p>
+      <div class="Select" id="s"><div class="Select-control"><div class="Select-placeholder">選択してください</div></div>
+      <div class="Select-menu-outer"><div class="Select-menu">
+        <div class="grouped Select-option is-disabled"><div class="bmm-c-select-option"><p class="bmm-c-select-option__main">最近出品したカテゴリから選択</p></div></div>
+        <div class="grouped Select-option" id="o2"><div class="bmm-c-select-option"><p class="bmm-c-select-option__main">スニーカー</p><p class="bmm-c-select-option__note">メンズファッション &gt; 靴・ブーツ・サンダル</p></div></div>
+      </div></div></div></div>
+      <script>
+        // 押した合図（mousedown など）は受け付けず、React の props からしか選べない作り
+        document.getElementById('o2')['__reactProps$test'] = {
+          onMouseDown: () => {
+            document.querySelector('.Select-menu-outer').remove();
+            document.querySelector('.Select-control').innerHTML = '<div class="Select-value"><span class="Select-value-label">メンズファッション</span></div>';
+          },
+        };
+      </script></body></html>`);
+    const r = await page.evaluate(`(${fn.replace('async function pickCategoryInPage', 'async function')})(0, 'スニーカー（メンズファッション > 靴・ブーツ・サンダル）')`);
+    assert.equal(r.name, 'メンズファッション');
+  } finally {
+    await browser.close();
+  }
+});
