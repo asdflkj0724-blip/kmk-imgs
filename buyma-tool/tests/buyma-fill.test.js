@@ -468,3 +468,28 @@ test('カテゴリの欄を目立たせる：まだなら赤い太枠と「こ�
     await browser.close();
   }
 });
+
+test('カテゴリをあとから手で選ぶと、その瞬間にサイズが自動で入る', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const first = await page.evaluate(() =>
+      RakuBuymaFill.fillBuymaAll(document, { categoryByPopup: true, sizes: ['S', 'M', '均码'], colors: [] })
+    );
+    assert.ok(first.notes.some((n) => /サイズは自動で入ります/.test(n)));
+    // 人が3段とも選んだことにする
+    await page.evaluate(async () => {
+      const F = RakuBuymaFill;
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      for (const [i, name] of [[0, 'レディースファッション'], [1, 'ボトムス'], [2, 'パンツ']]) {
+        for (let n = 0; n < 30 && !document.querySelectorAll('#catLevels .Select')[i]; n++) await wait(50);
+        await F.categoryPick(document, i, name);
+        await wait(300);
+      }
+    });
+    await page.waitForFunction(() => document.querySelectorAll('#sizeRows tr .Select-value-label').length >= 3 && /サイズを入れました/.test(document.getElementById('rakushuppin-banner').textContent), null, { timeout: 15000 });
+    const sizes = await page.evaluate(() => Array.from(document.querySelectorAll('#sizeRows tr')).map((tr) => tr.querySelector('.Select-value-label').textContent));
+    assert.deepEqual(sizes, ['S', 'M', 'フリーサイズ']);
+  } finally {
+    await browser.close();
+  }
+});

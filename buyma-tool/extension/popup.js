@@ -930,7 +930,7 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
     const chosenCat = (await runInBuyma(markActiveCategory)) || [];
     const cat = chosenCat.length
       ? { chosen: chosenCat, skipped: true, note: '' }
-      : { chosen: [], note: 'カテゴリがまだ選ばれていません。赤い枠のところで選んでから、もう一度「BUYMAに反映」を押すと、サイズも入ります（入っている欄はそのままです）。' };
+      : { chosen: [], note: 'カテゴリがまだ選ばれていません。赤い枠のところでカテゴリを選ぶと、サイズは自動で入ります。' };
     if (withImages) {
       // 画像は「出品データを作る」ときに作っておいたものを使う（あれば一瞬）
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
