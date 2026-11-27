@@ -263,8 +263,13 @@
     if (now()) return now();
     const control = sel.querySelector('.Select-control');
     if (!control) return null;
-    mouse(control, 'mousedown');
-    return waitFor(now, 2500);
+    // 押すたびに「開く／閉じる」が入れ替わる作りなので、開かなければもう一度押す（裏で開いた扱いのまま閉じていることがある）
+    for (let n = 0; n < 3; n++) {
+      press(control);
+      const got = await waitFor(now, n === 0 ? 1200 : 1500);
+      if (got) return got;
+    }
+    return null;
   }
 
   /** カテゴリの i 段目で、index 番目の候補を選ぶ（-1 なら閉じるだけ）。選んだ名前を返す */
@@ -274,7 +279,10 @@
     if (!sel) return '';
     if (selectedLabel(sel)) return selectedLabel(sel);
     const options = await openOptions(sel);
-    if (!options) return '';
+    if (!options) {
+      lastPickInfo = `候補の一覧が開きませんでした（欄の印「${(sel.className || '').slice(0, 80)}」）`;
+      return '';
+    }
     if (index < 0 || index >= options.length) {
       const control = sel.querySelector('.Select-control');
       if (control) mouse(control, 'mousedown');
@@ -392,13 +400,21 @@
       return null;
     };
     const match = await waitFor(find, 5000);
+    // 見つからなかったときの手がかり：ブランド名を含む文字が、ページのどこに出ているか
+    const hint = () =>
+      Array.from(doc.body.querySelectorAll('*'))
+        .filter((el) => el.childElementCount === 0 && norm(el.textContent).includes(w) && el !== input && !el.closest('#rakushuppin-banner'))
+        .slice(0, 3)
+        .map((el) => `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ')[0]}「${(el.textContent || '').trim().slice(0, 20)}」${el.getClientRects().length ? '' : '（見えていない）'}`)
+        .join('、');
     if (match) {
       press(match);
       // 選ばれると、欄の中身が候補の名前になるか、一覧が閉じる
       await waitFor(() => !match.isConnected || norm(input.value) !== w || !match.getClientRects().length, 1500);
       report.filled.push('ブランド');
     } else {
-      report.notes.push(`ブランド「${brand}」を入れました。出てきた候補の中から選んでください（同じ名前の候補が見つからなかったので、選んでいません）。`);
+      const h = hint();
+      report.notes.push(`ブランド「${brand}」を入れました。出てきた候補の中から選んでください（同じ名前の候補が見つからなかったので、選んでいません）。` + (h ? `（くわしく：${h}）` : '（くわしく：候補の一覧が出ていません）'));
     }
   }
 

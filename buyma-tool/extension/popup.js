@@ -645,7 +645,7 @@ async function chooseCategory(wanted, title) {
     }
     const picked = (await runInBuyma(pickActiveCategory, [i, index])) || {};
     const name = picked.name;
-    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` + (picked.info ? `（くわしく：${picked.info}）` : '') };
+    if (!name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。` + `（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
     chosen.push(name);
   }
   return { chosen, note: '' };
@@ -808,6 +808,7 @@ async function saveVariationInfo() {
 
 // ---- はじめに ----
 async function init() {
+  $('ver').textContent = 'v' + chrome.runtime.getManifest().version;
   $('fCurrency').replaceChildren(...PF.CURRENCIES.map((c) => el('option', { value: c }, c)));
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   settings = await api.getSettings();
