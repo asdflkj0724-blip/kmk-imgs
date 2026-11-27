@@ -502,6 +502,12 @@ async function generate() {
   setStatus('出品データを作っています…（10〜30秒ほど）');
   $('generate').disabled = true;
   try {
+    // 画面に今入っている式を使い、次の商品のために覚えておく（書き換えてすぐ押しても、新しい式で計算する）
+    const exprNow = $('priceExpr').value.trim();
+    if ($('pmAdd').checked) {
+      if (exprNow && !EXPR_CHARS.test(exprNow)) throw new Error('計算式に使えない文字があります。数字・x・＋−×÷・かっこで書いてください（例：×1.3+2000）');
+      if (exprNow !== settings.priceExpr || settings.priceMode !== 'add') settings = await api.saveSettings({ priceMode: 'add', priceExpr: exprNow || settings.priceExpr });
+    }
     const useExpr = settings.priceMode === 'add' && settings.priceExpr;
     const res = await api.generate(product, $('template').value, $('instruction').value.trim(), useExpr ? settings.priceExpr : undefined);
     listing = res.listing;
@@ -596,7 +602,7 @@ function showActiveReport(r) {
   if (r.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + r.skipped.join('・'));
   if (r.missing.length) lines.push('見つからなかった欄：' + r.missing.join('・') + '（ご自身で入れてください）');
   lines.push(...r.notes);
-  lines.push('色とサイズの表は、ご自身で選んでください。内容を確かめてから「入力内容を確認する」を押してください。');
+  lines.push('内容を確かめてから「入力内容を確認する」を押してください。');
   F.showBanner(document, lines, !r.filled.length);
 }
 function readActiveCategoryLevel(i) {

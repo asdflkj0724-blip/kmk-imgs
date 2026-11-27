@@ -99,6 +99,8 @@ const FULL = {
   sizeNote: 'ウエスト 約70cm',
   category: 'レディースファッション > ボトムス > パンツ',
   brand: 'MAMC',
+  colors: ['オートミール', 'キャラメルブラウン', 'ミルクホワイト'],
+  sizes: ['S', 'M', '均码'],
   shipping: '日本郵便 - ゆうパック｜【通常便（本州・四国・九州）】ご購入後3～5日で発送',
   images: [
     { name: 'taobao_1_01.jpg', type: 'image/jpeg', base64: TINY_JPEG },
@@ -114,7 +116,8 @@ test('パソコンの出品画面：文字・カテゴリ3段・ブランド・�
       title: document.getElementById('title').value,
       price: document.getElementById('price').value,
       sizeNote: document.getElementById('sizeNote').value,
-      colorName: document.getElementById('colorName').value,
+      colors: Array.from(document.querySelectorAll('#colorRows tr')).map((tr) => [tr.querySelector('.Select-value-label').textContent, tr.querySelector('input').value]),
+      sizes: Array.from(document.querySelectorAll('#sizeRows tr')).map((tr) => tr.querySelector('.Select-value-label').textContent),
       category: window.__category,
       brand: window.__brand,
       shipping: Array.from(document.querySelectorAll('#ship input')).map((i) => i.checked),
@@ -124,7 +127,8 @@ test('パソコンの出品画面：文字・カテゴリ3段・ブランド・�
     assert.equal(got.title, 'ウール ワイドパンツ グレー');
     assert.equal(got.price, '12800');
     assert.equal(got.sizeNote, 'ウエスト 約70cm');
-    assert.equal(got.colorName, '', '色の表には入れない');
+    assert.deepEqual(got.colors, [['ベージュ系', 'オートミール'], ['ブラウン（茶色）系', 'キャラメルブラウン'], ['ホワイト（白）系', 'ミルクホワイト']], '色の系統を選び、色名を入れ、足りない行は「追加」で増やす');
+    assert.deepEqual(got.sizes, ['S', 'M', 'フリーサイズ'], 'サイズは同じ名前の候補を選ぶ');
     assert.deepEqual(got.category, ['レディースファッション', 'ボトムス', 'パンツ']);
     assert.equal(got.brand, 'MAMC(エムエーエムシー)', '読み方付きの同じ名前の候補を選ぶ');
     assert.deepEqual(got.shipping, [true, false, false, false, false], '説明文まで一致する1行だけ');
@@ -306,4 +310,15 @@ test('買付先メモの URL：タオバオ・天猫は商品番号だけにし�
   assert.equal(v.sourceUrl, 'https://item.taobao.com/item.htm?id=1');
   assert.equal(v.sourceName, 'タオバオ');
   assert.equal(v.sourceNote, '仕入れ値：199〜239 CNY');
+});
+
+test('色の系統：色名の最後のほうにある色の言葉で決める', () => {
+  const F = require('../extension/src/buyma-fill.js');
+  assert.equal(F.colorFamily('ミルクホワイト'), 'ホワイト');
+  assert.equal(F.colorFamily('キャラメルブラウン'), 'ブラウン');
+  assert.equal(F.colorFamily('グレーピンク'), 'ピンク');
+  assert.equal(F.colorFamily('オートミール'), 'ベージュ');
+  assert.equal(F.colorFamily('ブルー小花柄'), 'マルチカラー');
+  assert.equal(F.colorFamily('ネイビー'), 'ネイビー');
+  assert.equal(F.colorFamily('なぞの色'), '');
 });

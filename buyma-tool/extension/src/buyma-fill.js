@@ -120,6 +120,14 @@
     el.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, view: win }));
   }
 
+  /** 人がマウスで押したときと同じ順番で知らせる（候補の一覧は、作りによって反応する合図が違うため） */
+  function press(el) {
+    for (const type of ['mouseover', 'mousemove', 'mousedown']) mouse(el, type);
+    if (!el.isConnected) return; // mousedown で選ばれて一覧が閉じた
+    mouse(el, 'mouseup');
+    if (el.isConnected) el.click();
+  }
+
   // ---- 文字の欄 ----
   function fillTextFields(doc, values, report) {
     for (const spec of TEXT_FIELDS) {
@@ -250,8 +258,19 @@
       if (control) mouse(control, 'mousedown');
       return '';
     }
-    mouse(options[index], 'mousedown');
-    return (await waitFor(() => selectedLabel(sel), 2000)) || '';
+    const want = (options[index].textContent || '').trim();
+    press(options[index]);
+    let got = await waitFor(() => selectedLabel(sel), 2500);
+    if (!got) {
+      // まだ選ばれていなければ、開き直して同じ名前の候補をもう一度押す
+      const again = await openOptions(sel);
+      const same = again && again.find((o) => (o.textContent || '').trim() === want);
+      if (same) {
+        press(same);
+        got = await waitFor(() => selectedLabel(sel), 2500);
+      }
+    }
+    return got || '';
   }
 
   // ---- ブランド（候補が出たら、名前が完全に同じものだけ選ぶ） ----
@@ -294,20 +313,32 @@
     setValue(input, brand);
     input.dispatchEvent(new input.ownerDocument.defaultView.KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
     const w = norm(brand);
-    const match = await waitFor(() => {
-      const cands = Array.from(row.querySelectorAll('li, [role=option], a, .bmm-c-suggest__item, .bmm-c-suggest__list *')).filter(
-        (el) => !el.children.length || el.children.length <= 2
-      );
-      return cands.find((el) => {
-        const t = norm(el.textContent);
-        // 「MAMC」と「MAMC(エムエーエムシー)」のような、読み方付きの候補も同じとみなす
-        return t === w || t.startsWith(w + '(') || t.startsWith(w + '（');
-      });
-    }, 3000);
+    // 「MAMC」と「MAMC(エムエーエムシー)」のような、読み方付きの候補も同じとみなす
+    const same = (el) => {
+      const t = norm(el.textContent);
+      if (t === w) return true;
+      // 「名前(読み方)」でぴったり終わるものだけ（候補を全部まとめた外側の箱は除く）
+      if (!t.startsWith(w + '(') && !t.startsWith(w + '（')) return false;
+      const rest = t.slice(w.length + 1);
+      const close = rest.search(/[)）]/);
+      return close >= 0 && close === rest.length - 1;
+    };
+    const find = () => {
+      // 候補の一覧は、ブランドの欄の中に出るとは限らない（ページの最後に出す作りもある）ので、ページ全体から探す
+      const scopes = [row, doc.body];
+      for (const scope of scopes) {
+        const hit = Array.from(scope.querySelectorAll('li, [role=option], a, div, span, p'))
+          .filter((el) => el !== input && el.childElementCount <= 2 && !el.closest('#rakushuppin-banner') && el.getClientRects().length)
+          .find(same);
+        if (hit) return hit.closest('li, [role=option], a') || hit;
+      }
+      return null;
+    };
+    const match = await waitFor(find, 5000);
     if (match) {
-      mouse(match, 'mousedown');
-      mouse(match, 'mouseup');
-      match.click();
+      press(match);
+      // 選ばれると、欄の中身が候補の名前になるか、一覧が閉じる
+      await waitFor(() => !match.isConnected || norm(input.value) !== w || !match.getClientRects().length, 1500);
       report.filled.push('ブランド');
     } else {
       report.notes.push(`ブランド「${brand}」を入れました。出てきた候補の中から選んでください（同じ名前の候補が見つからなかったので、選んでいません）。`);
@@ -452,7 +483,7 @@
     if (report.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + report.skipped.join('・'));
     if (report.missing.length) lines.push('見つからなかった欄：' + report.missing.join('・') + '（ご自身で入れてください）');
     lines.push(...report.notes);
-    lines.push('色とサイズの表は、ご自身で選んでください。内容を確かめてから「入力内容を確認する」を押してください。');
+    lines.push('内容を確かめてから「入力内容を確認する」を押してください。');
     return lines;
   }
 
@@ -501,6 +532,159 @@
     report.filled.push('買付先メモ（URL）');
   }
 
+  // ---- 色・サイズ ----
+  /** 色の名前から、BUYMA の「色の系統」を決める。名前の最後のほうにある色の言葉を優先（例：ミルクホワイト→ホワイト） */
+  const COLOR_RULES = [
+    ['マルチカラー', /マルチ|ミックス|柄|チェック|ストライプ|ボーダー|花|ドット|レオパード|迷彩|カモフラ|ペイズリー/],
+    ['ホワイト', /ホワイト|白|アイボリー|クリーム|ミルク|生成|エクリュ|オフ白/],
+    ['ブラック', /ブラック|黒/],
+    ['グレー', /グレー|灰|チャコール|グレイ/],
+    ['ブラウン', /ブラウン|茶|キャメル|モカ|チョコ|コーヒー|テラコッタ/],
+    ['ベージュ', /ベージュ|オートミール|サンド|トープ|ヌード|杏|アプリコット/],
+    ['グリーン', /グリーン|緑|カーキ|オリーブ|ミント|モスグリーン/],
+    ['ネイビー', /ネイビー|紺/],
+    ['ブルー', /ブルー|青|水色|サックス|ターコイズ|デニム|インディゴ/],
+    ['パープル', /パープル|紫|ラベンダー|ライラック/],
+    ['イエロー', /イエロー|黄|マスタード|レモン/],
+    ['ピンク', /ピンク|ローズ|桃/],
+    ['レッド', /レッド|赤|ワイン|ボルドー|バーガンディ|えんじ/],
+    ['オレンジ', /オレンジ|橙/],
+    ['シルバー', /シルバー|銀/],
+    ['ゴールド', /ゴールド|金/],
+    ['クリア', /クリア|透明/],
+  ];
+  function colorFamily(name) {
+    const t = String(name || '').normalize('NFKC');
+    if (COLOR_RULES[0][1].test(t)) return 'マルチカラー';
+    let best = '';
+    let pos = -1;
+    for (const [key, re] of COLOR_RULES.slice(1)) {
+      const g = new RegExp(re.source, 'g');
+      let m;
+      while ((m = g.exec(t))) {
+        if (m.index >= pos) {
+          pos = m.index;
+          best = key;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** 色・サイズ欄の、指定の名前のタブを開いて、そのタブの中身を返す */
+  async function openVariationTab(doc, name) {
+    const row = rowByTitle(doc, '色・サイズ');
+    if (!row) return null;
+    const tab = Array.from(row.querySelectorAll('[role="tab"]')).find((t) => norm(t.textContent) === norm(name));
+    if (tab && !/is-active|selected/.test(tab.className) && tab.getAttribute('aria-selected') !== 'true') {
+      press(tab);
+      await waitFor(() => /is-active|selected/.test(tab.className) || tab.getAttribute('aria-selected') === 'true', 1500);
+    }
+    return row.querySelector('[role="tabpanel"].react-tabs__tab-panel--selected') || (tab ? null : row);
+  }
+
+  function rowEmpty(tr) {
+    const sel = tr.querySelector('.Select');
+    const label = sel ? selectedLabel(sel) : '';
+    const input = tr.querySelector('input[type=text]');
+    return (!label || /指定なし|選択してください/.test(label)) && (!input || !String(input.value || '').trim());
+  }
+
+  /** 空いている行を探す。なければ「追加」を押して行を増やす */
+  async function nextEmptyRow(panel) {
+    const rows = () => Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select'));
+    let tr = rows().find(rowEmpty);
+    if (tr) return tr;
+    const before = rows().length;
+    const add = Array.from(panel.querySelectorAll('a, button, [role=button], span, p')).find(
+      (el) => /追加/.test(el.textContent || '') && el.childElementCount <= 2 && el.getClientRects().length
+    );
+    if (!add) return null;
+    press(add);
+    await waitFor(() => rows().length > before, 2000);
+    return rows().find(rowEmpty) || null;
+  }
+
+  /** 1行に「選択欄（系統・サイズ）」と「名前の欄」を入れる */
+  async function fillVariationRow(tr, optionWanted, text) {
+    const sel = tr.querySelector('.Select');
+    const options = sel && (await openOptions(sel));
+    if (!options) return false;
+    const pick = optionWanted(options);
+    if (!pick) {
+      const control = sel.querySelector('.Select-control');
+      if (control) mouse(control, 'mousedown'); // 閉じる
+      return false;
+    }
+    press(pick);
+    await waitFor(() => selectedLabel(sel) && !/指定なし|選択してください/.test(selectedLabel(sel)), 2500);
+    const input = tr.querySelector('input[type=text]');
+    if (input && text) {
+      await waitFor(() => !input.disabled, 1500);
+      if (!input.disabled && !String(input.value || '').trim()) setValue(input, text);
+    }
+    return true;
+  }
+
+  /** 色：「色の系統」を選び、色名を入れる。足りない行は「追加」で増やす */
+  async function fillColors(doc, colors, report) {
+    const list = (colors || []).map((c) => String(c).trim()).filter(Boolean).slice(0, 30);
+    if (!list.length) return;
+    const panel = await openVariationTab(doc, '色');
+    if (!panel) return report.missing.push('色');
+    const filled = Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select') && !rowEmpty(tr));
+    if (filled.length) return report.skipped.push('色');
+    let done = 0;
+    const unsure = [];
+    for (const name of list) {
+      const fam = colorFamily(name) || 'マルチカラー';
+      if (!colorFamily(name)) unsure.push(name);
+      const tr = await nextEmptyRow(panel);
+      if (!tr) break;
+      const ok = await fillVariationRow(tr, (opts) => opts.find((o) => norm(o.textContent).startsWith(norm(fam))), name);
+      if (!ok) break;
+      done++;
+    }
+    if (done) report.filled.push(`色（${done}色）`);
+    if (done < list.length) report.notes.push(`色は${list.length}色のうち${done}色を入れました。残り（${list.slice(done).join('・')}）はご自身で入れてください。`);
+    if (unsure.length) report.notes.push(`色の系統がわからなかった色（${unsure.join('・')}）は「マルチカラー」にしました。確認してください。`);
+  }
+
+  /** サイズ：サイズの選択欄から同じ名前を選ぶ（カテゴリを選んだあとに出る）。足りない行は「追加」で増やす */
+  async function fillSizes(doc, sizes, report) {
+    const list = (sizes || []).map((c) => String(c).trim()).filter(Boolean).slice(0, 30);
+    if (!list.length) return;
+    const panel = await openVariationTab(doc, 'サイズ');
+    if (!panel || !panel.querySelector('.Select')) {
+      report.notes.push('サイズの欄が出ていません（カテゴリを選ぶと出ます）。サイズはご自身で選んでください。');
+      return;
+    }
+    const filled = Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select') && !rowEmpty(tr));
+    if (filled.length) return report.skipped.push('サイズ');
+    const pickSize = (want) => (opts) => {
+      const w = norm(want).replace(/サイズ$/, '');
+      return (
+        opts.find((o) => norm(o.textContent) === w) ||
+        opts.find((o) => norm(o.textContent).replace(/[(（].*$/, '') === w) ||
+        (/free|フリー|均码|onesize/i.test(want) ? opts.find((o) => /フリー|free|one/i.test(o.textContent || '')) : null)
+      );
+    };
+    let done = 0;
+    const missed = [];
+    for (const name of list) {
+      const tr = await nextEmptyRow(panel);
+      if (!tr) {
+        missed.push(...list.slice(list.indexOf(name)));
+        break;
+      }
+      if (await fillVariationRow(tr, pickSize(name), '')) done++;
+      else missed.push(name);
+    }
+    if (done) report.filled.push(`サイズ（${done}）`);
+    if (missed.length) report.notes.push(`サイズ（${missed.join('・')}）は、BUYMA の候補に同じ名前がなかったので選んでいません。ご自身で選んでください。`);
+    await openVariationTab(doc, '色');
+  }
+
   /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
   async function fillBuymaAll(doc, values) {
     const report = { filled: [], skipped: [], missing: [], notes: [] };
@@ -518,6 +702,16 @@
       } catch (e) {
         report.notes.push('カテゴリを選べませんでした。ご自身で選んでください。');
       }
+    }
+    try {
+      await fillColors(doc, values.colors, report);
+    } catch (e) {
+      report.notes.push('色を入れられませんでした。ご自身で選んでください。');
+    }
+    try {
+      await fillSizes(doc, values.sizes, report);
+    } catch (e) {
+      report.notes.push('サイズを入れられませんでした。ご自身で選んでください。');
     }
     try {
       await fillBrand(doc, values.brand, report, values.noBrandIfUnknown === true);
@@ -592,7 +786,7 @@
     return out;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, TEXT_FIELDS };
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
