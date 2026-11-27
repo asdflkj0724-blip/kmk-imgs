@@ -134,7 +134,13 @@
   function key(el, name, code) {
     const win = el.ownerDocument.defaultView;
     for (const type of ['keydown', 'keyup']) {
-      el.dispatchEvent(new win.KeyboardEvent(type, { bubbles: true, cancelable: true, key: name, code: name, keyCode: code, which: code }));
+      const ev = new win.KeyboardEvent(type, { bubbles: true, cancelable: true, key: name, code: name, keyCode: code, which: code });
+      // keyCode を見る作り（古い選択欄）にも伝わるよう、確実に入れておく
+      try {
+        Object.defineProperty(ev, 'keyCode', { get: () => code });
+        Object.defineProperty(ev, 'which', { get: () => code });
+      } catch (e) {}
+      el.dispatchEvent(ev);
     }
   }
 
