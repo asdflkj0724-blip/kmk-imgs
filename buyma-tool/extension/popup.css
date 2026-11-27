@@ -11,7 +11,16 @@ button.ghost, .actions button.ghost { background: #fff; color: #c33; }
 button.copy { margin: 0; padding: 4px 8px; font-size: 12px; background: #fff; color: #c33; flex: none; }
 .small { font-size: 12px; }
 .muted { color: #666; }
-#status { color: #666; min-height: 1em; }
+/* 今どうなっているか：作業中（黄）・完了（緑）・エラー（赤）を、いつも見える上のほうに出す */
+.status { position: sticky; top: 0; z-index: 5; margin: 6px 0; padding: 8px 10px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+.status.info { background: #f3f4f6; color: #333; }
+.status.busy { background: #fff7d6; color: #5a4500; border: 1px solid #f0d36b; }
+.status.busy::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -2px; border: 2px solid #c9a227; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+.status.done { background: #e6f6ec; color: #145c2e; border: 1px solid #8fd1a6; font-weight: 600; }
+.status.error { background: #fde8e8; color: #8a1c1c; border: 1px solid #f1a3a3; font-weight: 600; }
+.ready { background: #e6f6ec; color: #145c2e; border-radius: 6px; padding: 6px 8px; }
+.notready { background: #f3f4f6; color: #555; border-radius: 6px; padding: 6px 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 #warnings { color: #b45309; padding-left: 18px; margin: 4px 0; }
 #issues { padding-left: 18px; margin: 6px 0; }
 .lv-error { color: #b42318; }
