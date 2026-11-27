@@ -880,6 +880,29 @@
       report.notes.push('サイズの欄が出ていません（カテゴリを選ぶと出ます）。サイズはご自身で選んでください。');
       return;
     }
+    // まず「バリエーションなし／あり」を選ぶ作り：フリーサイズだけなら「なし」、ほかは「あり」にしてから、サイズを選ぶ
+    const modeSel = Array.from(panel.querySelectorAll('.Select')).find((s) => !s.closest('tbody'));
+    if (modeSel) {
+      const cur = selectedLabel(modeSel);
+      const free = list.length === 1 && /free|フリー|均码|one/i.test(list[0]);
+      const wantMode = free ? 'バリエーションなし' : 'バリエーションあり';
+      if (!/バリエーション/.test(cur)) {
+        const opts = await openOptions(modeSel);
+        const pick = opts && opts.find((o) => norm(o.textContent) === norm(wantMode));
+        if (pick) {
+          pressDeep(pick);
+          await waitFor(() => /バリエーション/.test(selectedLabel(modeSel)), 2500);
+          await new Promise((r) => setTimeout(r, 800)); // サイズの表が出るのを待つ
+        } else if (opts) {
+          mouse(modeSel.querySelector('.Select-control'), 'mousedown');
+        }
+      }
+      if (free) {
+        if (/バリエーションなし/.test(selectedLabel(modeSel))) report.filled.push('サイズ（バリエーションなし）');
+        await openVariationTab(doc, '色');
+        return;
+      }
+    }
     const filled = Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select') && !rowEmpty(tr));
     if (filled.length) return report.skipped.push('サイズ');
     const pickSize = (want) => (opts) => {
@@ -902,7 +925,14 @@
       else missed.push(name);
     }
     if (done) report.filled.push(`サイズ（${done}）`);
-    if (missed.length) report.notes.push(`サイズ（${missed.join('・')}）は、BUYMA の候補に同じ名前がなかったので選んでいません。ご自身で選んでください。`);
+    if (missed.length) {
+      const selects = panel.querySelectorAll('.Select').length;
+      const rowsN = panel.querySelectorAll('tbody tr').length;
+      report.notes.push(
+        `サイズ（${missed.join('・')}）は選べませんでした。ご自身で選んでください。` +
+          `（くわしく：選択欄${selects}こ・行${rowsN}・${lastRowInfo || '同じ名前の候補なし'}）`
+      );
+    }
     await openVariationTab(doc, '色');
   }
 
