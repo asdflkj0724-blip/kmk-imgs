@@ -6,7 +6,9 @@ import { z } from 'zod';
 import { getRequestUser } from '@/lib/auth';
 import { json, preflight } from '@/lib/http';
 import { fxFor, getAllowance, getProfile, settingsFor } from '@/lib/account';
-import { ProductSchema, colorsAndSizes, sourceText } from '@/lib/product';
+import { ProductSchema, colorsAndSizes, knownBrand, sourceText, withBrandFirst } from '@/lib/product';
+
+const norm = (s: string) => s.normalize('NFKC').toLowerCase().replace(/\s+/g, '');
 import { AiRefusalError, composeDescription, generateListing } from '@/lib/ai';
 import { basePriceOf, calculatePrice } from '@/lib/pricing';
 import { autoFixText, checkListing, fixChineseTerms, fitTitle } from '@/lib/listingRules';
@@ -25,6 +27,8 @@ const Body = z.object({
   costCny: z.number().positive().optional(),
   /** 拡張機能で入れた「＋○円」。あれば「表示価格＋○円」で計算する */
   addJpy: z.number().min(0).max(1_000_000).optional(),
+  /** 拡張機能で入れた計算式（例：×1.3+2000）。あれば、表示価格（円）をこの式で計算する */
+  priceExpr: z.string().max(60).optional(),
 });
 
 export async function POST(req: Request) {
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json(req, { error: '送られてきた商品データの形が正しくありません' }, 400);
-  const { product, templateId, instruction, costCny, addJpy } = parsed.data;
+  const { product, templateId, instruction, costCny, addJpy, priceExpr } = parsed.data;
   if (!product.title) return json(req, { error: '商品名がないため作れません。スクショで補ってください' }, 400);
 
   const profile = await getProfile(user.id);
@@ -78,7 +82,15 @@ export async function POST(req: Request) {
   };
   const fixedTitle = autoFixText(gen.title, true);
   const fixedBody = autoFixText(gen.description);
-  const g = { ...gen, title: fitTitle(fixedTitle.text), description: fixedBody.text };
+  // ブランドがはっきりわかる商品（公式旗艦店・仕様の品牌）は、商品名の先頭にブランド名を置く
+  const brand = knownBrand(product);
+  const brandName = (gen.brand || brand).trim();
+  const g = {
+    ...gen,
+    brand: brandName,
+    title: fitTitle(brand ? withBrandFirst(fixedTitle.text, gen.brand && norm(gen.brand).includes(norm(brand)) ? gen.brand : brand) : fixedTitle.text),
+    description: fixedBody.text,
+  };
   const removedWords = Array.from(new Set([...fixedTitle.removed, ...fixedBody.removed]));
   const fixes = removedWords.length ? [`根拠のない表現（${removedWords.map((w) => `「${w}」`).join('')}）を自動で消しました`] : [];
   const zhList = Array.from(new Set(zhFixed));
@@ -96,7 +108,12 @@ export async function POST(req: Request) {
   } else if (cny && fx) {
     try {
       const base = settingsFor(profile);
-      breakdown = calculatePrice(cny, fx.rate, addJpy === undefined ? base : { ...base, profitMode: 'fixed', addJpy: Math.round(addJpy) });
+      const s = priceExpr
+        ? { ...base, profitMode: 'expr' as const, priceExpr }
+        : addJpy === undefined
+          ? base
+          : { ...base, profitMode: 'fixed' as const, addJpy: Math.round(addJpy) };
+      breakdown = calculatePrice(cny, fx.rate, s);
     } catch (e) {
       priceError = (e as Error).message;
     }

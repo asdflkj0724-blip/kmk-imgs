@@ -56,9 +56,9 @@
     <label>販売価格の決め方（選んだほうを次の商品からも使います）</label>
     <div class="pricemode">
       <label class="small"><input type="radio" name="priceMode" id="pmFormula" value="formula"> 設定の計算式（利益率・送料など）</label>
-      <label class="small"><input type="radio" name="priceMode" id="pmAdd" value="add"> 表示価格（円）＋ <input type="number" id="addJpy" min="0" step="100" placeholder="3000" aria-label="上乗せする金額（円）" style="width:7em"> 円</label>
+      <label class="small"><input type="radio" name="priceMode" id="pmAdd" value="add"> 計算式：表示価格（円） <input type="text" id="priceExpr" maxlength="60" placeholder="×1.3+2000" aria-label="販売価格の計算式" style="width:10em"></label>
     </div>
-    <p class="small muted">計算式の中身は、管理画面の「設定」で変えられます。</p>
+    <p class="small muted">計算式の例：<b>×1.3+2000</b>（1.3倍して2,000円足す）／<b>+3000</b>／<b>(x+500)×1.2</b>（x＝表示価格の円）。上の「設定の計算式」の中身は、管理画面の「設定」で変えられます。</p>
     <label for="template">説明文のテンプレート</label>
     <select id="template"></select>
     <label for="instruction">追加の指示（なくてもよい）</label>

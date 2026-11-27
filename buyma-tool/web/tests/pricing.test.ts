@@ -113,3 +113,14 @@ describe('basePriceOf（計算に使う仕入れ値）', () => {
     expect(basePriceOf({ min: 0, max: 0 })).toBeNull();
   });
 });
+
+describe('計算式（expr）', () => {
+  it('表示価格（円）を x として式で計算し、端数は切り上げ単位で切り上げる', () => {
+    const r = calculatePrice(239, 22, { ...DEFAULT_PRICING, profitMode: 'expr', priceExpr: '×1.3+2000', roundTo: 100 });
+    expect(r.salePriceJpy).toBe(Math.ceil((239 * 22 * 1.3 + 2000) / 100) * 100); // 8,835.4 → 8,900
+  });
+  it('おかしな式は設定のエラーにする', () => {
+    expect(validateSettings({ ...DEFAULT_PRICING, profitMode: 'expr', priceExpr: 'x+' }).join()).toMatch(/計算式/);
+    expect(mergeSettings({ profitMode: 'expr', priceExpr: '+3000' }).priceExpr).toBe('+3000');
+  });
+});

@@ -502,8 +502,8 @@ async function generate() {
   setStatus('出品データを作っています…（10〜30秒ほど）');
   $('generate').disabled = true;
   try {
-    const useAdd = settings.priceMode === 'add' && settings.addJpy != null;
-    const res = await api.generate(product, $('template').value, $('instruction').value.trim(), useAdd ? settings.addJpy : undefined);
+    const useExpr = settings.priceMode === 'add' && settings.priceExpr;
+    const res = await api.generate(product, $('template').value, $('instruction').value.trim(), useExpr ? settings.priceExpr : undefined);
     listing = res.listing;
     renderListing(listing);
     await saveState();
@@ -613,7 +613,7 @@ function pickActiveCategory(i, index) {
 async function chooseCategory(wanted, title) {
   const segs = PF.categorySegments(wanted);
   const chosen = [];
-  if (!segs.length) return { chosen, note: '' };
+  // カテゴリの手がかりがなくても、商品名から AI に選んでもらう
   for (let i = 0; i < 4; i++) {
     const lv = await runInBuyma(readActiveCategoryLevel, [i]);
     if (!lv || !lv.exists) break;
@@ -627,7 +627,7 @@ async function chooseCategory(wanted, title) {
     if (index < 0) {
       setStatus(`カテゴリの${i + 1}段目を選んでいます…`);
       try {
-        index = (await api.pickCategory({ title: title || '', wanted, chosen, options: lv.options.slice(0, 300) })).index;
+        index = (await api.pickCategory({ title: title || '', wanted: wanted || title || '（不明）', chosen, options: lv.options.slice(0, 300) })).index;
       } catch (e) {
         index = -1;
       }
@@ -807,23 +807,29 @@ $('inspectVariation').addEventListener('click', saveVariationInfo);
 function renderPriceMode() {
   $('pmFormula').checked = settings.priceMode !== 'add';
   $('pmAdd').checked = settings.priceMode === 'add';
-  $('addJpy').value = settings.addJpy == null ? '' : String(settings.addJpy);
+  $('priceExpr').value = settings.priceExpr || '';
 }
+/** 式に使える文字か（くわしい確かめはサーバーで行い、おかしければ出品データの画面でお知らせする） */
+const EXPR_CHARS = /^[0-9０-９.,，．+\-*/×÷＋－−ー()（）xXｘＸ✕表示価格円\s]+$/;
 async function savePriceMode(mode) {
-  const raw = $('addJpy').value.trim();
-  const patch = { priceMode: mode, addJpy: raw === '' ? null : raw };
-  if (mode === 'add' && patch.addJpy == null) patch.addJpy = 3000; // はじめて選んだときの金額
+  const raw = $('priceExpr').value.trim();
+  if (mode === 'add' && raw && !EXPR_CHARS.test(raw)) {
+    setStatus('計算式に使えない文字があります。数字・x・＋−×÷・かっこで書いてください（例：×1.3+2000）');
+    return;
+  }
+  const patch = { priceMode: mode, priceExpr: raw };
+  if (mode === 'add' && !raw) patch.priceExpr = '+3000'; // はじめて選んだときの式
   settings = await api.saveSettings(patch);
   renderPriceMode();
   setStatus(
     settings.priceMode === 'add'
-      ? `販売価格は「表示価格（円）＋${settings.addJpy.toLocaleString()}円」で計算します。次の商品からも同じです`
+      ? `販売価格は「表示価格（円）${settings.priceExpr}」の計算式で決めます。次の商品からも同じです`
       : '販売価格は、管理画面の「設定」の計算式で計算します。次の商品からも同じです'
   );
 }
 $('pmFormula').addEventListener('change', () => savePriceMode('formula'));
 $('pmAdd').addEventListener('change', () => savePriceMode('add'));
-$('addJpy').addEventListener('change', () => savePriceMode('add'));
+$('priceExpr').addEventListener('change', () => savePriceMode('add'));
 $('vision').addEventListener('click', fillFromScreenshot);
 $('generate').addEventListener('click', generate);
 for (const id of ['fTitle', 'fPriceMin', 'fPriceMax', 'fCurrency', 'fColors', 'fSizes', 'fSpecs']) {

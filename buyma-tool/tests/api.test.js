@@ -80,7 +80,7 @@ test('「＋○円」は数字なら覚え、空や変な値なら使わない�
   assert.equal(normalizeSettings({}).addJpy, null);
 });
 
-test('「＋○円」を出品データづくりに送る（空なら送らない）', async () => {
+test('計算式を出品データづくりに送る（空なら送らない）', async () => {
   const sent = [];
   const storage = memoryStorage({ auth: { accessToken: 'a', refreshToken: 'r', expiresAt: NOW / 1000 + 3600 } });
   const fetch = async (url, init) => {
@@ -88,10 +88,10 @@ test('「＋○円」を出品データづくりに送る（空なら送らな�
     return { ok: true, status: 200, json: async () => ({ listing: {} }) };
   };
   const api = createApi({ storage, fetch, now: () => NOW });
-  await api.generate({ title: 'x' }, '', '', 3000);
+  await api.generate({ title: 'x' }, '', '', '×1.3+2000');
   await api.generate({ title: 'x' }, '', '', undefined);
-  assert.equal(sent[0].addJpy, 3000);
-  assert.equal('addJpy' in sent[1], false);
+  assert.equal(sent[0].priceExpr, '×1.3+2000');
+  assert.equal('priceExpr' in sent[1], false);
 });
 
 test('販売価格の決め方：選んだほうを覚える。前の版で金額だけ入れていた人は「＋○円」を引き継ぐ', () => {
@@ -100,4 +100,10 @@ test('販売価格の決め方：選んだほうを覚える。前の版で金�
   assert.equal(normalizeSettings({ addJpy: 3000, priceMode: 'formula' }).priceMode, 'formula');
   assert.equal(normalizeSettings({ priceMode: 'add', addJpy: 2000 }).addJpy, 2000);
   assert.equal(normalizeSettings({ priceMode: 'weird' }).priceMode, 'formula');
+});
+
+test('計算式：入れた式を覚える。前の版の「＋○円」は「+○」として引き継ぐ', () => {
+  assert.equal(normalizeSettings({ priceExpr: '×1.3+2000' }).priceExpr, '×1.3+2000');
+  assert.equal(normalizeSettings({ addJpy: 3000 }).priceExpr, '+3000');
+  assert.equal(normalizeSettings({}).priceExpr, '');
 });

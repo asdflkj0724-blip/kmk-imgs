@@ -6,8 +6,11 @@
  *  - margin（売値に対する利益率）: 売値 = 費用 ÷ (1 − 手数料率 − 利益率)
  *  - markup（費用に対する上乗せ率）: 売値 = 費用 × (1 + 上乗せ率) ÷ (1 − 手数料率)
  *  - fixed（表示価格＋○円）: 売値 = 仕入れ値 × 為替（上乗せなし）＋ 上乗せ額
+ *  - expr（計算式）: 売値 = 式（x＝仕入れ値 × 為替・上乗せなし。例：×1.3+2000）
  *    送料・手数料などは上乗せ額の中で考える。利益の見込みは費用の設定で計算し、赤字なら知らせる
  */
+import { evalPriceExpr, priceExprError } from './priceExpr';
+
 export interface PricingSettings {
   /** 為替の上乗せ（カード手数料などの分）。0.03 = 3% */
   fxMarkupRate: number;
@@ -24,7 +27,9 @@ export interface PricingSettings {
   dutyRate: number;
   /** BUYMA の成約手数料率（仮の値。必ず自分の契約の率に直す） */
   buymaFeeRate: number;
-  profitMode: 'margin' | 'markup' | 'fixed';
+  profitMode: 'margin' | 'markup' | 'fixed' | 'expr';
+  /** expr のときの計算式（x は表示価格を円にしたもの） */
+  priceExpr: string;
   /** margin なら売値に対する率、markup なら費用に対する率（fixed では使わない） */
   profitRate: number;
   /** fixed のとき、表示価格（円）に足す金額 */
@@ -47,6 +52,7 @@ export const DEFAULT_PRICING: PricingSettings = {
   profitRate: 0.2,
   minProfitJpy: 1000,
   addJpy: 3000,
+  priceExpr: '×1.3+2000',
   roundTo: 100,
 };
 
@@ -81,6 +87,10 @@ export function validateSettings(s: PricingSettings): string[] {
   }
   if (!(s.roundTo >= 1)) errors.push('切り上げ単位は 1 以上にしてください');
   if (s.profitMode === 'fixed' && !(Number.isFinite(s.addJpy) && s.addJpy >= 0)) errors.push('上乗せする金額は 0 円以上にしてください');
+  if (s.profitMode === 'expr') {
+    const e = priceExprError(s.priceExpr);
+    if (e) errors.push('計算式：' + e);
+  }
   return errors;
 }
 
@@ -114,6 +124,10 @@ export function calculatePrice(costCny: number, fxRate: number, settings: Pricin
   if (s.profitMode === 'fixed') {
     // 表示価格を円にしただけ（カード手数料などの上乗せなし）＋ 指定の金額。自動で上げることはしない
     sale = costCny * fxRate + s.addJpy;
+  } else if (s.profitMode === 'expr') {
+    // 表示価格を円にしたもの（x）を、指定の式で計算する。自動で上げることはしない
+    sale = evalPriceExpr(s.priceExpr, costCny * fxRate);
+    if (!(sale > 0)) throw new Error('計算式の答えが 0 円以下になりました。式を見直してください');
   } else {
     sale =
       s.profitMode === 'margin'
@@ -158,7 +172,9 @@ export function mergeSettings(partial: Partial<PricingSettings> | null | undefin
       const v = partial[k];
       if (v === undefined || v === null) continue;
       if (k === 'profitMode') {
-        if (v === 'margin' || v === 'markup' || v === 'fixed') merged.profitMode = v;
+        if (v === 'margin' || v === 'markup' || v === 'fixed' || v === 'expr') merged.profitMode = v;
+      } else if (k === 'priceExpr') {
+        if (typeof v === 'string') merged.priceExpr = v.slice(0, 60);
       } else if (typeof v === 'number' && Number.isFinite(v)) {
         (merged[k] as number) = v;
       }
