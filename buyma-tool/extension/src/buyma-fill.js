@@ -968,6 +968,76 @@
     await openVariationTab(doc, '色');
   }
 
+  /**
+   * カテゴリの欄を、太い枠で目立たせる。まだ選ばれていなければ赤い枠と「ここだけ手で選んでください」、
+   * 選ばれていれば緑の枠。選ばれているカテゴリ（段ごとの名前）を返す。
+   */
+  function markCategory(doc) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) return [];
+    const chosen = Array.from(row.querySelectorAll('.Select')).map(selectedLabel).filter(Boolean);
+    const box = row.querySelector('.bmm-l-col-9') || row;
+    let guide = doc.getElementById('rakushuppin-cat-guide');
+    if (!guide) {
+      guide = doc.createElement('div');
+      guide.id = 'rakushuppin-cat-guide';
+      box.insertBefore(guide, box.firstChild);
+    }
+    const ok = chosen.length > 0;
+    // 同じ内容なら画面を変えない（見張りの仕組みが、自分の変更でまた動き続けないように）
+    const text = ok
+      ? `✓ カテゴリ：${chosen.join(' > ')}`
+      : '▼ ここだけ手で選んでください（カテゴリ）。選ぶと、サイズが自動で入ります';
+    if (guide.textContent === text) return chosen;
+    box.style.outline = ok ? '3px solid #22a35a' : '5px solid #e11d48';
+    box.style.outlineOffset = '6px';
+    box.style.borderRadius = '6px';
+    guide.style.cssText =
+      'margin:0 0 8px;padding:6px 10px;border-radius:6px;font:bold 14px/1.5 system-ui,sans-serif;' +
+      (ok ? 'background:#e6f6ec;color:#145c2e;' : 'background:#e11d48;color:#fff;');
+    guide.textContent = text;
+    return chosen;
+  }
+
+  /**
+   * カテゴリの欄を見張り、最後の段まで選ばれたら、サイズを自動で入れる（1回だけ）。
+   * 見張っている間も、カテゴリの欄の枠（赤→緑）を合わせて変える。
+   */
+  function watchCategoryThenSizes(doc, sizes) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) return;
+    if (doc.__rakuCatWatch) doc.__rakuCatWatch.disconnect();
+    let timer = null;
+    const check = () => {
+      const sels = Array.from(row.querySelectorAll('.Select'));
+      // 開いている一覧がなく、出ている段がすべて選ばれたら完了とみなす
+      return sels.length > 0 && !row.querySelector('.Select-option') && sels.every((s) => selectedLabel(s));
+    };
+    const run = async () => {
+      if (!check()) return;
+      obs.disconnect();
+      doc.__rakuCatWatch = null;
+      showBanner(doc, ['ラク出品：カテゴリが選ばれたので、サイズを入れています…'], false);
+      await new Promise((r) => setTimeout(r, 1200)); // サイズの欄が出るのを待つ
+      const report = { filled: [], skipped: [], missing: [], notes: [] };
+      try {
+        await fillSizes(doc, sizes, report);
+      } catch (e) {
+        report.notes.push('サイズを入れられませんでした。ご自身で選んでください。');
+      }
+      showBanner(doc, ['✓ ラク出品：カテゴリが選ばれたので、サイズを入れました', ...bannerLines(report).filter((l) => !/^内容を確かめて/.test(l)), '内容を確かめてから「入力内容を確認する」を押してください。'], !report.filled.length);
+    };
+    const obs = new MutationObserver((list) => {
+      if (list.every((m) => m.target.id === 'rakushuppin-cat-guide' || (m.target.closest && m.target.closest('#rakushuppin-cat-guide')))) return;
+      markCategory(doc);
+      clearTimeout(timer);
+      // 次の段が出てくる途中で決めつけないよう、少し落ち着いてから確かめる
+      timer = setTimeout(run, 1500);
+    });
+    obs.observe(row, { subtree: true, childList: true, characterData: true });
+    doc.__rakuCatWatch = obs;
+  }
+
   /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
   async function fillBuymaAll(doc, values) {
     const report = { filled: [], skipped: [], missing: [], notes: [] };
@@ -991,10 +1061,17 @@
     } catch (e) {
       report.notes.push('色を入れられませんでした。ご自身で選んでください。');
     }
-    try {
-      await fillSizes(doc, values.sizes, report);
-    } catch (e) {
-      report.notes.push('サイズを入れられませんでした。ご自身で選んでください。');
+    const catChosen = markCategory(doc).length > 0;
+    if (catChosen) {
+      try {
+        await fillSizes(doc, values.sizes, report);
+      } catch (e) {
+        report.notes.push('サイズを入れられませんでした。ご自身で選んでください。');
+      }
+    } else if (values.sizes && values.sizes.length) {
+      // カテゴリがまだ：選ばれた瞬間にサイズを自動で入れるよう、カテゴリの欄を見張っておく
+      watchCategoryThenSizes(doc, values.sizes);
+      report.notes.push('カテゴリを赤い枠で選ぶと、サイズは自動で入ります（もう一度押さなくて大丈夫です）。');
     }
     try {
       await fillBrand(doc, values.brand, report, values.noBrandIfUnknown === true);
@@ -1087,7 +1164,7 @@
     return out;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, categoryPickInfo, TEXT_FIELDS };
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, categoryPickInfo, markCategory, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

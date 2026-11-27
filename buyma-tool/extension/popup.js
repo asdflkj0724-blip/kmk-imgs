@@ -541,8 +541,13 @@ async function generate() {
     listing = res.listing;
     renderListing(listing);
     await saveState();
+    // BUYMA に入れる画像を、ここで先に作っておく（「BUYMAに反映」を一瞬で終わらせるため）
+    try {
+      setStatus('BUYMA に入れる画像を準備しています…（あとで BUYMA にすぐ入れられるように）');
+      await prepareImagesForBuyma(product);
+    } catch (e) {}
     ok = true;
-    doneText = '✓ 出品データができました。次は BUYMA の出品画面を開いて、拡張機能の「BUYMAに反映」を押してください';
+    doneText = '✓ 出品データができました。次は BUYMA の出品画面を開いて、①カテゴリを手で選び、②拡張機能の「BUYMAに反映」を押してください';
   } catch (e) {
     doneText = e.message;
   } finally {
@@ -768,9 +773,44 @@ async function pickCategoryInPage(i, want) {
   return { name: '', info: '画面のしくみに頼みましたが、選ばれませんでした' };
 }
 
+/** 使う画像の目印（どの画像を・どの範囲で・日本語に書き換えるか）。変わったら作り直す */
+function imageKey(p) {
+  const plan = Array.isArray(p.imagePlan) ? p.imagePlan.filter((x) => x.keep).slice(0, BUYMA_IMAGE_MAX) : [];
+  return JSON.stringify({ id: p.itemId, plan: plan.map((x) => [x.parts, x.crop, x.translate !== false && x.texts ? x.texts.length : 0]), w: settings.watermarkEnabled ? settings.watermarkText : '' });
+}
+/** 出品データを作ったときに、BUYMA に入れる画像を先に作って保存しておく */
+async function prepareImagesForBuyma(p0) {
+  const p = PF.ensureItemId(p0, BuymaPageReader.shortHash);
+  if (!p.images || !p.images.length) return;
+  // 画像の場所への許可がまだないサイトは、BUYMA に入れるとき（許可を聞いたあと）に作る
+  const origins = imageOrigins(p.images);
+  if (origins.length && !(await chrome.permissions.contains({ origins }))) return;
+  const s = await api.getSettings();
+  const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`BUYMA に入れる画像を準備しています… ${i}/${n}`));
+  const images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
+  await chrome.storage.local.set({ readyImages: { key: imageKey(p), images, savedAt: Date.now() } });
+}
+/** 先に作っておいた画像が、今の出品データと同じものなら返す */
+async function readyImagesFor(p) {
+  try {
+    const { readyImages } = await chrome.storage.local.get('readyImages');
+    return readyImages && readyImages.key === imageKey(p) ? readyImages.images : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function runInPage(func, args) {
-  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', func, args: args || [] });
-  return res && res.result;
+  try {
+    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', func, args: args || [] });
+    return (res && res.result) || { name: '', info: 'ページの中で動かせませんでした' };
+  } catch (e) {
+    return { name: '', info: 'ページの中で動かせませんでした：' + String(e && e.message).slice(0, 80) };
+  }
+}
+
+function markActiveCategory() {
+  return globalThis.RakuBuymaFill.markCategory(document);
 }
 
 async function runInBuyma(func, args) {
@@ -841,8 +881,26 @@ async function showBuymaBox() {
     $('fillBuyma').disabled = true;
     return;
   }
-  $('buymaTarget').textContent = `✓ 準備OK：「${lastForBuyma.listing.title || '（商品名なし）'}」をこの画面に入れられます。下の赤い「BUYMAに反映」を押してください`;
+  $('buymaTarget').textContent = `✓ 準備OK：「${lastForBuyma.listing.title || '（商品名なし）'}」をこの画面に入れられます`;
   $('buymaTarget').className = 'small ready';
+  await refreshCategoryGuide();
+}
+
+/** カテゴリの欄を目立たせ、拡張機能の画面に「①カテゴリを選ぶ→②反映」の案内を出す */
+async function refreshCategoryGuide() {
+  let chosen = [];
+  try {
+    chosen = (await runInBuyma(markActiveCategory)) || [];
+  } catch (e) {}
+  if (chosen.length) {
+    settings = await api.saveSettings({ lastCategory: chosen.join(' > ') });
+  }
+  const last = settings.lastCategory ? `（前回：${settings.lastCategory}。BUYMA の「最近出品したカテゴリ」の上のほうに出ます）` : '';
+  $('buymaSteps').innerHTML = '';
+  $('buymaSteps').append(
+    el('div', { className: 'step ' + (chosen.length ? 'ok' : 'todo') }, chosen.length ? `① ✓ カテゴリ：${chosen.join(' > ')}` : `① BUYMA の画面の赤い枠で、カテゴリを手で選ぶ${last}`),
+    el('div', { className: 'step todo' }, '② 下の赤い「BUYMAに反映」を押す（ほかの欄・色・サイズ・画像が自動で入ります）')
+  );
 }
 
 function fillBuyma() {
@@ -864,25 +922,34 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   values.shipping = settings.shippingChosen[0] || values.shipping || settings.lastShipping || '';
   values.noBrandIfUnknown = settings.noBrandIfUnknown;
   values.categoryByPopup = true;
-  begin($('fillBuyma'), 'BUYMA に入力中…（触らずに待ってください）', '【1/3】カテゴリを選んでいます…');
+  begin($('fillBuyma'), 'BUYMA に入力中…', '【1/2】準備しています…');
   let ok = false;
   let doneText = '';
   try {
-    // カテゴリを先に選ぶ（AI と相談しながら1段ずつ）
-    const cat = await chooseCategory(values.category, values.title);
+    // カテゴリは手で選ぶ（BUYMA のカテゴリの欄は自動では選べないため）。選ばれているかだけ確かめる
+    const chosenCat = (await runInBuyma(markActiveCategory)) || [];
+    const cat = chosenCat.length
+      ? { chosen: chosenCat, skipped: true, note: '' }
+      : { chosen: [], note: 'カテゴリがまだ選ばれていません。赤い枠のところでカテゴリを選ぶと、サイズは自動で入ります。' };
     if (withImages) {
-      const s = await api.getSettings();
+      // 画像は「出品データを作る」ときに作っておいたものを使う（あれば一瞬）
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
-      const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`【2/3】画像を準備しています… ${i}/${n}（このまま開いておいてください）`));
-      values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
+      const ready = await readyImagesFor(p);
+      if (ready) values.images = ready;
+      else {
+        const s = await api.getSettings();
+        const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`【1/2】画像を準備しています… ${i}/${n}（このまま開いておいてください）`));
+        values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
+      }
     }
-    setStatus('【3/3】BUYMA の画面に入れています…（色・サイズ・ブランドなど）');
+    setStatus('【2/2】BUYMA の画面に入れています…');
     const r = await runInBuyma(fillActiveBuymaPage, [values]);
     if (!r) throw new Error('結果が返ってきませんでした');
     if (cat.chosen.length && !cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '）');
-    if (cat.skipped) r.skipped.unshift('カテゴリ');
+    if (cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '・手で選んだもの）');
     if (cat.note) r.notes.unshift(cat.note);
     await runInBuyma(showActiveReport, [r]);
+    await refreshCategoryGuide();
     const parts = [];
     if (r.filled.length) parts.push(`${r.filled.join('・')} を入れました`);
     if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);
