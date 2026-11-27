@@ -270,7 +270,16 @@
     const already = selectedLabel(sel);
     if (already) return { exists: true, selected: already, options: [] };
     const options = await openOptions(sel);
-    return { exists: true, selected: '', options: options ? options.map((o) => (o.textContent || '').trim()) : [] };
+    return { exists: true, selected: '', options: options ? options.map(optionText) : [] };
+  }
+
+  /** 候補の名前。見出し（押せないもの）は「—」、名前と場所が分かれている候補は「名前（場所）」にする */
+  function optionText(o) {
+    if (/is-disabled/.test(o.className || '')) return '—（見出し：' + (o.textContent || '').trim() + '）';
+    const main = o.querySelector('.bmm-c-select-option__main');
+    const note = o.querySelector('.bmm-c-select-option__note');
+    if (main && note) return `${main.textContent.trim()}（${note.textContent.trim()}）`;
+    return (o.textContent || '').trim();
   }
 
   async function openOptions(sel) {
@@ -306,6 +315,7 @@
       if (control) mouse(control, 'mousedown');
       return '';
     }
+    if (/is-disabled/.test(options[index].className || '')) return '';
     const want = (options[index].textContent || '').trim();
     const label = () => selectedLabel(currentSel(doc, i) || sel);
     // 候補の中の部品から押す（おすすめカテゴリの候補は、中に名前と場所の部品がある）
@@ -707,7 +717,9 @@
     const sel = tr.querySelector('.Select');
     const label = sel ? selectedLabel(sel) : '';
     const input = tr.querySelector('input[type=text]');
-    return (!label || /指定なし|選択してください/.test(label)) && (!input || !String(input.value || '').trim());
+    // 名前の欄がある行（色）は、名前が空なら空き行（BUYMA は「追加」した行に最初から系統を入れておくため）
+    if (input) return !String(input.value || '').trim();
+    return !label || /指定なし|選択してください/.test(label);
   }
 
   let lastRowInfo = '';
@@ -737,7 +749,16 @@
   /** 1行に「選択欄（系統・サイズ）」と「名前の欄」を入れる */
   async function fillVariationRow(tr, optionWanted, text) {
     const sel = tr.querySelector('.Select');
-    const options = sel && (await openOptions(sel));
+    if (!sel) return false;
+    const already = selectedLabel(sel);
+    const fake = already ? [{ textContent: already }] : [];
+    if (already && optionWanted(fake)) {
+      // すでに目当ての系統が入っている（追加した行の最初の値など）→ 名前だけ入れる
+      const input = tr.querySelector('input[type=text]');
+      if (input && text && !input.disabled && !String(input.value || '').trim()) setValue(input, text);
+      return true;
+    }
+    const options = await openOptions(sel);
     if (!options) return false;
     const pick = optionWanted(options);
     if (!pick) {

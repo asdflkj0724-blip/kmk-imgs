@@ -630,6 +630,24 @@ async function chooseCategory(wanted, title) {
       continue;
     }
     if (!lv.options.length) return { chosen, note: `カテゴリの${i + 1}段目の候補が出ませんでした。ご自身で選んでください。` };
+    // 「最近出品したカテゴリ」だけが出ている作り（候補が「名前（場所）」）：場所まで同じものだけを選ぶ。違うものを AI に選ばせない
+    const recent = lv.options.filter((o) => /（.+>.+）$/.test(o)).length >= Math.max(1, lv.options.filter((o) => !o.startsWith('—')).length);
+    if (recent) {
+      const path = (o) => {
+        const m = o.match(/^(.*)（(.+)）$/);
+        return m ? PF.categorySegments(m[2] + ' > ' + m[1]).join('>') : '';
+      };
+      const want = segs.join('>');
+      const hit = lv.options.findIndex((o) => path(o) && (path(o) === want || want.startsWith(path(o))));
+      if (hit < 0) {
+        await runInBuyma(pickActiveCategory, [i, -1]);
+        return { chosen, note: `カテゴリの候補が「最近出品したカテゴリ」（${lv.options.filter((o) => !o.startsWith('—')).join('・')}）だけで、この商品（${wanted || '不明'}）に合うものがなかったので選んでいません。ご自身で選んでください。` };
+      }
+      const picked = (await runInBuyma(pickActiveCategory, [i, hit])) || {};
+      if (!picked.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
+      chosen.push(picked.name);
+      continue;
+    }
     let index = segs[i] ? PF.localCategoryPick(lv.options, segs[i]) : -1;
     if (index < 0) {
       setStatus(`カテゴリの${i + 1}段目を選んでいます…`);
