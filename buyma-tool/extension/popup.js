@@ -895,11 +895,10 @@ async function refreshCategoryGuide() {
   if (chosen.length) {
     settings = await api.saveSettings({ lastCategory: chosen.join(' > ') });
   }
-  const last = settings.lastCategory ? `（前回：${settings.lastCategory}。BUYMA の「最近出品したカテゴリ」の上のほうに出ます）` : '';
+  $('buymaCategory').value = settings.lastCategory || '';
   $('buymaSteps').innerHTML = '';
   $('buymaSteps').append(
-    el('div', { className: 'step ' + (chosen.length ? 'ok' : 'todo') }, chosen.length ? `① ✓ カテゴリ：${chosen.join(' > ')}` : `① BUYMA の画面の赤い枠で、カテゴリを手で選ぶ${last}`),
-    el('div', { className: 'step todo' }, '② 下の赤い「BUYMAに反映」を押す（ほかの欄・色・サイズ・画像が自動で入ります）')
+    el('div', { className: 'step ' + (chosen.length ? 'ok' : 'todo') }, chosen.length ? `✓ BUYMA のカテゴリ：${chosen.join(' > ')}` : settings.lastCategory ? `「BUYMAに反映」で、上のカテゴリを BUYMA に選びます` : '上の欄にカテゴリを入れてから「BUYMAに反映」を押してください'),
   );
 }
 
@@ -927,10 +926,19 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   let doneText = '';
   try {
     // カテゴリは手で選ぶ（BUYMA のカテゴリの欄は自動では選べないため）。選ばれているかだけ確かめる
-    const chosenCat = (await runInBuyma(markActiveCategory)) || [];
-    const cat = chosenCat.length
-      ? { chosen: chosenCat, skipped: true, note: '' }
-      : { chosen: [], note: 'カテゴリがまだ選ばれていません。赤い枠のところでカテゴリを選ぶと、サイズは自動で入ります。' };
+    let chosenCat = (await runInBuyma(markActiveCategory)) || [];
+    const wantCat = ($('buymaCategory').value || settings.lastCategory || '').trim();
+    if (wantCat && wantCat !== settings.lastCategory) settings = await api.saveSettings({ lastCategory: wantCat });
+    let cat;
+    if (chosenCat.length) cat = { chosen: chosenCat, skipped: true, note: '' };
+    else if (wantCat) {
+      // 拡張機能に入れてあるカテゴリを、BUYMA の欄に選ぶ
+      setStatus(`【1/2】カテゴリ「${wantCat}」を選んでいます…`);
+      cat = await chooseCategory(wantCat, values.title);
+      chosenCat = (await runInBuyma(markActiveCategory)) || [];
+      if (chosenCat.length) cat = { chosen: chosenCat, note: '' };
+      else cat.note = (cat.note || 'カテゴリを選べませんでした。') + ' 赤い枠のところで手で選ぶと、サイズは自動で入ります。';
+    } else cat = { chosen: [], note: 'カテゴリが決まっていません。拡張機能の「カテゴリ」の欄に入れるか、赤い枠のところで選んでください（選ぶとサイズは自動で入ります）。' };
     if (withImages) {
       // 画像は「出品データを作る」ときに作っておいたものを使う（あれば一瞬）
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
@@ -946,7 +954,7 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
     const r = await runInBuyma(fillActiveBuymaPage, [values]);
     if (!r) throw new Error('結果が返ってきませんでした');
     if (cat.chosen.length && !cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '）');
-    if (cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '・手で選んだもの）');
+    if (cat.skipped) r.skipped.unshift('カテゴリ');
     if (cat.note) r.notes.unshift(cat.note);
     await runInBuyma(showActiveReport, [r]);
     await refreshCategoryGuide();
@@ -1048,6 +1056,10 @@ async function savePriceMode(mode) {
       : '販売価格は、管理画面の「設定」の計算式で計算します。次の商品からも同じです'
   );
 }
+$('buymaCategory').addEventListener('change', async () => {
+  settings = await api.saveSettings({ lastCategory: $('buymaCategory').value.trim() });
+  setStatus(settings.lastCategory ? `カテゴリ「${settings.lastCategory}」を覚えました。次の商品も同じカテゴリを使います` : 'カテゴリを空にしました');
+});
 $('pmFormula').addEventListener('change', () => savePriceMode('formula'));
 $('pmAdd').addEventListener('change', () => savePriceMode('add'));
 $('priceExpr').addEventListener('change', () => savePriceMode('add'));

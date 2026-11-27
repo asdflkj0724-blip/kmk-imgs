@@ -128,7 +128,7 @@ test('パソコンの出品画面：文字・カテゴリ3段・ブランド・�
     assert.equal(got.price, '12800');
     assert.equal(got.sizeNote, 'ウエスト 約70cm');
     assert.deepEqual(got.colors, [['ベージュ系', 'オートミール'], ['ブラウン（茶色）系', 'キャラメルブラウン'], ['ホワイト（白）系', 'ミルクホワイト']], '色の系統を選び、色名を入れ、足りない行は「追加」で増やす');
-    assert.deepEqual(got.sizes, [['S', '指定なし'], ['M', '指定なし'], ['均码', '指定なし']], 'サイズ名に1行ずつ入れ、参考日本サイズは空（指定なし）のまま');
+    assert.deepEqual(got.sizes, [['S', '指定なし'], ['M', '指定なし'], ['均码', '指定なし']], 'サイズ名に1行ずつ入れ、参考日本サイズは「指定なし」');
     assert.deepEqual(got.category, ['レディースファッション', 'ボトムス', 'パンツ']);
     assert.equal(got.brand, 'MAMC(エムエーエムシー)', '読み方付きの同じ名前の候補を選ぶ');
     assert.deepEqual(got.shipping, [true, false, false, false, false], '説明文まで一致する1行だけ');
@@ -489,6 +489,25 @@ test('カテゴリをあとから手で選ぶと、その瞬間にサイズが�
     await page.waitForFunction(() => /サイズを入れました/.test(document.getElementById('rakushuppin-banner').textContent), null, { timeout: 15000 });
     const sizes = await page.evaluate(() => Array.from(document.querySelectorAll('#sizeRows tr input')).map((i) => i.value));
     assert.deepEqual(sizes, ['S', 'M', '均码']);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('買付数量：「数量」の列や欄に、毎回10を入れる（入っている欄はそのまま）', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<html><body>
+      <table><thead><tr><th>色</th><th>サイズ</th><th>買付可能数量</th></tr></thead>
+      <tbody><tr><td>グレー</td><td>S</td><td><input type="text" id="q1"></td></tr>
+      <tr><td>グレー</td><td>M</td><td><input type="text" id="q2" value="3"></td></tr></tbody></table>
+      <input type="text" id="other"></body></html>`);
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/buyma-fill.js'), 'utf8') });
+    const r = await page.evaluate(() => RakuBuymaFill.fillBuymaAll(document, { quantity: 10, categoryByPopup: true }));
+    const v = await page.evaluate(() => ['q1', 'q2', 'other'].map((id) => document.getElementById(id).value));
+    assert.deepEqual(v, ['10', '3', '']);
+    assert.ok(r.filled.some((f) => /買付数量（10・1か所）/.test(f)));
   } finally {
     await browser.close();
   }
