@@ -227,6 +227,8 @@
       brand: l.brand || '',
       category: l.category || '',
       shipping: l.shippingMethod || '',
+      // 買付数量（毎回この数を入れる）
+      quantity: 10,
       // 色・サイズの表に入れる名前（日本語）
       colors: listOf(l.colors),
       sizes: listOf(l.sizes),

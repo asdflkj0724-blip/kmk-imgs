@@ -947,6 +947,11 @@
         if (!input) break;
         setValue(input, name);
         await waitFor(() => String(input.value || '').trim() === name, 800);
+        // 参考日本サイズは、かならず「指定なし」にする
+        const jp = tr.querySelector('.Select');
+        if (jp && selectedLabel(jp) !== '指定なし') {
+          await fillVariationRow(tr, (opts) => opts.find((o) => norm(o.textContent) === norm('指定なし')), '');
+        }
         done++;
       }
       if (done) report.filled.push(`サイズ（${list.slice(0, done).join('・')}）`);
@@ -1022,7 +1027,7 @@
    * カテゴリの欄を見張り、最後の段まで選ばれたら、サイズを自動で入れる（1回だけ）。
    * 見張っている間も、カテゴリの欄の枠（赤→緑）を合わせて変える。
    */
-  function watchCategoryThenSizes(doc, sizes) {
+  function watchCategoryThenSizes(doc, sizes, quantity) {
     const row = rowByTitle(doc, 'カテゴリ');
     if (!row) return;
     if (doc.__rakuCatWatch) doc.__rakuCatWatch.disconnect();
@@ -1044,6 +1049,9 @@
       } catch (e) {
         report.notes.push('サイズを入れられませんでした。ご自身で選んでください。');
       }
+      try {
+        fillQuantity(doc, quantity, report);
+      } catch (e) {}
       showBanner(doc, ['✓ ラク出品：カテゴリが選ばれたので、サイズを入れました', ...bannerLines(report).filter((l) => !/^内容を確かめて/.test(l)), '内容を確かめてから「入力内容を確認する」を押してください。'], !report.filled.length);
     };
     const obs = new MutationObserver((list) => {
@@ -1055,6 +1063,49 @@
     });
     obs.observe(row, { subtree: true, childList: true, characterData: true });
     doc.__rakuCatWatch = obs;
+  }
+
+  /**
+   * 買付数量（在庫数など）を入れる。見出しや欄の名前に「数量」「買付可能」「在庫」が付いた、数字を入れる欄を探す。
+   * 入っている欄はそのまま。見つからなければ、見つからなかったことだけ知らせる。
+   */
+  function fillQuantity(doc, qty, report) {
+    if (!qty) return;
+    const want = /数量|買付可能|買い付け可能|在庫数|在庫/;
+    const inputs = new Set();
+    // 1) 見出し（左の題名）が数量の行の中の入力欄
+    for (const ttl of Array.from(doc.querySelectorAll('.bmm-c-summary__ttl'))) {
+      if (!want.test(ttl.textContent || '')) continue;
+      const row = ttl.closest('.bmm-l-grid');
+      if (row) row.querySelectorAll('input[type=text], input[type=number], input:not([type])').forEach((i) => inputs.add(i));
+    }
+    // 2) 表の見出し（th）が数量の列の入力欄
+    for (const th of Array.from(doc.querySelectorAll('th'))) {
+      if (!want.test(th.textContent || '')) continue;
+      const table = th.closest('.bmm-c-form-table') || th.closest('table');
+      const idx = Array.from(th.parentElement.children).indexOf(th);
+      if (!table || idx < 0) continue;
+      for (const tr of Array.from(table.querySelectorAll('tbody tr'))) {
+        const td = tr.children[idx];
+        const input = td && td.querySelector('input');
+        if (input) inputs.add(input);
+      }
+    }
+    // 3) 欄の名前・説明が数量の入力欄
+    for (const input of Array.from(doc.querySelectorAll('input'))) {
+      const label = [input.getAttribute('placeholder'), input.getAttribute('aria-label'), input.getAttribute('name')].join(' ');
+      const unit = input.closest('.bmm-c-custom-text');
+      if (want.test(label) || (unit && want.test(unit.textContent || ''))) inputs.add(input);
+    }
+    let n = 0;
+    for (const input of inputs) {
+      if (input.disabled || input.type === 'checkbox' || input.type === 'radio') continue;
+      if (String(input.value || '').trim()) continue;
+      setValue(input, String(qty));
+      n++;
+    }
+    if (n) report.filled.push(`買付数量（${qty}・${n}か所）`);
+    else if (!inputs.size) report.notes.push(`買付数量の欄が見つかりませんでした（${qty}を入れる予定でした）。ご自身で入れてください。`);
   }
 
   /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
@@ -1089,9 +1140,12 @@
       }
     } else if (values.sizes && values.sizes.length) {
       // カテゴリがまだ：選ばれた瞬間にサイズを自動で入れるよう、カテゴリの欄を見張っておく
-      watchCategoryThenSizes(doc, values.sizes);
+      watchCategoryThenSizes(doc, values.sizes, values.quantity);
       report.notes.push('カテゴリを赤い枠で選ぶと、サイズは自動で入ります（もう一度押さなくて大丈夫です）。');
     }
+    try {
+      fillQuantity(doc, values.quantity, report);
+    } catch (e) {}
     try {
       await fillBrand(doc, values.brand, report, values.noBrandIfUnknown === true);
     } catch (e) {
@@ -1180,6 +1234,12 @@
       if (control && sel.querySelector('.Select-option')) mouse(control, 'mousedown');
     }
     out.brand = clean(rowByTitle(doc, 'ブランド'));
+    // 欄の題名の一覧と、数量・在庫・買付に関係しそうな欄（買付数量を入れるため）
+    out.titles = Array.from(doc.querySelectorAll('.bmm-c-summary__ttl')).map((t) => (t.textContent || '').trim());
+    out.quantity = Array.from(doc.querySelectorAll('.bmm-c-summary__ttl, th, .bmm-c-custom-text__unit, label'))
+      .filter((el) => /数量|在庫|買付可|購入可/.test(el.textContent || ''))
+      .slice(0, 5)
+      .map((el) => clean(el.closest('.bmm-l-grid') || el.closest('table') || el.parentElement).slice(0, 20000));
     return out;
   }
 
