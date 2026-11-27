@@ -395,3 +395,24 @@ test('カテゴリ：候補が多くて見えている分しか出さない一�
     await browser.close();
   }
 });
+
+test('カテゴリ：選ばれている段も、候補を読み直して別のものに選び直せる', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const r = await page.evaluate(async () => {
+      const F = RakuBuymaFill;
+      const first = await F.categoryPick(document, 0, 'レディースファッション');
+      const again = await F.categoryLevel(document, 0, true);
+      const open = !!document.querySelector('.sell-category-select .Select-menu-outer');
+      const changed = await F.categoryPick(document, 0, 'メンズファッション', true);
+      return { first, selected: again.selected, options: again.options, open, changed };
+    });
+    assert.equal(r.first, 'レディースファッション');
+    assert.equal(r.selected, 'レディースファッション');
+    assert.deepEqual(r.options, ['レディースファッション', 'メンズファッション']);
+    assert.equal(r.open, false, '読んだら一覧を閉じる');
+    assert.equal(r.changed, 'メンズファッション');
+  } finally {
+    await browser.close();
+  }
+});
