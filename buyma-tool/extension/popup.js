@@ -677,7 +677,7 @@ async function chooseCategory(wanted, title) {
     const starter = exact || recents.find((o) => segs[0] && same(recentPath(o)[0], segs[0])) || recents[0];
     setStatus('【1/3】カテゴリの選択欄を準備しています…');
     let p = (await runInBuyma(pickActiveCategory, [0, starter, false])) || {};
-    if (!p.name) p = (await runInPage(pickCategoryInPage, [0, starter])) || p;
+    if (!p.name) p = (await pickCategoryViaPage(0, starter)) || p;
     if (!p.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${p.info || '理由不明'}・版 ${ver}）` };
   }
 
@@ -713,64 +713,33 @@ async function chooseCategory(wanted, title) {
       continue;
     }
     let picked = (await runInBuyma(pickActiveCategory, [i, target, true])) || {};
-    if (!picked.name) picked = (await runInPage(pickCategoryInPage, [i, target])) || picked;
+    if (!picked.name) picked = (await pickCategoryViaPage(i, target)) || picked;
     if (!picked.name) return { chosen, note: `カテゴリの${i + 1}段目を選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${ver}）` };
     chosen.push(picked.name);
   }
   return { chosen, note: '' };
 }
 
-/**
- * 【最後の手段】BUYMA の画面のしくみ（React）に、候補を押したときの処理を直接お願いする。
- * ページそのものの中（MAIN）で動かす。カテゴリの i 段目で、名前（「名前（場所）」の書き方も可）が合う候補を選ぶ。
- */
-async function pickCategoryInPage(i, want) {
-  const norm = (s) => String(s || '').normalize('NFKC').replace(/\s+/g, '');
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const head = Array.from(document.querySelectorAll('.bmm-c-summary__ttl')).find((h) => norm(h.textContent) === 'カテゴリ');
-  const row = head && head.closest('.bmm-l-grid');
-  if (!row) return { name: '', info: 'カテゴリの欄が見つかりません' };
-  const sel = () => row.querySelectorAll('.Select')[i];
-  const label = () => {
-    const v = sel() && sel().querySelector('.Select-value-label, .Select-value');
-    return v ? v.textContent.trim() : '';
-  };
-  const props = (el) => {
-    const k = Object.keys(el).find((x) => x.startsWith('__reactProps$') || x.startsWith('__reactEventHandlers$'));
-    if (k) return el[k];
-    const f = Object.keys(el).find((x) => x.startsWith('__reactInternalInstance$') || x.startsWith('__reactFiber$'));
-    if (!f) return null;
-    const inst = el[f];
-    return (inst && (inst.memoizedProps || (inst._currentElement && inst._currentElement.props))) || null;
-  };
-  const text = (o) => {
-    const m = o.querySelector('.bmm-c-select-option__main');
-    const n = o.querySelector('.bmm-c-select-option__note');
-    return m && n ? m.textContent.trim() + '（' + n.textContent.trim() + '）' : o.textContent.trim();
-  };
-  const fake = (type) => ({ type, button: 0, preventDefault() {}, stopPropagation() {}, persist() {}, nativeEvent: {} });
-  if (!sel()) return { name: '', info: i + 1 + '段目の欄がありません' };
-  // 一覧を開く（開いていなければ、欄のしくみに「押された」と伝える）
-  if (!sel().querySelector('.Select-option')) {
-    const control = sel().querySelector('.Select-control');
-    const p = control && props(control);
-    if (p && p.onMouseDown) p.onMouseDown(fake('mousedown'));
-    else if (control) control.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
-    for (let n = 0; n < 20 && !sel().querySelector('.Select-option'); n++) await wait(100);
+/** ページそのものの中（MAIN）で、カテゴリを選ぶ部品を動かし、結果（<html> の data-raku-cat）を待って受け取る */
+async function pickCategoryViaPage(i, want) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', files: ['src/page-pick.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', func: (a, b) => window.__rakuPickCategory(a, b), args: [i, want] });
+  } catch (e) {
+    return { name: '', info: 'ページの中で動かせませんでした：' + String(e && e.message).slice(0, 80) };
   }
-  const opt = Array.from(sel().querySelectorAll('.Select-option')).find((o) => norm(text(o)) === norm(want) || norm(o.textContent) === norm(want));
-  if (!opt) return { name: '', info: '候補「' + want + '」が見つかりません' };
-  const p = props(opt);
-  if (!p) return { name: '', info: '画面のしくみに届きませんでした' };
-  if (p.onMouseDown) p.onMouseDown(fake('mousedown'));
-  else if (p.onClick) p.onClick(fake('click'));
-  else if (p.onSelect) p.onSelect(p.option, fake('mousedown'));
-  for (let n = 0; n < 60; n++) {
-    await wait(100);
-    const any = Array.from(row.querySelectorAll('.Select .Select-value-label, .Select .Select-value')).map((v) => v.textContent.trim()).filter(Boolean);
-    if (label() || any.length) return { name: label() || any[Math.min(i, any.length - 1)], info: 'ページのしくみで選びました' };
+  for (let n = 0; n < 40; n++) {
+    await new Promise((r) => setTimeout(r, 250));
+    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => document.documentElement.getAttribute('data-raku-cat') });
+    if (res && res.result) {
+      try {
+        return JSON.parse(res.result);
+      } catch (e) {
+        break;
+      }
+    }
   }
-  return { name: '', info: '画面のしくみに頼みましたが、選ばれませんでした' };
+  return { name: '', info: 'ページの中の部品から返事がありませんでした' };
 }
 
 /** 使う画像の目印（どの画像を・どの範囲で・日本語に書き換えるか）。変わったら作り直す */
@@ -800,14 +769,6 @@ async function readyImagesFor(p) {
   }
 }
 
-async function runInPage(func, args) {
-  try {
-    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', func, args: args || [] });
-    return (res && res.result) || { name: '', info: 'ページの中で動かせませんでした' };
-  } catch (e) {
-    return { name: '', info: 'ページの中で動かせませんでした：' + String(e && e.message).slice(0, 80) };
-  }
-}
 
 function markActiveCategory() {
   return globalThis.RakuBuymaFill.markCategory(document);

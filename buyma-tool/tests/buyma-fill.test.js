@@ -418,9 +418,7 @@ test('カテゴリ：選ばれている段も、候補を読み直して別の�
 });
 
 test('カテゴリ（最後の手段）：画面のしくみ（React）の「押したときの処理」を直接呼んで選ぶ', async () => {
-  const src = fs.readFileSync(path.join(__dirname, '../extension/popup.js'), 'utf8');
-  const start = src.indexOf('async function pickCategoryInPage');
-  const fn = src.slice(start, src.indexOf('\n}\n', start) + 2);
+
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
@@ -440,7 +438,11 @@ test('カテゴリ（最後の手段）：画面のしくみ（React）の「押
           },
         };
       </script></body></html>`);
-    const r = await page.evaluate(`(${fn.replace('async function pickCategoryInPage', 'async function')})(0, 'スニーカー（メンズファッション > 靴・ブーツ・サンダル）')`);
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '../extension/src/page-pick.js'), 'utf8') });
+    // 結果は <html> の印で受け取る（ページ側の Promise に頼らない）
+    assert.equal(await page.evaluate(() => window.__rakuPickCategory(0, 'スニーカー（メンズファッション > 靴・ブーツ・サンダル）')), 'started');
+    await page.waitForFunction(() => document.documentElement.getAttribute('data-raku-cat'), null, { timeout: 10000 });
+    const r = JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('data-raku-cat')));
     assert.equal(r.name, 'メンズファッション');
   } finally {
     await browser.close();
