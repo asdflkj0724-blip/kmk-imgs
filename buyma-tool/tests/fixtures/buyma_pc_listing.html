@@ -119,11 +119,13 @@
   }
   const COLOR_FAMILIES = ['ホワイト（白）系', 'ブラック（黒）系', 'グレー（灰色）系', 'ブラウン（茶色）系', 'ベージュ系', 'グリーン（緑）系', 'ブルー（青）系', 'ネイビー（紺）系', 'ピンク系', 'レッド（赤）系', 'マルチカラー'];
   function addColorRow() {
+    // 本物の画面と同じく、最初の行は「色指定なし」、追加した行は最初から「ホワイト（白）系」が入っている
+    const first = !document.querySelector('#colorRows tr');
     const tr = document.createElement('tr');
     const td1 = document.createElement('td');
     const td2 = document.createElement('td');
-    td2.innerHTML = '<input type="text" class="bmm-c-text-field color-name" placeholder="色指定なし" disabled>';
-    td1.appendChild(makeSelect(COLOR_FAMILIES, '色指定なし', () => { td2.firstChild.disabled = false; }));
+    td2.innerHTML = '<input type="text" class="bmm-c-text-field color-name"' + (first ? ' placeholder="色指定なし" disabled' : '') + '>';
+    td1.appendChild(makeSelect(COLOR_FAMILIES, first ? '色指定なし' : 'ホワイト（白）系', () => { td2.firstChild.disabled = false; }));
     tr.append(td1, td2);
     document.getElementById('colorRows').appendChild(tr);
   }

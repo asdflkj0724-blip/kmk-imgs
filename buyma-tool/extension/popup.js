@@ -14,8 +14,30 @@ function el(tag, attrs, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-function setStatus(text) {
-  $('status').textContent = text || '';
+// ---- 今どうなっているか（作業中・完了・エラー）を、画面の上にはっきり出す ----
+let busyNow = false;
+function setStatus(text, kind) {
+  const s = $('status');
+  const k = kind || (busyNow ? 'busy' : 'info');
+  s.className = 'status ' + k;
+  s.hidden = !text;
+  s.textContent = text || '';
+  if (text && (k === 'done' || k === 'error')) s.scrollIntoView({ block: 'nearest' });
+}
+/** 作業を始める：ボタンを「○○中…」にして押せなくし、上に「作業中」を出す */
+function begin(btn, busyLabel, text) {
+  busyNow = true;
+  btn.dataset.label = btn.dataset.label || btn.textContent;
+  btn.textContent = busyLabel;
+  btn.disabled = true;
+  setStatus(text, 'busy');
+}
+/** 作業が終わった：ボタンを元に戻し、上に「完了」か「エラー」をはっきり出す */
+function finish(btn, ok, text) {
+  busyNow = false;
+  if (btn.dataset.label) btn.textContent = btn.dataset.label;
+  btn.disabled = false;
+  setStatus(text, ok ? 'done' : 'error');
 }
 const yen = (n) => (n == null ? '' : `¥${Number(n).toLocaleString('ja-JP')}`);
 
@@ -155,9 +177,9 @@ async function translateImagePlan() {
   if (!plan || !plan.length || !accountActive) return;
   let ocr = null;
   try {
-    setStatus('画像の中の文字を読み取っています…');
+    setStatus('【4/4】画像の中の文字を読み取っています…');
     ocr = await RakuImageText.createOcr(chrome.runtime.getURL(''));
-    await BuymaImages.ocrPlan(plan, (c) => ocr.recognize(c), (i, n) => setStatus(`画像の中の文字を読み取っています… ${i}/${n}`));
+    await BuymaImages.ocrPlan(plan, (c) => ocr.recognize(c), (i, n) => setStatus(`【4/4】画像の中の文字を読み取っています… ${i}/${n}`));
     // 訳す行を集める（同じ文字は1回だけ訳す）
     const lines = [];
     for (const it of plan) for (const l of it.ocr || []) if (RakuImageText.needsTranslation(l.text, l.confidence) && !lines.includes(l.text)) lines.push(l.text);
@@ -165,7 +187,7 @@ async function translateImagePlan() {
       setStatus('画像の中に、書き換える外国語は見つかりませんでした');
       return;
     }
-    setStatus(`画像の中の文字（${lines.length}か所）を日本語にしています…`);
+    setStatus(`【4/4】画像の中の文字（${lines.length}か所）を日本語にしています…`);
     const { ja } = await api.imageText(product.title || '', lines.slice(0, 300));
     const dict = new Map(lines.map((l, i) => [l, (ja && ja[i]) || '']));
     const changed = [];
@@ -196,7 +218,7 @@ async function prepareImagePlan() {
     const { items } = await BuymaImages.planImages(
       product.images,
       { descUrls: product.descImages || [], limit: 30, thumbPx: 120 },
-      (i, n) => setStatus(`BUYMA に入れる画像を作っています… ${i}/${n}`)
+      (i, n) => setStatus(`【3/4】BUYMA に入れる画像を作っています… ${i}/${n}`)
     );
     items.forEach((x, i) => (x.keep = i < BUYMA_IMAGE_MAX));
     product.imagePlan = items;
@@ -428,16 +450,17 @@ async function scrollToLoadImages() {
 
 async function extract() {
   if (!requireActive()) return;
-  setStatus('読み取り中…');
-  $('extract').disabled = true;
+  begin($('extract'), '読み取り中…（このまま待ってください）', '読み取りを始めました（全部で20秒〜1分ほど）');
+  let ok = false;
+  let doneText = '';
   try {
     let read;
     try {
       if (settings.autoScroll) {
-        setStatus('商品説明の画像も読み込むため、ページをゆっくり下まで送っています…（10秒ほど）');
+        setStatus('【1/4】商品説明の画像も読み込むため、ページをゆっくり下まで送っています…（10秒ほど）');
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: scrollToLoadImages });
       }
-      setStatus('読み取り中…');
+      setStatus('【2/4】商品の情報を読み取っています…');
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/extractor.js', 'src/page-reader.js'] });
       [{ result: read }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readActivePage });
     } catch (e) {
@@ -457,14 +480,18 @@ async function extract() {
     listing = null;
     $('listing').hidden = true;
     renderForm(product);
-    setStatus(product.complete ? '読み取りました。内容を確認してください' : '一部の情報が取れませんでした。直すか、「スクショで補う」を試せます');
+    setStatus('【3/4】BUYMA に入れる画像を作っています…');
     await saveState();
     await autoPrepareImages();
+    ok = true;
+    doneText = product.complete
+      ? '✓ 読み取りが終わりました。内容を確かめて、下の「この内容で出品データを作る」を押してください'
+      : '✓ 読み取りが終わりました（一部の情報が取れませんでした）。直すか「スクショで補う」を使ってから、出品データを作ってください';
     loadAccount();
   } catch (e) {
-    setStatus(e.message);
+    doneText = e.message;
   } finally {
-    $('extract').disabled = false;
+    finish($('extract'), ok, doneText || '読み取れませんでした。ページを再読み込みしてから、もう一度押してください');
   }
 }
 
@@ -499,8 +526,9 @@ async function generate() {
   if (!requireActive()) return;
   product = PF.ensureItemId(PF.productFromForm(readForm(), product), BuymaPageReader.shortHash);
   if (!product.title) return setStatus('商品名を入れてください');
-  setStatus('出品データを作っています…（10〜30秒ほど）');
-  $('generate').disabled = true;
+  begin($('generate'), '作っています…（10〜30秒）', '出品データを作っています…（10〜30秒ほど。このまま待ってください）');
+  let ok = false;
+  let doneText = '';
   try {
     // 画面に今入っている式を使い、次の商品のために覚えておく（書き換えてすぐ押しても、新しい式で計算する）
     const exprNow = $('priceExpr').value.trim();
@@ -513,11 +541,12 @@ async function generate() {
     listing = res.listing;
     renderListing(listing);
     await saveState();
-    setStatus('できました。BUYMA の出品画面を開いて、もう一度このボタンから「BUYMAに反映」を押すと入ります');
+    ok = true;
+    doneText = '✓ 出品データができました。次は BUYMA の出品画面を開いて、拡張機能の「BUYMAに反映」を押してください';
   } catch (e) {
-    setStatus(e.message);
+    doneText = e.message;
   } finally {
-    $('generate').disabled = false;
+    finish($('generate'), ok, doneText);
     loadAccount();
   }
 }
@@ -598,7 +627,8 @@ function readActiveBuymaShipping() {
 function showActiveReport(r) {
   const F = globalThis.RakuBuymaFill;
   const lines = [];
-  if (r.filled.length) lines.push('ラク出品：' + r.filled.join('・') + ' を入れました。');
+  lines.push('✓ ラク出品：入力が終わりました');
+  if (r.filled.length) lines.push(r.filled.join('・') + ' を入れました。');
   if (r.skipped.length) lines.push('すでに入っていたので、そのままにした欄：' + r.skipped.join('・'));
   if (r.missing.length) lines.push('見つからなかった欄：' + r.missing.join('・') + '（ご自身で入れてください）');
   lines.push(...r.notes);
@@ -630,6 +660,24 @@ async function chooseCategory(wanted, title) {
       continue;
     }
     if (!lv.options.length) return { chosen, note: `カテゴリの${i + 1}段目の候補が出ませんでした。ご自身で選んでください。` };
+    // 「最近出品したカテゴリ」だけが出ている作り（候補が「名前（場所）」）：場所まで同じものだけを選ぶ。違うものを AI に選ばせない
+    const recent = lv.options.filter((o) => /（.+>.+）$/.test(o)).length >= Math.max(1, lv.options.filter((o) => !o.startsWith('—')).length);
+    if (recent) {
+      const path = (o) => {
+        const m = o.match(/^(.*)（(.+)）$/);
+        return m ? PF.categorySegments(m[2] + ' > ' + m[1]).join('>') : '';
+      };
+      const want = segs.join('>');
+      const hit = lv.options.findIndex((o) => path(o) && (path(o) === want || want.startsWith(path(o))));
+      if (hit < 0) {
+        await runInBuyma(pickActiveCategory, [i, -1]);
+        return { chosen, note: `カテゴリの候補が「最近出品したカテゴリ」（${lv.options.filter((o) => !o.startsWith('—')).join('・')}）だけで、この商品（${wanted || '不明'}）に合うものがなかったので選んでいません。ご自身で選んでください。` };
+      }
+      const picked = (await runInBuyma(pickActiveCategory, [i, hit])) || {};
+      if (!picked.name) return { chosen, note: `カテゴリを選べませんでした。ご自身で選んでください。（くわしく：${picked.info || '理由不明'}・版 ${chrome.runtime.getManifest().version}）` };
+      chosen.push(picked.name);
+      continue;
+    }
     let index = segs[i] ? PF.localCategoryPick(lv.options, segs[i]) : -1;
     if (index < 0) {
       setStatus(`カテゴリの${i + 1}段目を選んでいます…`);
@@ -714,11 +762,13 @@ async function showBuymaBox() {
   $('extract').hidden = true;
   await setupBuymaShipping();
   if (!lastForBuyma || !lastForBuyma.listing) {
-    $('buymaTarget').textContent = 'まだ出品データがありません。先に仕入れ先の商品ページで「この商品の情報を取る」→「出品データを作る」をしてください。';
+    $('buymaTarget').textContent = 'まだ出品データがありません。先に仕入れ先の商品ページで「この商品の情報を取る」→「この内容で出品データを作る」をしてください。';
+    $('buymaTarget').className = 'small notready';
     $('fillBuyma').disabled = true;
     return;
   }
-  $('buymaTarget').textContent = '入れる出品データ：' + (lastForBuyma.listing.title || '（商品名なし）');
+  $('buymaTarget').textContent = `✓ 準備OK：「${lastForBuyma.listing.title || '（商品名なし）'}」をこの画面に入れられます。下の赤い「BUYMAに反映」を押してください`;
+  $('buymaTarget').className = 'small ready';
 }
 
 function fillBuyma() {
@@ -740,17 +790,19 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
   values.shipping = settings.shippingChosen[0] || values.shipping || settings.lastShipping || '';
   values.noBrandIfUnknown = settings.noBrandIfUnknown;
   values.categoryByPopup = true;
-  $('fillBuyma').disabled = true;
+  begin($('fillBuyma'), 'BUYMA に入力中…（触らずに待ってください）', '【1/3】カテゴリを選んでいます…');
+  let ok = false;
+  let doneText = '';
   try {
     // カテゴリを先に選ぶ（AI と相談しながら1段ずつ）
     const cat = await chooseCategory(values.category, values.title);
     if (withImages) {
       const s = await api.getSettings();
       const p = PF.ensureItemId(lastForBuyma.product, BuymaPageReader.shortHash);
-      const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`画像を準備中… ${i}/${n}（このまま開いておいてください）`));
+      const { files } = await buildChosenImages(p, s, (i, n) => setStatus(`【2/3】画像を準備しています… ${i}/${n}（このまま開いておいてください）`));
       values.images = files.map((f) => ({ name: f.name, type: 'image/jpeg', base64: BuymaImages.bytesToBase64(f.data) }));
     }
-    setStatus('BUYMA の画面に入れています…');
+    setStatus('【3/3】BUYMA の画面に入れています…（色・サイズ・ブランドなど）');
     const r = await runInBuyma(fillActiveBuymaPage, [values]);
     if (!r) throw new Error('結果が返ってきませんでした');
     if (cat.chosen.length && !cat.skipped) r.filled.unshift('カテゴリ（' + cat.chosen.join(' > ') + '）');
@@ -762,11 +814,15 @@ async function doFillBuyma(lastForBuyma, withImages, imagesDenied) {
     if (r.skipped.length) parts.push(`${r.skipped.join('・')} はすでに入っていたので、そのままにしました`);
     if (r.missing.length) parts.push(`${r.missing.join('・')} は見つかりませんでした`);
     if (imagesDenied) parts.push('画像は、許可がなかったので入れていません');
-    setStatus((parts.join('。') || '入れる項目がありませんでした') + '。くわしくは BUYMA の画面の右上をご覧ください');
+    ok = true;
+    doneText =
+      '✓ BUYMA への入力が終わりました。' +
+      (parts.join('。') || '入れる項目がありませんでした') +
+      '。BUYMA の画面で内容を確かめて（自分で選ぶ欄は右上のお知らせに出ています）、「入力内容を確認する」を押してください';
   } catch (e) {
-    setStatus('BUYMA の画面に入れられませんでした。ページを再読み込みしてから、もう一度お試しください。');
+    doneText = 'BUYMA の画面に入れられませんでした。ページを再読み込みしてから、もう一度お試しください。';
   } finally {
-    $('fillBuyma').disabled = false;
+    finish($('fillBuyma'), ok, doneText);
   }
 }
 
