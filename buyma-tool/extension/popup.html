@@ -29,12 +29,12 @@
 
   <!-- 1. 読み取った内容の確認・修正（AI の抜き出しはたまに間違えるため） -->
   <section id="confirm" hidden>
-    <h2>読み取った内容を確認してください</h2>
-    <p class="small muted">間違っているところは直してから、下のボタンを押してください。</p>
+    <h2>読み取った内容（仕入れ先の言葉のまま）</h2>
+    <p class="small ready">中国語のままで大丈夫です。下の「この内容で出品データを作る」を押すと、<b>日本語の商品名・説明文・色・サイズ・販売価格が自動でできます</b>。BUYMA には日本語で入るので安心してください。</p>
     <ul id="warnings"></ul>
     <button id="vision" class="ghost" hidden>スクショで補う</button>
 
-    <label for="fTitle">商品名（原文のままでOK）</label>
+    <label for="fTitle">商品名（中国語のままでOK・あとで日本語になります）</label>
     <input type="text" id="fTitle">
     <label>価格（幅があるときは、高いほうの値段で販売価格を計算します）</label>
     <div class="row3">
