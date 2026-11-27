@@ -322,3 +322,19 @@ test('色の系統：色名の最後のほうにある色の言葉で決める',
   assert.equal(F.colorFamily('ネイビー'), 'ネイビー');
   assert.equal(F.colorFamily('なぞの色'), '');
 });
+
+test('配送方法を複数選ぶ', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const r = await page.evaluate(() =>
+      RakuBuymaFill.fillBuymaAll(document, {
+        shippingList: ['日本郵便 - ゆうパック｜【通常便（本州・四国・九州）】ご購入後3～5日で発送', '日本郵便 - ゆうパック｜【通常便（北海道・沖縄・離島）】ご購入後3～4日で発送'],
+      })
+    );
+    const checked = await page.evaluate(() => Array.from(document.querySelectorAll('#ship input')).map((i) => i.checked));
+    assert.deepEqual(checked.slice(0, 2), [true, true]);
+    assert.ok(r.filled.includes('配送方法（2件）'));
+  } finally {
+    await browser.close();
+  }
+});

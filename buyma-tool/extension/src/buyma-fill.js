@@ -115,6 +115,28 @@
     el.dispatchEvent(new win.Event('blur', { bubbles: true }));
   }
 
+  /**
+   * 候補が出る入力欄に、人が打ったときと同じように文字を入れる（欄から離れない。離れると候補の一覧が閉じる作りがあるため）
+   */
+  function typeInto(el, value) {
+    const win = el.ownerDocument.defaultView;
+    el.focus();
+    const proto = el.tagName === 'TEXTAREA' ? win.HTMLTextAreaElement.prototype : win.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, String(value));
+    const last = String(value).slice(-1) || 'a';
+    el.dispatchEvent(new win.KeyboardEvent('keydown', { bubbles: true, key: last }));
+    el.dispatchEvent(new win.Event('input', { bubbles: true }));
+    el.dispatchEvent(new win.KeyboardEvent('keyup', { bubbles: true, key: last }));
+  }
+
+  /** キーボードの操作を知らせる（↓・Enter など。選択欄をキーボードで選ぶときに使う） */
+  function key(el, name, code) {
+    const win = el.ownerDocument.defaultView;
+    for (const type of ['keydown', 'keyup']) {
+      el.dispatchEvent(new win.KeyboardEvent(type, { bubbles: true, cancelable: true, key: name, code: name, keyCode: code, which: code }));
+    }
+  }
+
   function mouse(el, type) {
     const win = el.ownerDocument.defaultView;
     el.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, view: win }));
@@ -259,18 +281,54 @@
       return '';
     }
     const want = (options[index].textContent || '').trim();
+    const label = () => selectedLabel(currentSel(doc, i) || sel);
     press(options[index]);
-    let got = await waitFor(() => selectedLabel(sel), 2500);
+    let got = await waitFor(label, 2500);
     if (!got) {
       // まだ選ばれていなければ、開き直して同じ名前の候補をもう一度押す
-      const again = await openOptions(sel);
+      const again = await openOptions(currentSel(doc, i) || sel);
       const same = again && again.find((o) => (o.textContent || '').trim() === want);
       if (same) {
         press(same);
-        got = await waitFor(() => selectedLabel(sel), 2500);
+        got = await waitFor(label, 2500);
       }
     }
+    if (!got) {
+      // それでもだめなら、キーボードで選ぶ（↓で開いて、目当ての候補まで↓、Enter）
+      const s2 = currentSel(doc, i) || sel;
+      const focusEl = s2.querySelector('.Select-input') || s2.querySelector('.Select-control');
+      if (focusEl) {
+        if (focusEl.focus) focusEl.focus();
+        if (!s2.querySelector('.Select-option')) key(focusEl, 'ArrowDown', 40);
+        const opts = await waitFor(() => {
+          const l = Array.from(s2.querySelectorAll('.Select-option'));
+          return l.length ? l : null;
+        }, 1500);
+        const at = opts ? opts.findIndex((o) => (o.textContent || '').trim() === want) : -1;
+        if (at >= 0) {
+          const focused = () => opts.findIndex((o) => /is-focused/.test(o.className));
+          for (let n = 0; n < opts.length * 2 && focused() !== at; n++) key(focusEl, focused() < at ? 'ArrowDown' : 'ArrowUp', focused() < at ? 40 : 38);
+          key(focusEl, 'Enter', 13);
+          got = await waitFor(label, 2500);
+        }
+      }
+    }
+    if (!got) {
+      // 原因を調べるための情報（お知らせに出す）
+      const s3 = currentSel(doc, i) || sel;
+      lastPickInfo = `候補${options.length}件・選ぼうとした「${want}」・欄の中身「${(s3.textContent || '').trim().slice(0, 30)}」・欄の印「${(s3.className || '').slice(0, 80)}」`;
+    }
     return got || '';
+  }
+
+  /** カテゴリの i 段目の選択欄（選ぶと作り直される画面があるので、毎回探し直す） */
+  function currentSel(doc, i) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    return row ? row.querySelectorAll('.Select')[i] : null;
+  }
+  let lastPickInfo = '';
+  function categoryPickInfo() {
+    return lastPickInfo;
   }
 
   // ---- ブランド（候補が出たら、名前が完全に同じものだけ選ぶ） ----
@@ -310,8 +368,7 @@
       report.skipped.push('ブランド');
       return;
     }
-    setValue(input, brand);
-    input.dispatchEvent(new input.ownerDocument.defaultView.KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
+    typeInto(input, brand);
     const w = norm(brand);
     // 「MAMC」と「MAMC(エムエーエムシー)」のような、読み方付きの候補も同じとみなす
     const same = (el) => {
@@ -416,6 +473,22 @@
     }
     if (r.input.checked) report.filled.push('配送方法');
     else report.notes.push(`配送方法「${saved}」にチェックを付けられませんでした。ご自身で選んでください。`);
+  }
+
+  /** 配送方法をいくつでも選ぶ（設定で選んだものを全部） */
+  async function selectShippingAll(doc, list, report) {
+    const names = (list || []).filter(Boolean);
+    if (names.length <= 1) return selectShipping(doc, names[0] || '', report);
+    const sub = { filled: [], skipped: [], missing: [], notes: [] };
+    let ok = 0;
+    for (const name of names) {
+      const before = sub.filled.length + sub.skipped.length;
+      await selectShipping(doc, name, sub);
+      if (sub.filled.length + sub.skipped.length > before) ok++;
+    }
+    if (sub.missing.length) report.missing.push('配送方法');
+    if (ok) report.filled.push(`配送方法（${ok}件）`);
+    report.notes.push(...sub.notes);
   }
 
   function readShippingOptions(doc) {
@@ -719,7 +792,7 @@
       report.notes.push('ブランドを入れられませんでした。ご自身で入れてください。');
     }
     try {
-      await selectShipping(doc, values.shipping, report);
+      await selectShippingAll(doc, values.shippingList && values.shippingList.length ? values.shippingList : [values.shipping], report);
     } catch (e) {
       report.notes.push('配送方法を選べませんでした。ご自身で選んでください。');
     }
@@ -786,7 +859,7 @@
     return out;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, TEXT_FIELDS };
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, categoryPickInfo, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

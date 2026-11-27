@@ -61,6 +61,9 @@
     }
     const last = cleanName(src.lastShipping);
     out.lastShipping = out.shippingMethods.includes(last) ? last : '';
+    // BUYMA で選ぶ配送方法（いくつでも）。前の版の1つだけの選択は引き継ぐ
+    const chosen = Array.isArray(src.shippingChosen) ? src.shippingChosen.map(cleanName) : out.lastShipping ? [out.lastShipping] : [];
+    out.shippingChosen = chosen.filter((n, k) => out.shippingMethods.includes(n) && chosen.indexOf(n) === k);
     out.noBrandIfUnknown = src.noBrandIfUnknown !== false;
     out.watermarkEnabled = src.watermarkEnabled === true;
     // 読み取りの前に、ページを下まで送って商品説明の画像を読み込む（オフなら、自分でスクロールしてから押す）
