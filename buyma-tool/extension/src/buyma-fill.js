@@ -937,6 +937,25 @@
     }
     const filled = Array.from(panel.querySelectorAll('tbody tr')).filter((tr) => tr.querySelector('.Select') && !rowEmpty(tr));
     if (filled.length) return report.skipped.push('サイズ');
+    // 「サイズ名」を書く表（BUYMA の今の作り）：サイズ名の欄に1行ずつ入れ、参考日本サイズは空のまま
+    const nameTable = Array.from(panel.querySelectorAll('th')).some((th) => /サイズ名/.test(th.textContent || ''));
+    if (nameTable) {
+      let done = 0;
+      for (const name of list) {
+        const tr = await nextEmptyRow(panel);
+        const input = tr && tr.querySelector('input[type=text]');
+        if (!input) break;
+        setValue(input, name);
+        await waitFor(() => String(input.value || '').trim() === name, 800);
+        done++;
+      }
+      if (done) report.filled.push(`サイズ（${list.slice(0, done).join('・')}）`);
+      if (done < list.length) {
+        report.notes.push(`サイズは${list.length}つのうち${done}つを入れました。残り（${list.slice(done).join('・')}）はご自身で入れてください。` + (lastRowInfo ? `（くわしく：${lastRowInfo}）` : ''));
+      }
+      await openVariationTab(doc, '色');
+      return;
+    }
     const pickSize = (want) => (opts) => {
       const w = norm(want).replace(/サイズ$/, '');
       return (

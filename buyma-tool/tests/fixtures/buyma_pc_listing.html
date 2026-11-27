@@ -142,17 +142,24 @@
   document.getElementById('tabSize').addEventListener('click', () => {
     selectTab('tabSize');
     const panel = document.getElementById('panelSize');
-    if ((window.__category || []).length < 3 || panel.querySelector('table')) return;
-    panel.innerHTML = '<table><tbody id="sizeRows"></tbody></table><a id="sizeAdd">サイズを追加</a>';
-    const addSizeRow = () => {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.appendChild(makeSelect(['XS', 'S', 'M', 'L', 'XL', 'フリーサイズ'], '選択してください', () => {}));
-      tr.appendChild(td);
-      document.getElementById('sizeRows').appendChild(tr);
-    };
-    addSizeRow();
-    document.getElementById('sizeAdd').addEventListener('click', addSizeRow);
+    if ((window.__category || []).length < 3 || panel.querySelector('#sizeMode')) return;
+    // 本物の画面と同じく：まず「バリエーションなし／あり」、「あり」で「サイズ名（書く）・参考日本サイズ（選ぶ）」の表と「新しいサイズを追加」
+    panel.innerHTML = '<div id="sizeMode"></div><div id="sizeTable"></div>';
+    document.getElementById('sizeMode').appendChild(makeSelect(['バリエーションなし', 'バリエーションあり'], '選択してください', (v) => {
+      if (v !== 'バリエーションあり' || document.getElementById('sizeRows')) return;
+      document.getElementById('sizeTable').innerHTML = '<table><thead><tr><th>サイズ名</th><th>参考日本サイズ</th></tr></thead><tbody id="sizeRows"></tbody></table><a id="sizeAdd">新しいサイズを追加</a>';
+      const addSizeRow = () => {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.innerHTML = '<input type="text" class="bmm-c-text-field size-name">';
+        const td2 = document.createElement('td');
+        td2.appendChild(makeSelect(['指定なし', 'XS以下', 'S', 'M', 'L', 'XL以上'], '指定なし', () => {}));
+        tr.append(td1, td2);
+        document.getElementById('sizeRows').appendChild(tr);
+      };
+      addSizeRow();
+      document.getElementById('sizeAdd').addEventListener('click', addSizeRow);
+    }));
   });
 
   // ---- 配送方法：行を押すとチェックが付く ----

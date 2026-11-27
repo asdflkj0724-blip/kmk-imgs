@@ -117,7 +117,7 @@ test('パソコンの出品画面：文字・カテゴリ3段・ブランド・�
       price: document.getElementById('price').value,
       sizeNote: document.getElementById('sizeNote').value,
       colors: Array.from(document.querySelectorAll('#colorRows tr')).map((tr) => [tr.querySelector('.Select-value-label').textContent, tr.querySelector('input').value]),
-      sizes: Array.from(document.querySelectorAll('#sizeRows tr')).map((tr) => tr.querySelector('.Select-value-label').textContent),
+      sizes: Array.from(document.querySelectorAll('#sizeRows tr')).map((tr) => [tr.querySelector('input').value, tr.querySelector('.Select-value-label').textContent]),
       category: window.__category,
       brand: window.__brand,
       shipping: Array.from(document.querySelectorAll('#ship input')).map((i) => i.checked),
@@ -128,7 +128,7 @@ test('パソコンの出品画面：文字・カテゴリ3段・ブランド・�
     assert.equal(got.price, '12800');
     assert.equal(got.sizeNote, 'ウエスト 約70cm');
     assert.deepEqual(got.colors, [['ベージュ系', 'オートミール'], ['ブラウン（茶色）系', 'キャラメルブラウン'], ['ホワイト（白）系', 'ミルクホワイト']], '色の系統を選び、色名を入れ、足りない行は「追加」で増やす');
-    assert.deepEqual(got.sizes, ['S', 'M', 'フリーサイズ'], 'サイズは同じ名前の候補を選ぶ');
+    assert.deepEqual(got.sizes, [['S', '指定なし'], ['M', '指定なし'], ['均码', '指定なし']], 'サイズ名に1行ずつ入れ、参考日本サイズは空（指定なし）のまま');
     assert.deepEqual(got.category, ['レディースファッション', 'ボトムス', 'パンツ']);
     assert.equal(got.brand, 'MAMC(エムエーエムシー)', '読み方付きの同じ名前の候補を選ぶ');
     assert.deepEqual(got.shipping, [true, false, false, false, false], '説明文まで一致する1行だけ');
@@ -486,9 +486,9 @@ test('カテゴリをあとから手で選ぶと、その瞬間にサイズが�
         await wait(300);
       }
     });
-    await page.waitForFunction(() => document.querySelectorAll('#sizeRows tr .Select-value-label').length >= 3 && /サイズを入れました/.test(document.getElementById('rakushuppin-banner').textContent), null, { timeout: 15000 });
-    const sizes = await page.evaluate(() => Array.from(document.querySelectorAll('#sizeRows tr')).map((tr) => tr.querySelector('.Select-value-label').textContent));
-    assert.deepEqual(sizes, ['S', 'M', 'フリーサイズ']);
+    await page.waitForFunction(() => /サイズを入れました/.test(document.getElementById('rakushuppin-banner').textContent), null, { timeout: 15000 });
+    const sizes = await page.evaluate(() => Array.from(document.querySelectorAll('#sizeRows tr input')).map((i) => i.value));
+    assert.deepEqual(sizes, ['S', 'M', '均码']);
   } finally {
     await browser.close();
   }
