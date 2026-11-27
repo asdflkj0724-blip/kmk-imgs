@@ -68,6 +68,8 @@
     out.watermarkEnabled = src.watermarkEnabled === true;
     // 読み取りの前に、ページを下まで送って商品説明の画像を読み込む（オフなら、自分でスクロールしてから押す）
     out.autoScroll = src.autoScroll !== false;
+    // 前回 BUYMA で選んだカテゴリ（案内に出す）
+    out.lastCategory = String(src.lastCategory || '').slice(0, 120);
     // 画像の中の外国語（中国語など）を日本語に書き換える
     out.translateImageText = src.translateImageText !== false;
     out.watermarkText = String(src.watermarkText == null ? '' : src.watermarkText).replace(/[\r\n]+/g, ' ').slice(0, 40);

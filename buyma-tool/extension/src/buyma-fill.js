@@ -968,6 +968,34 @@
     await openVariationTab(doc, '色');
   }
 
+  /**
+   * カテゴリの欄を、太い枠で目立たせる。まだ選ばれていなければ赤い枠と「ここだけ手で選んでください」、
+   * 選ばれていれば緑の枠。選ばれているカテゴリ（段ごとの名前）を返す。
+   */
+  function markCategory(doc) {
+    const row = rowByTitle(doc, 'カテゴリ');
+    if (!row) return [];
+    const chosen = Array.from(row.querySelectorAll('.Select')).map(selectedLabel).filter(Boolean);
+    const box = row.querySelector('.bmm-l-col-9') || row;
+    let guide = doc.getElementById('rakushuppin-cat-guide');
+    if (!guide) {
+      guide = doc.createElement('div');
+      guide.id = 'rakushuppin-cat-guide';
+      box.insertBefore(guide, box.firstChild);
+    }
+    const ok = chosen.length > 0;
+    box.style.outline = ok ? '3px solid #22a35a' : '5px solid #e11d48';
+    box.style.outlineOffset = '6px';
+    box.style.borderRadius = '6px';
+    guide.style.cssText =
+      'margin:0 0 8px;padding:6px 10px;border-radius:6px;font:bold 14px/1.5 system-ui,sans-serif;' +
+      (ok ? 'background:#e6f6ec;color:#145c2e;' : 'background:#e11d48;color:#fff;');
+    guide.textContent = ok
+      ? `✓ カテゴリ：${chosen.join(' > ')}`
+      : '▼ ここだけ手で選んでください（カテゴリ）。選んだら、拡張機能の「BUYMAに反映」を押すと、ほかの欄とサイズが自動で入ります';
+    return chosen;
+  }
+
   /** 全部入れる：文字の欄 → カテゴリ → ブランド → 配送方法 → 画像 */
   async function fillBuymaAll(doc, values) {
     const report = { filled: [], skipped: [], missing: [], notes: [] };
@@ -1087,7 +1115,7 @@
     return out;
   }
 
-  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, categoryPickInfo, TEXT_FIELDS };
+  const api = { fillBuyma, fillBuymaAll, readShippingOptions, matchShipping, bestOption, categoryLevel, categoryPick, showBanner, inspectVariation, colorFamily, categoryPickInfo, markCategory, TEXT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RakuBuymaFill = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

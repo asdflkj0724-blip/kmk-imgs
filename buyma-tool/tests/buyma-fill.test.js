@@ -419,7 +419,8 @@ test('カテゴリ：選ばれている段も、候補を読み直して別の�
 
 test('カテゴリ（最後の手段）：画面のしくみ（React）の「押したときの処理」を直接呼んで選ぶ', async () => {
   const src = fs.readFileSync(path.join(__dirname, '../extension/popup.js'), 'utf8');
-  const fn = src.slice(src.indexOf('async function pickCategoryInPage'), src.indexOf('async function runInPage'));
+  const start = src.indexOf('async function pickCategoryInPage');
+  const fn = src.slice(start, src.indexOf('\n}\n', start) + 2);
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
@@ -441,6 +442,28 @@ test('カテゴリ（最後の手段）：画面のしくみ（React）の「押
       </script></body></html>`);
     const r = await page.evaluate(`(${fn.replace('async function pickCategoryInPage', 'async function')})(0, 'スニーカー（メンズファッション > 靴・ブーツ・サンダル）')`);
     assert.equal(r.name, 'メンズファッション');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('カテゴリの欄を目立たせる：まだなら赤い太枠と「ここだけ手で選んでください」、選んだら緑', async () => {
+  const { browser, page } = await openPcPage();
+  try {
+    const r = await page.evaluate(async () => {
+      const F = RakuBuymaFill;
+      const before = F.markCategory(document);
+      const red = document.getElementById('rakushuppin-cat-guide').textContent;
+      await F.categoryPick(document, 0, 'レディースファッション');
+      const after = F.markCategory(document);
+      const green = document.getElementById('rakushuppin-cat-guide').textContent;
+      return { before, red, after, green, guides: document.querySelectorAll('#rakushuppin-cat-guide').length };
+    });
+    assert.deepEqual(r.before, []);
+    assert.match(r.red, /ここだけ手で選んでください/);
+    assert.deepEqual(r.after, ['レディースファッション']);
+    assert.match(r.green, /✓ カテゴリ：レディースファッション/);
+    assert.equal(r.guides, 1, '案内は1つだけ');
   } finally {
     await browser.close();
   }

@@ -50,3 +50,7 @@ button.copy { margin: 0; padding: 4px 8px; font-size: 12px; background: #fff; co
 .shiplist { display: grid; gap: 2px; max-height: 160px; overflow: auto; margin: 4px 0 8px; }
 .shiplist label { display: flex; gap: 6px; align-items: flex-start; font-weight: 400; margin: 0; }
 .shiplist input { width: auto; margin: 2px 0 0; }
+.steps { display: grid; gap: 4px; margin: 6px 0; }
+.step { padding: 6px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.step.todo { background: #fff1f2; color: #9f1239; border: 2px solid #e11d48; }
+.step.ok { background: #e6f6ec; color: #145c2e; border: 2px solid #22a35a; }
