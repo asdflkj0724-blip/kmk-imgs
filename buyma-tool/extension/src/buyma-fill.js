@@ -403,13 +403,21 @@
     if (/is-disabled/.test(options[index].className || '')) return '';
     const want = (options[index].textContent || '').trim();
     // 選び直すときは、前と違う名前になったら選べたとみなす
+    const rowNow = rowByTitle(doc, 'カテゴリ');
     const label = () => {
       const l = selectedLabel(currentSel(doc, i) || sel);
-      return l && (!before || l !== before || norm(l) === norm(want)) ? l : '';
+      if (l && (!before || l !== before || norm(l) === norm(want))) return l;
+      // 最近出品したカテゴリを選ぶと、選択欄が作り直されて別の場所に値が入ることがある。どこかに値が入れば選べたとみなす
+      if (!before && rowNow) {
+        const any = Array.from(rowNow.querySelectorAll('.Select')).map(selectedLabel).filter(Boolean);
+        if (any.length) return any[Math.min(i, any.length - 1)];
+      }
+      return '';
     };
     // 候補の中の部品から押す（おすすめカテゴリの候補は、中に名前と場所の部品がある）
     pressDeep(options[index]);
-    let got = await waitFor(label, 2500);
+    // カテゴリを選ぶと、BUYMA が次の段の候補を読み込むので、少し長めに待つ
+    let got = await waitFor(label, 6000);
     if (!got && options[index].isConnected) {
       press(options[index]);
       got = await waitFor(label, 2000);
